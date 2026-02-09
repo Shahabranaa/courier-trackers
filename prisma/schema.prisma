@@ -50,8 +50,9 @@ model Brand {
   apiToken             String  @default("")
   tranzoToken          String  @default("")
   proxyUrl             String  @default("")
-  shopifyStore         String  @default("")
-  shopifyAccessToken   String  @default("")
+  shopifyStore          String  @default("")
+  shopifyClientId       String  @default("")
+  shopifyClientSecret   String  @default("")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }

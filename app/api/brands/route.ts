@@ -8,7 +8,7 @@ export async function GET() {
         });
         const safeBrands = brands.map(b => ({
             ...b,
-            shopifyAccessToken: b.shopifyAccessToken ? "••••••••" : ""
+            shopifyClientSecret: b.shopifyClientSecret ? "••••••••" : ""
         }));
         return NextResponse.json(safeBrands);
     } catch (error: any) {
@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { name, apiToken, tranzoToken, proxyUrl, shopifyStore, shopifyAccessToken } = body;
+        const { name, apiToken, tranzoToken, proxyUrl, shopifyStore, shopifyClientId, shopifyClientSecret } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -33,13 +33,14 @@ export async function POST(req: NextRequest) {
                 tranzoToken: tranzoToken || "",
                 proxyUrl: proxyUrl || "",
                 shopifyStore: shopifyStore || "",
-                shopifyAccessToken: shopifyAccessToken || ""
+                shopifyClientId: shopifyClientId || "",
+                shopifyClientSecret: shopifyClientSecret || ""
             }
         });
 
         return NextResponse.json({
             ...brand,
-            shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : ""
+            shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : ""
         }, { status: 201 });
     } catch (error: any) {
         console.error("Failed to create brand:", error.message);

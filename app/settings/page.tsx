@@ -18,11 +18,12 @@ export default function SettingsPage() {
         tranzoToken: "",
         proxyUrl: "",
         shopifyStore: "",
-        shopifyAccessToken: ""
+        shopifyClientId: "",
+        shopifyClientSecret: ""
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", tranzoToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "" });
+        setFormData({ name: "", apiToken: "", tranzoToken: "", proxyUrl: "", shopifyStore: "", shopifyClientId: "", shopifyClientSecret: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -54,7 +55,8 @@ export default function SettingsPage() {
             tranzoToken: brand.tranzoToken || "",
             proxyUrl: brand.proxyUrl || "",
             shopifyStore: brand.shopifyStore || "",
-            shopifyAccessToken: brand.shopifyAccessToken || ""
+            shopifyClientId: brand.shopifyClientId || "",
+            shopifyClientSecret: brand.shopifyClientSecret || ""
         });
         setIsAdding(true);
     };
@@ -148,12 +150,23 @@ export default function SettingsPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Admin API Access Token</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
+                                <input
+                                    type="text"
+                                    value={formData.shopifyClientId}
+                                    onChange={e => setFormData({ ...formData, shopifyClientId: e.target.value })}
+                                    placeholder="e.g. 93c8e2c15a25304ec506d35c4b35c9c3"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all font-mono text-sm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Client Secret</label>
                                 <input
                                     type="password"
-                                    value={formData.shopifyAccessToken}
-                                    onChange={e => setFormData({ ...formData, shopifyAccessToken: e.target.value })}
-                                    placeholder="shpat_..."
+                                    value={formData.shopifyClientSecret}
+                                    onChange={e => setFormData({ ...formData, shopifyClientSecret: e.target.value })}
+                                    placeholder="Enter Client Secret"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all font-mono text-sm"
                                 />
                             </div>
@@ -253,7 +266,7 @@ export default function SettingsPage() {
                                         </div>
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Shopify</span>
-                                            {brand.shopifyAccessToken ? (
+                                            {brand.shopifyClientId && brand.shopifyClientSecret ? (
                                                 <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
                                             ) : (
                                                 <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>

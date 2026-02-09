@@ -50,7 +50,8 @@ export interface Brand {
   tranzoToken?: string; // Tranzo Token
   proxyUrl?: string; // Optional proxy for geo-restricted APIs (e.g., http://ip:port)
   shopifyStore?: string; // Shopify store domain (e.g., mystore.myshopify.com)
-  shopifyAccessToken?: string; // Shopify Admin API access token
+  shopifyClientId?: string; // Shopify App Client ID
+  shopifyClientSecret?: string; // Shopify App Client Secret (masked in client)
 }
 
 export interface PaymentStatus {

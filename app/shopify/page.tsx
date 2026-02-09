@@ -202,7 +202,7 @@ export default function ShopifyOrdersPage() {
         };
     }, [shopifyOrders, courierOrders]);
 
-    const hasShopifyCredentials = selectedBrand?.shopifyStore && selectedBrand?.shopifyAccessToken && selectedBrand.shopifyAccessToken !== "";
+    const hasShopifyCredentials = selectedBrand?.shopifyStore && selectedBrand?.shopifyClientId && selectedBrand?.shopifyClientSecret && selectedBrand.shopifyClientSecret !== "";
 
     return (
         <DashboardLayout>
@@ -246,7 +246,7 @@ export default function ShopifyOrdersPage() {
                         <div>
                             <h3 className="font-semibold text-amber-800">Shopify Not Connected</h3>
                             <p className="text-sm text-amber-700 mt-1">
-                                Go to Settings and add your Shopify store domain and Admin API access token to start syncing orders.
+                                Go to Settings and add your Shopify store domain, Client ID, and Client Secret to start syncing orders.
                             </p>
                         </div>
                     </div>

@@ -1,6 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+const tokenCache: Map<string, { token: string; expiresAt: number }> = new Map();
+
+async function getShopifyAccessToken(storeDomain: string, clientId: string, clientSecret: string, forceRefresh = false): Promise<string> {
+    const cacheKey = `${storeDomain}:${clientId}`;
+
+    if (!forceRefresh) {
+        const cached = tokenCache.get(cacheKey);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.token;
+        }
+    }
+
+    const params = new URLSearchParams();
+    params.append("grant_type", "client_credentials");
+    params.append("client_id", clientId);
+    params.append("client_secret", clientSecret);
+
+    const response = await fetch(`https://${storeDomain}/admin/oauth/access_token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString()
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to get Shopify access token: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    const accessToken = data.access_token;
+    const expiresIn = data.expires_in || 86399;
+
+    tokenCache.set(cacheKey, {
+        token: accessToken,
+        expiresAt: Date.now() + (expiresIn - 300) * 1000
+    });
+
+    return accessToken;
+}
+
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const brandId = req.headers.get("brand-id") || "default";
@@ -38,10 +78,11 @@ export async function GET(req: NextRequest) {
 
     const brand = await prisma.brand.findUnique({ where: { id: brandId } });
     const shopifyStore = brand?.shopifyStore || "";
-    const shopifyToken = brand?.shopifyAccessToken || "";
+    const clientId = brand?.shopifyClientId || "";
+    const clientSecret = brand?.shopifyClientSecret || "";
 
-    if (!shopifyStore || !shopifyToken) {
-        return NextResponse.json({ error: "Shopify credentials not configured for this brand" }, { status: 401 });
+    if (!shopifyStore || !clientId || !clientSecret) {
+        return NextResponse.json({ error: "Shopify credentials not configured for this brand. Add Store Domain, Client ID, and Client Secret in Settings." }, { status: 401 });
     }
 
     try {
@@ -51,9 +92,12 @@ export async function GET(req: NextRequest) {
             ? shopifyStore
             : `${shopifyStore}.myshopify.com`;
 
+        let accessToken = await getShopifyAccessToken(storeDomain, clientId, clientSecret);
+
         let allOrders: any[] = [];
         let pageInfo: string | null = null;
         let hasNextPage = true;
+        let retriedAuth = false;
 
         const createdAtMin = `${startDate}T00:00:00Z`;
         const createdAtMax = `${endDate}T23:59:59Z`;
@@ -61,19 +105,25 @@ export async function GET(req: NextRequest) {
         while (hasNextPage) {
             let url: string;
             if (pageInfo) {
-                url = `https://${storeDomain}/admin/api/2024-01/orders.json?limit=250&page_info=${pageInfo}`;
+                url = `https://${storeDomain}/admin/api/2024-10/orders.json?limit=250&page_info=${pageInfo}`;
             } else {
-                url = `https://${storeDomain}/admin/api/2024-01/orders.json?status=any&limit=250&created_at_min=${createdAtMin}&created_at_max=${createdAtMax}`;
+                url = `https://${storeDomain}/admin/api/2024-10/orders.json?status=any&limit=250&created_at_min=${createdAtMin}&created_at_max=${createdAtMax}`;
             }
 
             const response = await fetch(url, {
                 headers: {
-                    "X-Shopify-Access-Token": shopifyToken,
+                    "X-Shopify-Access-Token": accessToken,
                     "Content-Type": "application/json"
                 }
             });
 
             if (!response.ok) {
+                if (response.status === 401 && !retriedAuth) {
+                    retriedAuth = true;
+                    console.log("Shopify 401 - refreshing access token and retrying...");
+                    accessToken = await getShopifyAccessToken(storeDomain, clientId, clientSecret, true);
+                    continue;
+                }
                 const errorText = await response.text();
                 throw new Error(`Shopify API Error: ${response.status} ${errorText}`);
             }
