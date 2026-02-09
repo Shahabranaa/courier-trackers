@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Order {
+  trackingNumber    String   @id
+  brandId           String   @default("default")
+  courier           String   @default("PostEx")
+  orderRefNumber    String
+  invoicePayment    Float
+  customerName      String
+  customerPhone     String
+  deliveryAddress   String
+  transactionDate   String
+  orderDetail       String
+  orderType         String
+  orderDate         String
+  orderAmount       Float
+  orderStatus       String
+  transactionStatus String
+  cityName          String?
+
+  // New fields from Track Delivery
+  transactionTax    Float?
+  transactionFee    Float?
+  upfrontPayment    Float?
+  actualWeight      Float?
+  lastStatus        String?
+  lastStatusTime    DateTime?
+  reversalTax       Float?
+  reversalFee       Float?
+  salesWithholdingTax Float?
+  netAmount         Float?
+
+  trackingStatus    TrackingStatus?
+  paymentStatus     PaymentStatus?
+
+  lastFetchedAt DateTime @default(now())
+}
+
+model TrackingStatus {
+  trackingNumber String @id
+  data           String // JSON string
+  updatedAt      DateTime @updatedAt
+  
+  order          Order    @relation(fields: [trackingNumber], references: [trackingNumber], onDelete: Cascade)
+}
+
+model PaymentStatus {
+  trackingNumber String @id
+  data           String // JSON string
+  updatedAt      DateTime @updatedAt
+  
+  order          Order    @relation(fields: [trackingNumber], references: [trackingNumber], onDelete: Cascade)
+}

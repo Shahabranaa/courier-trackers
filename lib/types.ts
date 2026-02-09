@@ -6,11 +6,24 @@ export interface Order {
   deliveryAddress: string;
   transactionDate: string;
   trackingNumber: string;
+  tracking?: string; // Potential alias based on user input
   orderDetail: string;
   orderType: string;
   orderDate: string;
   orderAmount: number;
   orderStatus: string; // e.g., "Booked", "Arrived at Origin", etc.
+  transactionStatus: string;
+  cityName: string;
+  transactionTax?: number;
+  transactionFee?: number;
+  upfrontPayment?: number;
+  actualWeight?: number;
+  lastStatus?: string;
+  lastStatusTime?: string | Date;
+  reversalTax?: number;
+  reversalFee?: number;
+  salesWithholdingTax?: number;
+  netAmount?: number;
 }
 
 export interface TrackingStatus {
@@ -21,10 +34,12 @@ export interface TrackingStatus {
     date: string;
     details: string;
   }[];
+  [key: string]: any;
 }
 
 export interface Brand {
   id: string;
   name: string;
-  apiToken: string;
+  apiToken: string; // PostEx Token
+  tranzoToken?: string; // Tranzo Token
 }

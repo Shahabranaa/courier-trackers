@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -19,7 +18,7 @@ export async function GET(req: NextRequest) {
     try {
         // 1. Check Cache
         if (!forceRefresh) {
-            const cached = await prisma.trackingStatus.findUnique({
+            const cached = await prisma.paymentStatus.findUnique({
                 where: { trackingNumber }
             });
             if (cached) {
@@ -27,16 +26,8 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // 2. Fetch from PostEx API
-        // Endpoint pattern based on other files.
-        // Orders: .../order/v1/get-all-order
-        // Payment: .../order/v1/payment-status/{trackingNumber}
-        // Tracking: Likely .../order/v1/track-order/{trackingNumber}
-        // Checking online documentation snippets or guessing. Most likely 'track-order' or similar.
-        // Let's assume 'track-order' as it's a common convention and fits the others.
-
         const response = await fetch(
-            `https://api.postex.pk/services/integration/api/order/v1/track-order/${trackingNumber}`,
+            `https://api.postex.pk/services/integration/api/order/v1/payment-status/${trackingNumber}`,
             {
                 method: "GET",
                 headers: {
@@ -50,13 +41,13 @@ export async function GET(req: NextRequest) {
                 return NextResponse.json({ trackingNumber, status: "Not Found" });
             }
             const errorText = await response.text();
-            return NextResponse.json({ error: "Failed to fetch tracking status", details: errorText }, { status: response.status });
+            return NextResponse.json({ error: "Failed to fetch payment status", details: errorText }, { status: response.status });
         }
 
         const data = await response.json();
 
         // 3. Save to Cache
-        await prisma.trackingStatus.upsert({
+        await prisma.paymentStatus.upsert({
             where: { trackingNumber },
             update: {
                 data: JSON.stringify(data),
@@ -68,10 +59,10 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        console.log(`Tracking Status for ${trackingNumber}:`, JSON.stringify(data).slice(0, 100) + "...");
+        console.log(`Payment Status for ${trackingNumber}:`, JSON.stringify(data));
         return NextResponse.json(data);
     } catch (error) {
-        console.error("Tracking API Error:", error);
+        console.error("Payment API Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
