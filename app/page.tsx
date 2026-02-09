@@ -27,11 +27,21 @@ export default function UnifiedDashboard() {
 
   const [tokensMissing, setTokensMissing] = useState(false);
 
+  const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
+
+  const getDateRange = () => {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
+    return { startDate, endDate };
+  };
+
   useEffect(() => {
-    fetchUnifiedData();
+    loadFromDB();
   }, [selectedMonth, selectedBrand]);
 
-  const fetchUnifiedData = async (forceRefetch = false) => {
+  const fetchData = async (forceSync = false) => {
     setLoading(true);
     setPostexData([]);
     setTranzoData([]);
@@ -39,8 +49,6 @@ export default function UnifiedDashboard() {
 
     try {
       if (!selectedBrand) {
-        // If no brand selected, we can't fetch. 
-        // Sidebar handles showing "Select Brand" or empty state might be appropriate here.
         setLoading(false);
         return;
       }
@@ -55,27 +63,15 @@ export default function UnifiedDashboard() {
         return;
       }
 
-      // Calculate Dates
-      let startDate, endDate;
-      const [year, month] = selectedMonth.split("-").map(Number);
-      startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-      const lastDay = new Date(year, month, 0).getDate();
-      endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
-
-
-      // 2. Fetch Aggressively in Parallel
+      const { startDate, endDate } = getDateRange();
       const promises = [];
 
-      // Helper to remove non-ASCII characters from headers
-      const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
-
       if (postexToken) {
-        const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}${forceRefetch ? '&force=true' : ''}`;
+        const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}${forceSync ? '&force=true' : ''}`;
         const headers: Record<string, string> = {
           token: sanitizeHeader(postexToken),
           "brand-id": sanitizeHeader(postexBrandId)
         };
-        // Add proxy if configured
         if (selectedBrand.proxyUrl) {
           headers["proxy-url"] = sanitizeHeader(selectedBrand.proxyUrl);
         }
@@ -91,7 +87,7 @@ export default function UnifiedDashboard() {
       }
 
       if (tranzoToken) {
-        const tranzoUrl = `/api/tranzo/orders?startDate=${startDate}&endDate=${endDate}`;
+        const tranzoUrl = `/api/tranzo/orders${forceSync ? '?sync=true' : ''}`;
         promises.push(
           fetch(tranzoUrl, {
             headers: {
@@ -122,6 +118,9 @@ export default function UnifiedDashboard() {
       setLoading(false);
     }
   };
+
+  const loadFromDB = () => fetchData(false);
+  const syncLiveData = () => fetchData(true);
 
   // --- Aggregation Logic ---
   const { totalOrders, totalRevenue, dailyStats, statsByCourier } = useMemo(() => {
@@ -266,9 +265,9 @@ export default function UnifiedDashboard() {
 
                 {/* Sync Button */}
                 <button
-                  onClick={() => fetchUnifiedData(true)}
+                  onClick={syncLiveData}
                   className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                  title="Force Sync Live Data"
+                  title="Sync Live Data"
                 >
                   <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                 </button>

@@ -5,7 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import OrdersTable from "@/components/OrdersTable";
 import OrderCharts from "@/components/OrderCharts";
 import CityStats from "@/components/CityStats";
-import { Truck, RefreshCw, Calendar, Download, Filter, Save, AlertCircle } from "lucide-react";
+import { Truck, RefreshCw, Calendar, Download, Filter, AlertCircle } from "lucide-react";
 import { useBrand } from "@/components/providers/BrandContext";
 import { Order, TrackingStatus, PaymentStatus } from "@/lib/types";
 
@@ -28,59 +28,79 @@ export default function PostExDashboard() {
     const [paymentStatuses, setPaymentStatuses] = useState<Record<string, PaymentStatus | null>>({});
     const [statusLoading, setStatusLoading] = useState(false);
 
+    const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
+
     useEffect(() => {
         if (selectedBrand && selectedBrand.apiToken) {
-            fetchOrders();
+            loadOrdersFromDB();
         } else {
             setOrders([]);
         }
     }, [selectedBrand, selectedMonth]);
 
-    const fetchOrders = async (force = false) => {
+    const buildHeaders = () => {
+        const headers: Record<string, string> = {
+            token: sanitizeHeader(selectedBrand!.apiToken),
+            "brand-id": sanitizeHeader(selectedBrand!.id),
+        };
+        if (selectedBrand!.proxyUrl) {
+            headers["proxy-url"] = sanitizeHeader(selectedBrand!.proxyUrl);
+        }
+        return headers;
+    };
+
+    const getDateRange = () => {
+        const [year, month] = selectedMonth.split("-").map(Number);
+        const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
+        return { startDate, endDate };
+    };
+
+    const loadOrdersFromDB = async () => {
         if (!selectedBrand?.apiToken) return;
 
         setLoading(true);
         setError(null);
-        setOrders([]);
-        setTrackingStatuses({});
-        setPaymentStatuses({});
 
         try {
-            const [year, month] = selectedMonth.split("-").map(Number);
-            const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-            const lastDay = new Date(year, month, 0).getDate();
-            const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
+            const { startDate, endDate } = getDateRange();
+            const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}`;
+            const res = await fetch(url, { headers: buildHeaders() });
 
-            // Helper to remove non-ASCII characters from headers
-            const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
-
-            const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}${force ? '&force=true' : ''}`;
-            const headers: Record<string, string> = {
-                token: sanitizeHeader(selectedBrand.apiToken),
-                "brand-id": sanitizeHeader(selectedBrand.id),
-            };
-
-            // Add proxy URL if configured
-            if (selectedBrand.proxyUrl) {
-                headers["proxy-url"] = sanitizeHeader(selectedBrand.proxyUrl);
-            }
-
-            const res = await fetch(url, { headers });
-
-            if (!res.ok) {
-                throw new Error("Failed to fetch orders");
-            }
+            if (!res.ok) throw new Error("Failed to load orders");
 
             const data = await res.json();
-            setDataSource(data.source || "unknown");
+            setDataSource(data.source || "local");
+            setOrders(data.dist || []);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const syncOrdersFromAPI = async () => {
+        if (!selectedBrand?.apiToken) return;
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            const { startDate, endDate } = getDateRange();
+            const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}&force=true`;
+            const res = await fetch(url, { headers: buildHeaders() });
+
+            if (!res.ok) throw new Error("Failed to sync orders");
+
+            const data = await res.json();
+            setDataSource(data.source || "live");
 
             if (data.error) {
                 setError(`Warning: ${data.error}`);
             }
 
-            const list = data.dist || [];
-            setOrders(list);
-
+            setOrders(data.dist || []);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -219,15 +239,7 @@ export default function PostExDashboard() {
                             Update Status
                         </button>
                         <button
-                            onClick={() => fetchOrders(true)}
-                            disabled={loading || !selectedBrand?.apiToken}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
-                        >
-                            <Save className="w-4 h-4" />
-                            Save to DB
-                        </button>
-                        <button
-                            onClick={() => fetchOrders(true)}
+                            onClick={syncOrdersFromAPI}
                             disabled={loading || !selectedBrand?.apiToken}
                             className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-md active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 ml-auto lg:ml-0"
                         >
