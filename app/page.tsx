@@ -68,10 +68,16 @@ export default function UnifiedDashboard() {
 
       if (postexToken) {
         const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}${forceRefetch ? '&force=true' : ''}`;
+        const headers: Record<string, string> = {
+          token: postexToken,
+          "brand-id": postexBrandId
+        };
+        // Add proxy if configured
+        if (selectedBrand.proxyUrl) {
+          headers["proxy-url"] = selectedBrand.proxyUrl;
+        }
         promises.push(
-          fetch(url, {
-            headers: { token: postexToken, "brand-id": postexBrandId }
-          }).then(async r => {
+          fetch(url, { headers }).then(async r => {
             if (r.ok) {
               const data = await r.json();
               return { type: 'postex', data: data.dist || [] };

@@ -42,4 +42,11 @@ export interface Brand {
   name: string;
   apiToken: string; // PostEx Token
   tranzoToken?: string; // Tranzo Token
+  proxyUrl?: string; // Optional proxy for geo-restricted APIs (e.g., http://ip:port)
+}
+
+export interface PaymentStatus {
+  trackingNumber: string;
+  paymentStatus: string;
+  [key: string]: any;
 }

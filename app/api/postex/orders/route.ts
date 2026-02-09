@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-
-
+import { HttpsProxyAgent } from "https-proxy-agent";
 
 export async function GET(req: NextRequest) {
     const token = req.headers.get("token");
     const brandId = req.headers.get("brand-id") || "default";
+    const proxyUrl = req.headers.get("proxy-url"); // Optional proxy for geo-restricted access
     const { searchParams } = new URL(req.url);
 
     if (!token) {
@@ -66,6 +65,9 @@ export async function GET(req: NextRequest) {
         }
 
         console.log("Fetching freshly from PostEx API...");
+        if (proxyUrl) {
+            console.log(`Using proxy: ${proxyUrl.replace(/:[^:@]+@/, ':***@')}`); // Log proxy (hide password)
+        }
 
         // 2. Fetch from PostEx API
         const msgUrl = new URL("https://api.postex.pk/services/integration/api/order/v1/get-all-order");
@@ -74,15 +76,20 @@ export async function GET(req: NextRequest) {
         msgUrl.searchParams.append("orderStatusId", "0");
 
         try {
-            const response = await fetch(
-                msgUrl.toString(),
-                {
-                    method: "GET",
-                    headers: {
-                        token: token,
-                    },
-                }
-            );
+            // Create fetch options with optional proxy
+            const fetchOptions: RequestInit & { agent?: any } = {
+                method: "GET",
+                headers: {
+                    token: token,
+                },
+            };
+
+            // Add proxy agent if configured
+            if (proxyUrl) {
+                fetchOptions.agent = new HttpsProxyAgent(proxyUrl);
+            }
+
+            const response = await fetch(msgUrl.toString(), fetchOptions);
 
             if (!response.ok) {
                 const errorText = await response.text();

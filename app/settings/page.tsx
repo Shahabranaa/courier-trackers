@@ -3,7 +3,7 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
-import { Plus, Trash2, Edit2, Check, X, Building2, Key } from "lucide-react";
+import { Plus, Trash2, Edit2, Check, X, Building2, Key, Globe } from "lucide-react";
 
 export default function SettingsPage() {
     const { brands, addBrand, updateBrand, deleteBrand, selectBrand, selectedBrand } = useBrand();
@@ -15,11 +15,12 @@ export default function SettingsPage() {
     const [formData, setFormData] = useState({
         name: "",
         apiToken: "",
-        tranzoToken: ""
+        tranzoToken: "",
+        proxyUrl: ""
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", tranzoToken: "" });
+        setFormData({ name: "", apiToken: "", tranzoToken: "", proxyUrl: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -40,7 +41,8 @@ export default function SettingsPage() {
         setFormData({
             name: brand.name,
             apiToken: brand.apiToken,
-            tranzoToken: brand.tranzoToken || ""
+            tranzoToken: brand.tranzoToken || "",
+            proxyUrl: brand.proxyUrl || ""
         });
         setIsAdding(true);
     };
@@ -114,6 +116,20 @@ export default function SettingsPage() {
                                     placeholder="Enter Tranzo Token"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm"
                                 />
+                            </div>
+
+                            <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                                    <Globe className="w-4 h-4 text-cyan-500" /> Proxy URL (Optional - For Pakistani IP)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.proxyUrl}
+                                    onChange={e => setFormData({ ...formData, proxyUrl: e.target.value })}
+                                    placeholder="e.g. http://ip:port or http://user:pass@ip:port"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none transition-all font-mono text-sm"
+                                />
+                                <p className="text-xs text-gray-400 mt-1.5">Required for PostEx API if hosting outside Pakistan. Get free proxies from spys.one or similar.</p>
                             </div>
                         </div>
 
@@ -193,6 +209,14 @@ export default function SettingsPage() {
                                                 <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
                                             ) : (
                                                 <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-500 flex items-center gap-1.5"><Globe className="w-3 h-3 text-cyan-500" /> Proxy</span>
+                                            {brand.proxyUrl ? (
+                                                <span className="text-cyan-600 font-medium bg-cyan-50 px-2 py-0.5 rounded-md flex items-center gap-1 font-mono text-[10px] truncate max-w-[120px]" title={brand.proxyUrl}>{brand.proxyUrl.replace(/^https?:\/\//, '').split('@').pop()}</span>
+                                            ) : (
+                                                <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Direct</span>
                                             )}
                                         </div>
                                     </div>

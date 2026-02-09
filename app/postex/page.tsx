@@ -52,12 +52,17 @@ export default function PostExDashboard() {
             const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
 
             const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}${force ? '&force=true' : ''}`;
-            const res = await fetch(url, {
-                headers: {
-                    token: selectedBrand.apiToken,
-                    "brand-id": selectedBrand.id,
-                },
-            });
+            const headers: Record<string, string> = {
+                token: selectedBrand.apiToken,
+                "brand-id": selectedBrand.id,
+            };
+
+            // Add proxy URL if configured
+            if (selectedBrand.proxyUrl) {
+                headers["proxy-url"] = selectedBrand.proxyUrl;
+            }
+
+            const res = await fetch(url, { headers });
 
             if (!res.ok) {
                 throw new Error("Failed to fetch orders");
