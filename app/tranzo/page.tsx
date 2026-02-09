@@ -116,13 +116,16 @@ export default function TranzoDashboard() {
         setTrackingStatuses({});
 
         try {
-            // Sanitize Token: Remove "Bearer" or "Token" if user pasted it
-            const cleanToken = selectedBrand.tranzoToken.replace(/^(Bearer|Token)\s+/i, "").trim();
+            // Sanitize Token: Remove "Bearer" or "Token" if user pasted it, and strip non-ASCII
+            const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
+
+            const rawToken = selectedBrand.tranzoToken || "";
+            const cleanToken = sanitizeHeader(rawToken.replace(/^(Bearer|Token)\s+/i, ""));
 
             const res = await fetch("/api/tranzo/orders", {
                 headers: {
                     "Authorization": `Bearer ${cleanToken}`,
-                    "brand-id": selectedBrand.id
+                    "brand-id": sanitizeHeader(selectedBrand.id)
                 }
             });
 

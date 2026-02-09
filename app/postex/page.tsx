@@ -51,15 +51,18 @@ export default function PostExDashboard() {
             const lastDay = new Date(year, month, 0).getDate();
             const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
 
+            // Helper to remove non-ASCII characters from headers
+            const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
+
             const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}${force ? '&force=true' : ''}`;
             const headers: Record<string, string> = {
-                token: selectedBrand.apiToken,
-                "brand-id": selectedBrand.id,
+                token: sanitizeHeader(selectedBrand.apiToken),
+                "brand-id": sanitizeHeader(selectedBrand.id),
             };
 
             // Add proxy URL if configured
             if (selectedBrand.proxyUrl) {
-                headers["proxy-url"] = selectedBrand.proxyUrl;
+                headers["proxy-url"] = sanitizeHeader(selectedBrand.proxyUrl);
             }
 
             const res = await fetch(url, { headers });

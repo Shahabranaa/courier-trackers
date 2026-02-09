@@ -66,15 +66,18 @@ export default function UnifiedDashboard() {
       // 2. Fetch Aggressively in Parallel
       const promises = [];
 
+      // Helper to remove non-ASCII characters from headers
+      const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
+
       if (postexToken) {
         const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}${forceRefetch ? '&force=true' : ''}`;
         const headers: Record<string, string> = {
-          token: postexToken,
-          "brand-id": postexBrandId
+          token: sanitizeHeader(postexToken),
+          "brand-id": sanitizeHeader(postexBrandId)
         };
         // Add proxy if configured
         if (selectedBrand.proxyUrl) {
-          headers["proxy-url"] = selectedBrand.proxyUrl;
+          headers["proxy-url"] = sanitizeHeader(selectedBrand.proxyUrl);
         }
         promises.push(
           fetch(url, { headers }).then(async r => {
@@ -91,8 +94,8 @@ export default function UnifiedDashboard() {
         promises.push(
           fetch("/api/tranzo/orders", {
             headers: {
-              "Authorization": `Bearer ${tranzoToken}`,
-              "brand-id": selectedBrand.id
+              "Authorization": `Bearer ${sanitizeHeader(tranzoToken)}`,
+              "brand-id": sanitizeHeader(selectedBrand.id)
             }
           }).then(async r => {
             if (r.ok) {
