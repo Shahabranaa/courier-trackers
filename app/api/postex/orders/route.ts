@@ -37,12 +37,13 @@ export async function GET(req: NextRequest) {
         endQuery = endQuery + "T23:59:59.999Z";
 
 
-        // 1. Try to fetch from DB
+        const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
         if (!forceRefresh) {
             const cachedOrders = await prisma.order.findMany({
                 where: {
                     brandId: brandId,
-                    courier: "PostEx", // CRITICAL: Only fetch PostEx orders, not Tranzo
+                    courier: "PostEx",
                     AND: [
                         { orderDate: { gte: startQuery } },
                         { orderDate: { lte: endQuery } }
@@ -55,12 +56,20 @@ export async function GET(req: NextRequest) {
             });
 
             if (cachedOrders.length > 0) {
-                console.log(`Served ${cachedOrders.length} orders from Cache for brand ${brandId}`);
-                console.log(`Debug Query: ${startQuery} to ${endQuery}`);
-                return NextResponse.json({
-                    dist: cachedOrders,
-                    source: "cache"
-                });
+                const fetchTimes = cachedOrders
+                    .map(o => new Date(o.lastFetchedAt).getTime())
+                    .filter(t => !isNaN(t));
+                const oldestFetch = fetchTimes.length > 0 ? Math.min(...fetchTimes) : 0;
+                const isFresh = oldestFetch > 0 && (Date.now() - oldestFetch) < CACHE_TTL_MS;
+
+                if (isFresh) {
+                    console.log(`Served ${cachedOrders.length} fresh cached orders for brand ${brandId}`);
+                    return NextResponse.json({
+                        dist: cachedOrders,
+                        source: "cache"
+                    });
+                }
+                console.log(`Cache expired for brand ${brandId}, fetching fresh data...`);
             }
         }
 
@@ -204,6 +213,7 @@ export async function GET(req: NextRequest) {
             const cachedOrders = await prisma.order.findMany({
                 where: {
                     brandId: brandId,
+                    courier: "PostEx",
                     AND: [
                         { orderDate: { gte: startQuery } },
                         { orderDate: { lte: endQuery } }

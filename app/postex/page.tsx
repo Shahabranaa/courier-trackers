@@ -95,36 +95,51 @@ export default function PostExDashboard() {
         const newStatuses: Record<string, TrackingStatus | null> = {};
         const newPayments: Record<string, PaymentStatus | null> = {};
 
-        // Fetch in batches of 10
-        const batchSize = 10;
+        const batchSize = 50;
         for (let i = 0; i < orders.length; i += batchSize) {
             const batch = orders.slice(i, i + batchSize);
-            await Promise.all(
-                batch.map(async (order) => {
-                    const trackingNo = order.trackingNumber;
-                    if (!trackingNo) return;
+            const batchTrackingNumbers = batch.map(o => o.trackingNumber).filter(Boolean);
 
-                    try {
-                        const [trackRes, payRes] = await Promise.all([
-                            fetch(`/api/postex/tracking?trackingNumber=${trackingNo}`, {
-                                headers: { token: selectedBrand.apiToken }
-                            }),
-                            fetch(`/api/postex/payment?trackingNumber=${trackingNo}`, {
-                                headers: { token: selectedBrand.apiToken }
-                            })
-                        ]);
+            if (batchTrackingNumbers.length === 0) continue;
 
-                        if (trackRes.ok) {
-                            newStatuses[trackingNo] = await trackRes.json();
-                        }
-                        if (payRes.ok) {
-                            newPayments[trackingNo] = await payRes.json();
-                        }
-                    } catch (e) {
-                        // Ignore individual failures
+            try {
+                const trackRes = await fetch("/api/postex/track/bulk", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "token": selectedBrand.apiToken
+                    },
+                    body: JSON.stringify({ trackingNumbers: batchTrackingNumbers })
+                });
+
+                if (trackRes.ok) {
+                    const statuses = await trackRes.json();
+                    if (Array.isArray(statuses)) {
+                        statuses.forEach((st: any) => {
+                            if (st?.trackingNumber) {
+                                newStatuses[st.trackingNumber] = st;
+                            }
+                        });
                     }
-                })
-            );
+                }
+
+                await Promise.all(
+                    batch.map(async (order) => {
+                        const trackingNo = order.trackingNumber;
+                        if (!trackingNo) return;
+                        try {
+                            const payRes = await fetch(`/api/postex/payment-status?trackingNumber=${trackingNo}`, {
+                                headers: { token: selectedBrand.apiToken }
+                            });
+                            if (payRes.ok) {
+                                newPayments[trackingNo] = await payRes.json();
+                            }
+                        } catch (e) { /* ignore */ }
+                    })
+                );
+            } catch (e) {
+                console.error("Batch tracking failed", e);
+            }
         }
 
         setTrackingStatuses(newStatuses);
@@ -132,13 +147,14 @@ export default function PostExDashboard() {
         setStatusLoading(false);
     };
 
-    // City Counts and Filtering
-    const cityCounts = orders.reduce((acc, order) => {
-        const city = order.cityName || "Unknown";
-        acc[city] = (acc[city] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-    const uniqueCities = Object.keys(cityCounts).sort();
+    const { cityCounts, uniqueCities } = useMemo(() => {
+        const counts = orders.reduce((acc, order) => {
+            const city = order.cityName || "Unknown";
+            acc[city] = (acc[city] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        return { cityCounts: counts, uniqueCities: Object.keys(counts).sort() };
+    }, [orders]);
 
     const filteredOrders = orders.filter((o) => {
         if (selectedCity && (o.cityName || "Unknown") !== selectedCity) return false;
@@ -167,7 +183,7 @@ export default function PostExDashboard() {
         const rows = filteredOrders.map(o => [
             o.orderDate, o.orderRefNumber, o.trackingNumber, o.customerName, o.cityName, o.deliveryAddress, o.invoicePayment, o.netAmount, o.transactionStatus
         ]);
-        const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${c}"`).join(","))].join("\n");
+        const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");

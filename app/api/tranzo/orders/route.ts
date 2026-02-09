@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
     const token = req.headers.get("authorization");
     const brandId = req.headers.get("brand-id") || "default";
+    const { searchParams } = new URL(req.url);
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
 
     // Allow local fetch without token if we want? No, let's keep security but maybe fallback if token is invalid? 
     // The user said "offline", implies might not have internet to validate token against Tranzo either.
@@ -164,11 +167,21 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // Return standardized LIVE response
+        let filteredResults = results;
+        if (startDate || endDate) {
+            filteredResults = results.filter((order: any) => {
+                const orderDate = (order.created_at || order.orderDate || "").slice(0, 10);
+                if (!orderDate) return true;
+                if (startDate && orderDate < startDate) return false;
+                if (endDate && orderDate > endDate) return false;
+                return true;
+            });
+        }
+
         return NextResponse.json({
             source: "live",
-            count: results.length,
-            results: results
+            count: filteredResults.length,
+            results: filteredResults
         });
 
     } catch (error: any) {
@@ -177,11 +190,18 @@ export async function GET(req: NextRequest) {
         try {
             // Fallback: Fetch from Local DB
             // FIX: Must filter by brandId to avoid showing other brand's data
+            const whereClause: any = {
+                courier: "Tranzo",
+                brandId: brandId
+            };
+            if (startDate || endDate) {
+                whereClause.AND = [];
+                if (startDate) whereClause.AND.push({ orderDate: { gte: startDate + "T00:00:00.000Z" } });
+                if (endDate) whereClause.AND.push({ orderDate: { lte: endDate + "T23:59:59.999Z" } });
+            }
+
             const localOrders = await prisma.order.findMany({
-                where: {
-                    courier: "Tranzo",
-                    brandId: brandId
-                },
+                where: whereClause,
                 orderBy: { transactionDate: 'desc' }
             });
 
@@ -196,6 +216,7 @@ export async function GET(req: NextRequest) {
 
         } catch (dbError: any) {
             console.error("Local DB Access Failed:", dbError);
+            return NextResponse.json({ error: "Service unavailable", source: "error" }, { status: 503 });
         }
     }
 }

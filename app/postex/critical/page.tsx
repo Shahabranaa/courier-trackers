@@ -116,7 +116,7 @@ export default function CriticalOrdersPage() {
                         const trackingNo = order.trackingNumber;
                         if (!trackingNo) return;
                         try {
-                            const payRes = await fetch(`/api/postex/payment?trackingNumber=${trackingNo}`, {
+                            const payRes = await fetch(`/api/postex/payment-status?trackingNumber=${trackingNo}`, {
                                 headers: { token: selectedBrand.apiToken }
                             });
                             if (payRes.ok) {
@@ -136,13 +136,14 @@ export default function CriticalOrdersPage() {
         setStatusLoading(false);
     };
 
-    // City Counts and Filtering
-    const cityCounts = orders.reduce((acc, order) => {
-        const city = order.cityName || "Unknown";
-        acc[city] = (acc[city] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-    const uniqueCities = Object.keys(cityCounts).sort();
+    const { cityCounts, uniqueCities } = useMemo(() => {
+        const counts = orders.reduce((acc, order) => {
+            const city = order.cityName || "Unknown";
+            acc[city] = (acc[city] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        return { cityCounts: counts, uniqueCities: Object.keys(counts).sort() };
+    }, [orders]);
 
     const filteredOrders = orders.filter((o) => {
         if (selectedCity && (o.cityName || "Unknown") !== selectedCity) return false;
@@ -159,7 +160,7 @@ export default function CriticalOrdersPage() {
                 o.orderDate, o.orderRefNumber, o.trackingNumber, o.customerName, o.cityName, o.deliveryAddress, o.invoicePayment, o.transactionStatus, daysPending
             ];
         });
-        const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${c}"`).join(","))].join("\n");
+        const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");

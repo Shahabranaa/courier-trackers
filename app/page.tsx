@@ -91,8 +91,9 @@ export default function UnifiedDashboard() {
       }
 
       if (tranzoToken) {
+        const tranzoUrl = `/api/tranzo/orders?startDate=${startDate}&endDate=${endDate}`;
         promises.push(
-          fetch("/api/tranzo/orders", {
+          fetch(tranzoUrl, {
             headers: {
               "Authorization": `Bearer ${sanitizeHeader(tranzoToken)}`,
               "brand-id": sanitizeHeader(selectedBrand.id)
@@ -100,7 +101,6 @@ export default function UnifiedDashboard() {
           }).then(async r => {
             if (r.ok) {
               const data = await r.json();
-              // Tranzo returns ALL usually, need to filter client side for month if API doesn't support range well
               const list = Array.isArray(data) ? data : (data.results || data.orders || []);
               return { type: 'tranzo', data: list };
             }
@@ -113,14 +113,7 @@ export default function UnifiedDashboard() {
 
       results.forEach(res => {
         if (res.type === 'postex') setPostexData(res.data);
-        if (res.type === 'tranzo') {
-          // Client-side filter for Tranzo (as it fetches all)
-          const filtered = res.data.filter((o: any) => {
-            const d = o.created_at || o.transactionDate || o.orderDate || "";
-            return d.startsWith(selectedMonth);
-          });
-          setTranzoData(filtered);
-        }
+        if (res.type === 'tranzo') setTranzoData(res.data);
       });
 
     } catch (e) {
