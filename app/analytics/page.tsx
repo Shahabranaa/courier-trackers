@@ -11,7 +11,8 @@ import {
   TrendingUp, TrendingDown, ArrowUp, ArrowDown,
   Package, DollarSign, CalendarDays, MapPin,
   BarChart3, Loader2, AlertCircle, Trophy, Clock,
-  RotateCcw, Truck, CheckCircle, XCircle, Timer
+  RotateCcw, Truck, CheckCircle, XCircle, Timer,
+  Users, UserCheck, UserX, Crown, AlertTriangle, Phone
 } from "lucide-react";
 
 interface DailyTrend {
@@ -46,6 +47,38 @@ interface PerformanceData {
   cityReturnRates: { city: string; total: number; returned: number; rate: number }[];
   productReturnRates: { product: string; total: number; returned: number; rate: number }[];
   courierComparison: { courier: string; total: number; delivered: number; returned: number; inTransit: number; cancelled: number; deliveryRate: number; returnRate: number }[];
+}
+
+interface CustomerEntry {
+  phone: string;
+  name: string;
+  city: string;
+  totalOrders: number;
+  totalRevenue: number;
+  firstOrder: string;
+  lastOrder: string;
+  deliveredCount: number;
+  returnedCount: number;
+  cancelledCount: number;
+  productCount: number;
+  couriers: string[];
+  returnRate: number;
+  cancelRate: number;
+}
+
+interface CustomerData {
+  summary: {
+    totalCustomers: number;
+    repeatCustomerCount: number;
+    repeatCustomerPercent: number;
+    avgOrdersPerCustomer: number;
+    avgLTV: number;
+    problemCustomerCount: number;
+    topCustomerRevenue: number;
+  };
+  repeatCustomers: CustomerEntry[];
+  topByLTV: CustomerEntry[];
+  problemCustomers: CustomerEntry[];
 }
 
 const COURIER_COLORS: Record<string, string> = {
@@ -171,8 +204,10 @@ export default function AnalyticsPage() {
   const { selectedBrand } = useBrand();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [perfData, setPerfData] = useState<PerformanceData | null>(null);
+  const [customerData, setCustomerData] = useState<CustomerData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customerTab, setCustomerTab] = useState<"repeat" | "ltv" | "problem">("repeat");
   const [selectedMonth, setSelectedMonth] = useState<string>(
     new Date().toISOString().slice(0, 7)
   );
@@ -191,6 +226,7 @@ export default function AnalyticsPage() {
     if (!selectedBrand) {
       setData(null);
       setPerfData(null);
+      setCustomerData(null);
       return;
     }
 
@@ -200,9 +236,10 @@ export default function AnalyticsPage() {
       try {
         const { startDate, endDate } = getDateRange();
         const headers = { "brand-id": selectedBrand.id };
-        const [analyticsRes, perfRes] = await Promise.all([
+        const [analyticsRes, perfRes, customerRes] = await Promise.all([
           fetch(`/api/analytics?startDate=${startDate}&endDate=${endDate}`, { headers }),
           fetch(`/api/analytics/performance?startDate=${startDate}&endDate=${endDate}`, { headers }),
+          fetch(`/api/analytics/customers`, { headers }),
         ]);
         if (!analyticsRes.ok) throw new Error("Failed to fetch analytics");
         const json = await analyticsRes.json();
@@ -210,6 +247,10 @@ export default function AnalyticsPage() {
         if (perfRes.ok) {
           const perfJson = await perfRes.json();
           setPerfData(perfJson);
+        }
+        if (customerRes.ok) {
+          const custJson = await customerRes.json();
+          setCustomerData(custJson);
         }
       } catch (err: any) {
         setError(err.message);
@@ -932,6 +973,211 @@ export default function AnalyticsPage() {
                         <XCircle className="w-8 h-8 mb-2" />
                         <p className="text-sm">No product return data</p>
                       </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Section 5: Customer Insights */}
+            {customerData && (
+              <section>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-violet-50 rounded-xl">
+                    <Users className="w-5 h-5 text-violet-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Customer Insights</h2>
+                    <p className="text-sm text-gray-500">Repeat customers, lifetime value, and problem flagging</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-violet-50 rounded-lg"><Users className="w-4 h-4 text-violet-600" /></div>
+                      <span className="text-sm text-gray-500">Total Customers</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{customerData.summary.totalCustomers.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400 mt-1">Avg {customerData.summary.avgOrdersPerCustomer} orders each</p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-green-50 rounded-lg"><UserCheck className="w-4 h-4 text-green-600" /></div>
+                      <span className="text-sm text-gray-500">Repeat Customers</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{customerData.summary.repeatCustomerCount.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400 mt-1">{customerData.summary.repeatCustomerPercent}% of all customers</p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-amber-50 rounded-lg"><Crown className="w-4 h-4 text-amber-600" /></div>
+                      <span className="text-sm text-gray-500">Avg Lifetime Value</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">Rs {customerData.summary.avgLTV.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-red-50 rounded-lg"><AlertTriangle className="w-4 h-4 text-red-500" /></div>
+                      <span className="text-sm text-gray-500">Problem Customers</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{customerData.summary.problemCustomerCount}</p>
+                    <p className="text-xs text-gray-400 mt-1">Frequent returns/cancellations</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="flex border-b border-gray-100">
+                    {[
+                      { key: "repeat" as const, label: "Repeat Customers", icon: UserCheck, count: customerData.repeatCustomers.length },
+                      { key: "ltv" as const, label: "Top by Revenue", icon: Crown, count: customerData.topByLTV.length },
+                      { key: "problem" as const, label: "Problem Customers", icon: AlertTriangle, count: customerData.problemCustomers.length },
+                    ].map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setCustomerTab(tab.key)}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium transition-colors ${
+                          customerTab === tab.key
+                            ? "text-indigo-700 border-b-2 border-indigo-600 bg-indigo-50/50"
+                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <tab.icon className="w-4 h-4" />
+                        <span className="hidden sm:inline">{tab.label}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${customerTab === tab.key ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-500"}`}>{tab.count}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="p-5">
+                    {customerTab === "repeat" && (
+                      customerData.repeatCustomers.length > 0 ? (
+                        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                          {customerData.repeatCustomers.map((c, i) => (
+                            <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-700 shrink-0">
+                                {c.totalOrders}x
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p>
+                                  {c.totalOrders >= 5 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Loyal</span>}
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                  <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>
+                                  <span>{c.city}</span>
+                                  <span>Rs {c.totalRevenue.toLocaleString()}</span>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-xs text-gray-400">Since {c.firstOrder}</p>
+                                <p className="text-xs text-gray-400">Last: {c.lastOrder}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                          <UserCheck className="w-8 h-8 mb-2" />
+                          <p className="text-sm">No repeat customers found</p>
+                        </div>
+                      )
+                    )}
+
+                    {customerTab === "ltv" && (
+                      customerData.topByLTV.length > 0 ? (
+                        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                          {customerData.topByLTV.map((c, i) => {
+                            const maxRevenue = customerData.topByLTV[0].totalRevenue;
+                            const widthPct = maxRevenue > 0 ? (c.totalRevenue / maxRevenue) * 100 : 0;
+                            return (
+                              <div key={i} className="p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${i === 0 ? "bg-amber-100 text-amber-700" : i < 3 ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-600"}`}>
+                                    #{i + 1}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p>
+                                      <p className="text-sm font-bold text-gray-900 shrink-0 ml-2">Rs {c.totalRevenue.toLocaleString()}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                      <span>{c.totalOrders} orders</span>
+                                      <span>{c.city}</span>
+                                      <span>{c.deliveredCount} delivered</span>
+                                      {c.returnedCount > 0 && <span className="text-red-500">{c.returnedCount} returned</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mt-2 ml-12 bg-gray-200 rounded-full h-1.5">
+                                  <div
+                                    className="h-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-500"
+                                    style={{ width: `${widthPct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                          <Crown className="w-8 h-8 mb-2" />
+                          <p className="text-sm">No customer data available</p>
+                        </div>
+                      )
+                    )}
+
+                    {customerTab === "problem" && (
+                      customerData.problemCustomers.length > 0 ? (
+                        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                          {customerData.problemCustomers.map((c, i) => (
+                            <div key={i} className="p-4 rounded-xl bg-red-50/50 border border-red-100 hover:bg-red-50 transition-colors">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                  <UserX className="w-5 h-5 text-red-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p>
+                                    {c.returnRate >= 50 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">High Return</span>}
+                                    {c.cancelRate >= 50 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">High Cancel</span>}
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                    <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>
+                                    <span>{c.city}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-xs text-gray-900 font-semibold">{c.totalOrders} orders</p>
+                                  <div className="flex gap-2 mt-1">
+                                    <span className="text-xs text-red-600 font-medium">{c.returnedCount} returned</span>
+                                    <span className="text-xs text-orange-600 font-medium">{c.cancelledCount} cancelled</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mt-3 ml-14 flex gap-1">
+                                {Array.from({ length: c.totalOrders }).map((_, idx) => {
+                                  const isDelivered = idx < c.deliveredCount;
+                                  const isReturned = idx >= c.deliveredCount && idx < c.deliveredCount + c.returnedCount;
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`h-2 flex-1 rounded-full max-w-[20px] ${isDelivered ? "bg-green-400" : isReturned ? "bg-red-400" : "bg-orange-300"}`}
+                                      title={isDelivered ? "Delivered" : isReturned ? "Returned" : "Cancelled/Other"}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                          <CheckCircle className="w-8 h-8 mb-2 text-green-400" />
+                          <p className="text-sm text-green-600 font-medium">No problem customers!</p>
+                          <p className="text-xs text-gray-400 mt-1">All customers have healthy order patterns</p>
+                        </div>
+                      )
                     )}
                   </div>
                 </div>
