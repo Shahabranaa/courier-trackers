@@ -376,9 +376,9 @@ export default function AnalyticsPage() {
                           padding: "12px",
                         }}
                         labelFormatter={(val) => viewMode === "daily" ? formatFullDate(val) : val}
-                        formatter={(value: number, name: string) => {
+                        formatter={(value: number | undefined, name: string | undefined) => {
                           const labels: Record<string, string> = { postex: "PostEx", tranzo: "Tranzo", shopify: "Shopify" };
-                          return [value, labels[name] || name];
+                          return [value ?? 0, labels[name ?? ""] || name || ""];
                         }}
                       />
                       <Area type="monotone" dataKey="postex" stackId="1" stroke="#f97316" fill="url(#gradPostex)" strokeWidth={2} name="postex" />
@@ -432,7 +432,7 @@ export default function AnalyticsPage() {
                           boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                           padding: "12px",
                         }}
-                        formatter={(value: number) => [value, "Orders"]}
+                        formatter={(value: number | undefined) => [value ?? 0, "Orders"]}
                       />
                       <Bar dataKey="count" radius={[8, 8, 0, 0]} maxBarSize={48}>
                         {data.peakDays.byDayOfWeek.map((entry, index) => {

@@ -1,0 +1,69 @@
+19:58:38.798 Running build in Washington, D.C., USA (East) – iad1
+19:58:38.799 Build machine configuration: 2 cores, 8 GB
+19:58:38.923 Cloning github.com/Shahabranaa/courier-trackers (Branch: main, Commit: 22ecb7a)
+19:58:39.197 Cloning completed: 274.000ms
+19:58:40.106 Restored build cache from previous deployment (CniTWuLSzsHXpCuLCVazf5YbbJpk)
+19:58:40.369 Running "vercel build"
+19:58:41.612 Vercel CLI 50.13.2
+19:58:42.003 Installing dependencies...
+19:58:43.492 
+19:58:43.493 up to date in 1s
+19:58:43.494 
+19:58:43.494 153 packages are looking for funding
+19:58:43.495   run `npm fund` for details
+19:58:43.524 Detected Next.js version: 16.1.6
+19:58:43.528 Running "npm run build"
+19:58:43.673 
+19:58:43.674 > postex_dashboard@0.1.0 build
+19:58:43.674 > prisma generate && prisma db push --accept-data-loss && next build
+19:58:43.674 
+19:58:44.759 Prisma schema loaded from prisma/schema.prisma
+19:58:45.042 
+19:58:45.042 ✔ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 148ms
+19:58:45.043 
+19:58:45.043 Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+19:58:45.043 
+19:58:45.043 Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+19:58:45.043 
+19:58:45.918 Prisma schema loaded from prisma/schema.prisma
+19:58:45.922 Datasource "db": PostgreSQL database "postgres", schema "public" at "db.prisma.io:5432"
+19:58:46.889 
+19:58:46.890 The database is already in sync with the Prisma schema.
+19:58:46.891 
+19:58:46.892 Running generate... (Use --skip-generate to skip the generators)
+19:58:46.964 [2K[1A[2K[GRunning generate... - Prisma Client
+19:58:47.053 [2K[1A[2K[G✔ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 87ms
+19:58:47.055 
+19:58:47.056 ┌─────────────────────────────────────────────────────────┐
+19:58:47.056 │  Update available 6.19.2 -> 7.3.0                       │
+19:58:47.056 │                                                         │
+19:58:47.056 │  This is a major update - please follow the guide at    │
+19:58:47.057 │  https://pris.ly/d/major-version-upgrade                │
+19:58:47.057 │                                                         │
+19:58:47.057 │  Run the following to update                            │
+19:58:47.057 │    npm i --save-dev prisma@latest                       │
+19:58:47.057 │    npm i @prisma/client@latest                          │
+19:58:47.058 └─────────────────────────────────────────────────────────┘
+19:58:48.111 ▲ Next.js 16.1.6 (Turbopack)
+19:58:48.112 
+19:58:48.153   Creating an optimized production build ...
+19:59:03.334 ✓ Compiled successfully in 14.6s
+19:59:03.339   Running TypeScript ...
+19:59:09.798 Failed to compile.
+19:59:09.798 
+19:59:09.799 ./app/analytics/page.tsx:379:25
+19:59:09.799 Type error: Type '(value: number, name: string) => [number, string]' is not assignable to type 'Formatter<number, string> & ((value: number, name: string, item: Payload<number, string>, index: number, payload: Payload<number, string>[]) => ReactNode | [...])'.
+19:59:09.799   Type '(value: number, name: string) => [number, string]' is not assignable to type 'Formatter<number, string>'.
+19:59:09.799     Types of parameters 'value' and 'value' are incompatible.
+19:59:09.800       Type 'number | undefined' is not assignable to type 'number'.
+19:59:09.800         Type 'undefined' is not assignable to type 'number'.
+19:59:09.800 
+19:59:09.800 [0m [90m 377 |[39m                         }}
+19:59:09.800  [90m 378 |[39m                         labelFormatter[33m=[39m{(val) [33m=>[39m viewMode [33m===[39m [32m"daily"[39m [33m?[39m formatFullDate(val) [33m:[39m val}
+19:59:09.800 [31m[1m>[22m[39m[90m 379 |[39m                         formatter[33m=[39m{(value[33m:[39m number[33m,[39m name[33m:[39m string) [33m=>[39m {
+19:59:09.801  [90m     |[39m                         [31m[1m^[22m[39m
+19:59:09.801  [90m 380 |[39m                           [36mconst[39m labels[33m:[39m [33mRecord[39m[33m<[39m[33mstring[39m[33m,[39m string[33m>[39m [33m=[39m { postex[33m:[39m [32m"PostEx"[39m[33m,[39m tranzo[33m:[39m [32m"Tranzo"[39m[33m,[39m shopify[33m:[39m [32m"Shopify"[39m }[33m;[39m
+19:59:09.801  [90m 381 |[39m                           [36mreturn[39m [value[33m,[39m labels[name] [33m||[39m name][33m;[39m
+19:59:09.801  [90m 382 |[39m                         }}[0m
+19:59:09.838 Next.js build worker exited with code: 1 and signal: null
+19:59:09.881 Error: Command "npm run build" exited with 1
