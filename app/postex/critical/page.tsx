@@ -73,39 +73,62 @@ export default function CriticalOrdersPage() {
         if (!selectedBrand?.apiToken || orders.length === 0) return;
         setStatusLoading(true);
 
-        const newStatuses: Record<string, TrackingStatus | null> = {};
-        const newPayments: Record<string, PaymentStatus | null> = {};
+        const newStatuses: Record<string, TrackingStatus | null> = { ...trackingStatuses }; // Merge with existing
+        const newPayments: Record<string, PaymentStatus | null> = { ...paymentStatuses };
 
-        // Fetch in batches of 10
-        const batchSize = 10;
+        // Fetch in chunks of 50 (API limit unknown but safe batch size)
+        const batchSize = 50;
         for (let i = 0; i < orders.length; i += batchSize) {
             const batch = orders.slice(i, i + batchSize);
-            await Promise.all(
-                batch.map(async (order) => {
-                    const trackingNo = order.trackingNumber;
-                    if (!trackingNo) return;
+            const batchTrackingNumbers = batch.map(o => o.trackingNumber).filter(Boolean);
 
-                    try {
-                        const [trackRes, payRes] = await Promise.all([
-                            fetch(`/api/postex/tracking?trackingNumber=${trackingNo}`, {
-                                headers: { token: selectedBrand.apiToken }
-                            }),
-                            fetch(`/api/postex/payment?trackingNumber=${trackingNo}`, {
-                                headers: { token: selectedBrand.apiToken }
-                            })
-                        ]);
+            if (batchTrackingNumbers.length === 0) continue;
 
-                        if (trackRes.ok) {
-                            newStatuses[trackingNo] = await trackRes.json();
-                        }
-                        if (payRes.ok) {
-                            newPayments[trackingNo] = await payRes.json();
-                        }
-                    } catch (e) {
-                        // Ignore individual failures
+            try {
+                // 1. Bulk Tracking
+                const trackRes = await fetch("/api/postex/track/bulk", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "token": selectedBrand.apiToken
+                    },
+                    body: JSON.stringify({ trackingNumbers: batchTrackingNumbers })
+                });
+
+                if (trackRes.ok) {
+                    const statuses = await trackRes.json();
+                    if (Array.isArray(statuses)) {
+                        statuses.forEach((st: any) => {
+                            if (st && st.trackingNumber) {
+                                newStatuses[st.trackingNumber] = st;
+                            }
+                        });
                     }
-                })
-            );
+                }
+
+                // 2. Fetch Payments individually (Bulk API for payments might not exist or be different)
+                // For now keep payments individual or check if bulk payment exists.
+                // Assuming keeping payments separate to avoid scope creep unless requested.
+                // User only mentioned "track-bulk-order".
+
+                await Promise.all(
+                    batch.map(async (order) => {
+                        const trackingNo = order.trackingNumber;
+                        if (!trackingNo) return;
+                        try {
+                            const payRes = await fetch(`/api/postex/payment?trackingNumber=${trackingNo}`, {
+                                headers: { token: selectedBrand.apiToken }
+                            });
+                            if (payRes.ok) {
+                                newPayments[trackingNo] = await payRes.json();
+                            }
+                        } catch (e) { /* ignore */ }
+                    })
+                );
+
+            } catch (e) {
+                console.error("Batch tracking failed", e);
+            }
         }
 
         setTrackingStatuses(newStatuses);
