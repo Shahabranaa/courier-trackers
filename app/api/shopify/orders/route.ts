@@ -259,7 +259,8 @@ export async function GET(req: NextRequest) {
         });
 
     } catch (error: any) {
-        console.warn("Shopify API Sync Failed:", error.message);
+        console.error("Shopify API Sync Failed:", error.message);
+        console.error("Full error:", error.stack || error);
 
         try {
             const localOrders = await prisma.shopifyOrder.findMany({

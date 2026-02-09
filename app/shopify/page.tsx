@@ -110,6 +110,10 @@ export default function ShopifyOrdersPage() {
             const [shopifyData, courierResults] = await Promise.all(promises);
             setShopifyOrders(shopifyData.orders || []);
 
+            if (shopifyData.error) {
+                setError(`Shopify sync issue: ${shopifyData.error} (showing cached data)`);
+            }
+
             const allCourier: any[] = [];
             if (courierResults) {
                 for (const cr of courierResults) {
@@ -246,7 +250,14 @@ export default function ShopifyOrdersPage() {
                         <div>
                             <h3 className="font-semibold text-amber-800">Shopify Not Connected</h3>
                             <p className="text-sm text-amber-700 mt-1">
-                                Go to Settings and add your Shopify store domain, Client ID, and Client Secret to start syncing orders.
+                                {!selectedBrand
+                                    ? "Select a brand first, then add your Shopify credentials in Settings."
+                                    : !selectedBrand.shopifyStore
+                                        ? `Brand "${selectedBrand.name}" is missing a Shopify store domain. Go to Settings to add it.`
+                                        : !selectedBrand.shopifyClientId
+                                            ? `Brand "${selectedBrand.name}" is missing a Shopify Client ID. Go to Settings to add it.`
+                                            : `Brand "${selectedBrand.name}" is missing a Shopify Client Secret. Go to Settings to add it.`
+                                }
                             </p>
                         </div>
                     </div>
