@@ -7,23 +7,44 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
-
-    // Allow local fetch without token if we want? No, let's keep security but maybe fallback if token is invalid? 
-    // The user said "offline", implies might not have internet to validate token against Tranzo either.
-    // But we are proxying. If network is down, we can't reach Tranzo.
-    // If token is missing, we shouldn't even try? 
-    // Let's assume we need a token to identify "who" is asking, but valid token check is done by Tranzo.
-    // If we are offline, we can't validate token. 
-    // For now, accept any token format if offline? Or just proceed.
+    const forceSync = searchParams.get("sync") === "true";
 
     if (!token) {
         return NextResponse.json({ error: "Missing Authorization header" }, { status: 401 });
     }
 
-    try {
-        console.log(`Fetching Tranzo orders (Live check) for Brand: ${brandId}...`);
+    if (!forceSync) {
+        try {
+            const whereClause: any = {
+                courier: "Tranzo",
+                brandId: brandId
+            };
+            if (startDate || endDate) {
+                whereClause.AND = [];
+                if (startDate) whereClause.AND.push({ orderDate: { gte: startDate + "T00:00:00.000Z" } });
+                if (endDate) whereClause.AND.push({ orderDate: { lte: endDate + "T23:59:59.999Z" } });
+            }
 
-        // Step 1: Initial Request to get COUNT
+            const localOrders = await prisma.order.findMany({
+                where: whereClause,
+                orderBy: { transactionDate: 'desc' }
+            });
+
+            console.log(`Served ${localOrders.length} Tranzo orders from DB for brand ${brandId}`);
+
+            return NextResponse.json({
+                source: "local",
+                count: localOrders.length,
+                results: localOrders
+            });
+        } catch (dbError: any) {
+            console.error("DB read failed, attempting live fetch:", dbError.message);
+        }
+    }
+
+    try {
+        console.log(`Syncing Tranzo orders from API for Brand: ${brandId}...`);
+
         let targetUrl = "https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/";
         let response = await fetch(targetUrl, {
             method: "GET",
@@ -33,15 +54,12 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        // Network failure will throw to catch block.
-        // HTTP Error (401, 500) might not throw, but we should verify.
         if (!response.ok) {
             throw new Error(`Tranzo API Error: ${response.status} ${await response.text()}`);
         }
 
         let data = await response.json();
 
-        // Step 2: Check limit and fetch all if needed
         const totalCount = data.count || 0;
         const currentCount = Array.isArray(data) ? data.length : (data.results?.length || 0);
 
@@ -61,15 +79,11 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // Extract results
         const results = Array.isArray(data) ? data : (data.results || data.data || []);
 
-        console.log(`Fetched ${results.length} live orders. Syncing to DB...`);
+        console.log(`Fetched ${results.length} live orders. Storing to DB...`);
 
         if (results.length > 0) {
-            console.log(`Syncing ${results.length} Tranzo orders to DB...`);
-
-            // Process in chunks to avoid Prisma Accelerate limits (P6009)
             const chunkSize = 50;
             for (let i = 0; i < results.length; i += chunkSize) {
                 const chunk = results.slice(i, i + chunkSize);
@@ -80,7 +94,6 @@ export async function GET(req: NextRequest) {
                         const statusVal = (order.order_status || "Unknown").toLowerCase();
                         const cityVal = (order.destination_city_name || order.city_name || "").toLowerCase();
 
-                        // Calculate Fees
                         let fee = 0;
                         let tax = 0;
                         let other = 0;
@@ -101,15 +114,13 @@ export async function GET(req: NextRequest) {
                             }
                         }
 
-                        // Withholding (Requested to be 0 for all orders)
                         let withholding = 0;
-
                         const net = amount - (fee + tax + other) - withholding;
 
                         return prisma.order.upsert({
                             where: { trackingNumber: order.tracking_number },
                             update: {
-                                brandId: brandId, // Update brand ownership if token/context changes (important!)
+                                brandId: brandId,
                                 courier: "Tranzo",
                                 orderRefNumber: order.reference_number || "",
                                 invoicePayment: amount,
@@ -125,14 +136,11 @@ export async function GET(req: NextRequest) {
                                 orderStatus: order.order_status || "Unknown",
                                 transactionStatus: order.order_status || "Unknown",
                                 actualWeight: parseFloat(order.actual_weight || "0"),
-
-                                // Financials
                                 transactionTax: tax,
                                 transactionFee: fee + other,
                                 upfrontPayment: 0,
                                 salesWithholdingTax: withholding,
                                 netAmount: net,
-
                                 lastFetchedAt: new Date()
                             },
                             create: {
@@ -153,8 +161,6 @@ export async function GET(req: NextRequest) {
                                 orderStatus: order.order_status || "Unknown",
                                 transactionStatus: order.order_status || "Unknown",
                                 actualWeight: parseFloat(order.actual_weight || "0"),
-
-                                // Financials
                                 transactionTax: tax,
                                 transactionFee: fee + other,
                                 upfrontPayment: 0,
@@ -167,29 +173,31 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        let filteredResults = results;
+        const whereClause: any = {
+            courier: "Tranzo",
+            brandId: brandId
+        };
         if (startDate || endDate) {
-            filteredResults = results.filter((order: any) => {
-                const orderDate = (order.created_at || order.orderDate || "").slice(0, 10);
-                if (!orderDate) return true;
-                if (startDate && orderDate < startDate) return false;
-                if (endDate && orderDate > endDate) return false;
-                return true;
-            });
+            whereClause.AND = [];
+            if (startDate) whereClause.AND.push({ orderDate: { gte: startDate + "T00:00:00.000Z" } });
+            if (endDate) whereClause.AND.push({ orderDate: { lte: endDate + "T23:59:59.999Z" } });
         }
+
+        const freshOrders = await prisma.order.findMany({
+            where: whereClause,
+            orderBy: { transactionDate: 'desc' }
+        });
 
         return NextResponse.json({
             source: "live",
-            count: filteredResults.length,
-            results: filteredResults
+            count: freshOrders.length,
+            results: freshOrders
         });
 
     } catch (error: any) {
-        console.warn("Tranzo API Offline/Error. Falling back to Local DB...", error.message);
+        console.warn("Tranzo API Sync Failed:", error.message);
 
         try {
-            // Fallback: Fetch from Local DB
-            // FIX: Must filter by brandId to avoid showing other brand's data
             const whereClause: any = {
                 courier: "Tranzo",
                 brandId: brandId
@@ -205,7 +213,7 @@ export async function GET(req: NextRequest) {
                 orderBy: { transactionDate: 'desc' }
             });
 
-            console.log(`Fetched ${localOrders.length} orders from Local DB for brand ${brandId}.`);
+            console.log(`Sync failed, served ${localOrders.length} orders from DB for brand ${brandId}.`);
 
             return NextResponse.json({
                 source: "local",
@@ -220,4 +228,3 @@ export async function GET(req: NextRequest) {
         }
     }
 }
-

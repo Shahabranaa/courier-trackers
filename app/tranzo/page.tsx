@@ -99,26 +99,23 @@ export default function TranzoDashboard() {
     const [trackingStatuses, setTrackingStatuses] = useState<Record<string, TrackingStatus | null>>({});
     const [paymentStatuses, setPaymentStatuses] = useState<Record<string, any>>({});
 
+    const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
+
     useEffect(() => {
         if (selectedBrand && selectedBrand.tranzoToken) {
-            fetchOrders();
+            loadOrdersFromDB();
         } else {
             setOrders([]);
         }
-    }, [selectedBrand, selectedMonth]); // Re-fetch only on Brand/Month change
+    }, [selectedBrand, selectedMonth]);
 
-    const fetchOrders = async () => {
+    const loadOrdersFromDB = async () => {
         if (!selectedBrand?.tranzoToken) return;
 
         setLoading(true);
         setError(null);
-        setOrders([]);
-        setTrackingStatuses({});
 
         try {
-            // Sanitize Token: Remove "Bearer" or "Token" if user pasted it, and strip non-ASCII
-            const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
-
             const rawToken = selectedBrand.tranzoToken || "";
             const cleanToken = sanitizeHeader(rawToken.replace(/^(Bearer|Token)\s+/i, ""));
 
@@ -130,64 +127,91 @@ export default function TranzoDashboard() {
             });
 
             if (!res.ok) {
-                throw new Error("Failed to fetch Tranzo orders");
+                throw new Error("Failed to load orders");
             }
 
             const data = await res.json();
-            console.log("Tranzo API Response:", data);
+            processOrderResponse(data);
+        } catch (err: any) {
+            setError(err.message);
+            setOrders([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-            // Check for Fallback/Error
-            if (data.source === "local") {
-                setError(data.error ? `Sync Failed: ${data.error} (Showing Offline Data)` : "Offline Mode");
-            }
+    const syncOrdersFromAPI = async () => {
+        if (!selectedBrand?.tranzoToken) return;
 
-            const list = Array.isArray(data) ? data : (data.results || data.orders || []);
-            console.log("Tranzo List to Normalize:", list);
+        setLoading(true);
+        setError(null);
 
-            // Normalize Data
-            const normalized = (list as any[]).map(normalizeTranzoOrder);
+        try {
+            const rawToken = selectedBrand.tranzoToken || "";
+            const cleanToken = sanitizeHeader(rawToken.replace(/^(Bearer|Token)\s+/i, ""));
 
-            // Filter by Month (Client Side for now)
-            const filteredByMonth = normalized.filter((o: Order) =>
-                (o.orderDate || "").startsWith(selectedMonth)
-            );
-
-            setOrders(filteredByMonth);
-
-            // Generate "Live" statuses from the fetch results itself (since Tranzo status IS the live status)
-            const statuses: Record<string, TrackingStatus | null> = {};
-            const payments: Record<string, any> = {};
-
-            filteredByMonth.forEach(o => {
-                if (o.trackingNumber) {
-                    const st = (o.transactionStatus || "").toLowerCase();
-                    statuses[o.trackingNumber] = {
-                        currentStatus: o.transactionStatus || "Unknown",
-                        trackingNumber: o.trackingNumber,
-                        // Map timestamps if available
-                        dateTime: o.transactionDate,
-                        dist: {
-                            currentStatus: o.transactionStatus,
-                            transactionStatus: o.transactionStatus
-                        }
-                    } as any;
-
-                    // Mock payment status based on delivered
-                    if (st === "delivered" || st === "payment transferred") {
-                        payments[o.trackingNumber] = { dist: { settle: true } };
-                    } else {
-                        payments[o.trackingNumber] = { dist: { settle: false } };
-                    }
+            const res = await fetch("/api/tranzo/orders?sync=true", {
+                headers: {
+                    "Authorization": `Bearer ${cleanToken}`,
+                    "brand-id": sanitizeHeader(selectedBrand.id)
                 }
             });
-            setTrackingStatuses(statuses);
-            setPaymentStatuses(payments);
 
+            if (!res.ok) {
+                throw new Error("Failed to sync Tranzo orders");
+            }
+
+            const data = await res.json();
+            processOrderResponse(data);
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const processOrderResponse = (data: any) => {
+        console.log("Tranzo Response:", data);
+
+        if (data.source === "local" && data.error) {
+            setError(`Sync Failed: ${data.error} (Showing saved data)`);
+        }
+
+        const list = Array.isArray(data) ? data : (data.results || data.orders || []);
+
+        const normalized = (list as any[]).map(normalizeTranzoOrder);
+
+        const filteredByMonth = normalized.filter((o: Order) =>
+            (o.orderDate || "").startsWith(selectedMonth)
+        );
+
+        setOrders(filteredByMonth);
+
+        const statuses: Record<string, TrackingStatus | null> = {};
+        const payments: Record<string, any> = {};
+
+        filteredByMonth.forEach(o => {
+            if (o.trackingNumber) {
+                const st = (o.transactionStatus || "").toLowerCase();
+                statuses[o.trackingNumber] = {
+                    currentStatus: o.transactionStatus || "Unknown",
+                    trackingNumber: o.trackingNumber,
+                    dateTime: o.transactionDate,
+                    dist: {
+                        currentStatus: o.transactionStatus,
+                        transactionStatus: o.transactionStatus
+                    }
+                } as any;
+
+                if (st === "delivered" || st === "payment transferred") {
+                    payments[o.trackingNumber] = { dist: { settle: true } };
+                } else {
+                    payments[o.trackingNumber] = { dist: { settle: false } };
+                }
+            }
+        });
+        setTrackingStatuses(statuses);
+        setPaymentStatuses(payments);
     };
 
     // --- Derived State for UI ---
@@ -253,7 +277,7 @@ export default function TranzoDashboard() {
 
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                         <button
-                            onClick={fetchOrders}
+                            onClick={syncOrdersFromAPI}
                             disabled={loading || !selectedBrand?.tranzoToken}
                             className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-md active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 ml-auto lg:ml-0"
                         >
@@ -384,7 +408,7 @@ export default function TranzoDashboard() {
                                         trackingStatuses={trackingStatuses}
                                         paymentStatuses={paymentStatuses}
                                         loading={loading}
-                                        refreshTracking={() => fetchOrders()} // Simple re-sync for now
+                                        refreshTracking={() => syncOrdersFromAPI()}
                                     />
                                 </div>
                             </>
