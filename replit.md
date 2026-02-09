@@ -4,6 +4,9 @@
 A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopify. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
 
 ## Recent Changes
+- **2026-02-09**: Added Analytics page with order trends (daily/weekly/monthly toggle with growth %), peak order days (day-of-week chart + top dates), and Pakistan city heatmap (SVG map with 44 cities, heat-colored circles sized by order volume). API route at /api/analytics aggregates from both Order and ShopifyOrder tables. Added Analytics link to sidebar.
+- **2026-02-09**: Added phone, shippingAddress, shippingCity fields to ShopifyOrder model. Pending orders modal now shows address, city, and phone number for each order.
+- **2026-02-09**: Added upfront payment total to PostEx dashboard monthly snapshot widget.
 - **2026-02-09**: Added pending order remarks feature on Shopify page. Clicking pending count in daily breakdown opens a modal listing unfulfilled orders for that date. Each order has an editable remark field that auto-saves to DB via debounce. ShopifyOrder model has pendingRemark field. API route at /api/shopify/orders/[id]/remark with brand authorization.
 - **2026-02-09**: Shopify auth now supports BOTH methods: Direct Admin API Access Token (for Custom Apps) AND Client Credentials Grant (for Dev Dashboard apps). Brand model has shopifyAccessToken, shopifyClientId, shopifyClientSecret fields. Server auto-detects which method to use. Improved error handling with specific messages for DNS failures, 403/401 errors, and missing credentials. Settings UI shows both options with clear separator.
 - **2026-02-09**: Added Shopify Orders page. Fetches orders via Shopify Admin API, compares daily Shopify orders vs dispatched orders by courier partner (PostEx/Tranzo). Includes DB-first architecture, daily comparison chart, fulfillment tracking, and revenue summary.
