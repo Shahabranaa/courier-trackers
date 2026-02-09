@@ -1,0 +1,12 @@
+modules = ["nodejs-20", "web"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+PRISMA_DATABASE_URL = "postgresql://postgres:password@helium/heliumdb?sslmode=disable"
+POSTGRES_URL = "postgresql://postgres:password@helium/heliumdb?sslmode=disable"
