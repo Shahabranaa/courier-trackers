@@ -34,6 +34,12 @@ export interface TrackingStatus {
     date: string;
     details: string;
   }[];
+  transactionStatusHistory?: {
+    transactionDate: string;
+    transactionStatus: string;
+    comments?: string;
+    [key: string]: any;
+  }[];
   [key: string]: any;
 }
 

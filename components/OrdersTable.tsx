@@ -19,6 +19,7 @@ export default function OrdersTable({
 }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
+    const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
     // Reset page to 1 if orders change
     useEffect(() => {
@@ -53,6 +54,7 @@ export default function OrdersTable({
                 <table className="w-full text-sm text-left">
                     <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
                         <tr>
+                            <th className="px-2 py-4"></th>
                             <th className="px-6 py-4 whitespace-nowrap">#</th>
                             <th className="px-6 py-4 whitespace-nowrap">Date</th>
                             <th className="px-6 py-4 whitespace-nowrap">Order Ref</th>
@@ -94,27 +96,13 @@ export default function OrdersTable({
                             // Payment Status logic
                             const paymentData = paymentStatuses[trackingNo];
                             let paymentStatusText = "-";
-
                             if (paymentData) {
-                                // User provided logic: json.dist.settle
-                                // Verify if paymentData has dist or is the dist object itself.
-                                // Safely access dist if it exists, otherwise assume paymentData might be flat (just in case).
                                 const dist = (paymentData as any).dist || paymentData;
-
                                 if (dist) {
-                                    // Default to potentially existing status or just blank/pending if checking boolean
-                                    // The logic:
-                                    // settle === true/1 => "PAID"
-                                    // settle === false/0 => "UNPAID"
-
                                     const settle = dist.settle;
-                                    if (settle === true || settle === "1" || settle === 1) {
-                                        paymentStatusText = "PAID";
-                                    } else if (settle === false || settle === "0" || settle === 0) {
-                                        paymentStatusText = "UNPAID";
-                                    }
+                                    if (settle === true || settle === "1" || settle === 1) paymentStatusText = "PAID";
+                                    else if (settle === false || settle === "0" || settle === 0) paymentStatusText = "UNPAID";
 
-                                    // Overwrite if settleStatus is RETURN related
                                     if (dist.settleStatus) {
                                         const st = dist.settleStatus.toString().toUpperCase();
                                         if (st === "RETURN") paymentStatusText = "RETURN";
@@ -135,111 +123,198 @@ export default function OrdersTable({
                                         liveStatusText.toLowerCase().includes("cancel") ? "text-red-600 bg-red-50" :
                                             "text-gray-600 bg-gray-50";
 
+                            const isExpanded = expandedRow === trackingNo;
+
                             return (
-                                <tr key={trackingNo || order.orderRefNumber} className="hover:bg-blue-50/50 transition-colors group">
-                                    <td className="px-6 py-4 text-gray-500 text-xs whitespace-nowrap group-hover:text-blue-600">
-                                        {rowNumber}
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-500 text-xs whitespace-nowrap">
-                                        {(order.orderDate || order.transactionDate) ? new Date(order.orderDate || order.transactionDate!).toLocaleDateString() : "-"}
-                                    </td>
-                                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{order.orderRefNumber}</td>
-                                    <td className="px-6 py-4 font-mono text-xs text-blue-600 whitespace-nowrap">{trackingNo}</td>
-                                    <td className="px-6 py-4 text-gray-900 whitespace-nowrap">{order.customerName}</td>
-                                    <td className="px-6 py-4 text-gray-900 whitespace-nowrap">{order.cityName}</td>
-                                    <td className="px-6 py-4 font-mono text-xs text-gray-500 whitespace-nowrap">{order.customerPhone}</td>
-                                    <td className="px-6 py-4 text-gray-600 text-xs min-w-[200px]">{order.deliveryAddress}</td>
-                                    <td className="px-6 py-4 text-gray-600 text-xs min-w-[150px]">{order.orderDetail}</td>
-                                    <td className="px-6 py-4 text-right font-medium whitespace-nowrap">
-                                        {new Intl.NumberFormat("en-PK", {
-                                            style: "currency",
-                                            currency: "PKR",
-                                        }).format(order.invoicePayment)}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
-                                        {(() => {
-                                            const isReturn =
-                                                (order.transactionStatus && order.transactionStatus.toLowerCase().includes("return")) ||
-                                                (order.orderStatus && order.orderStatus.toLowerCase().includes("return")) ||
-                                                (liveStatusText.toLowerCase().includes("return"));
-
-                                            // Prefer reversal if return, fallback to transaction
-                                            // Handle cases where reversal might be 0 but transaction exists? 
-                                            // User said "Take from reversal", implies strictness.
-                                            const val = isReturn ? (order.reversalTax ?? order.transactionTax) : order.transactionTax;
-                                            return val ? val.toFixed(2) : "-";
-                                        })()}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
-                                        {(() => {
-                                            const isReturn =
-                                                (order.transactionStatus && order.transactionStatus.toLowerCase().includes("return")) ||
-                                                (order.orderStatus && order.orderStatus.toLowerCase().includes("return")) ||
-                                                (liveStatusText.toLowerCase().includes("return"));
-
-                                            const val = isReturn ? (order.reversalFee ?? order.transactionFee) : order.transactionFee;
-                                            return val ? val.toFixed(2) : "-";
-                                        })()}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
-                                        {order.upfrontPayment ? order.upfrontPayment.toFixed(2) : "-"}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
-                                        {order.actualWeight ? `${order.actualWeight} kg` : "-"}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
-                                        {order.salesWithholdingTax ? order.salesWithholdingTax.toFixed(2) : "0.00"}
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
-                                        {order.netAmount ? new Intl.NumberFormat("en-PK", {
-                                            style: "currency",
-                                            currency: "PKR",
-                                        }).format(order.netAmount) : "-"}
-                                    </td>
-                                    <td className="px-6 py-4 text-xs text-gray-500 whitespace-nowrap">
-                                        {order.transactionStatus || order.orderStatus || "-"}
-                                    </td>
-                                    <td className="px-6 py-4 text-xs whitespace-nowrap">
-                                        {order.lastStatus ? (
-                                            <div className="flex flex-col">
-                                                <span className="font-medium text-gray-700">{order.lastStatus}</span>
-                                                <span className="text-gray-400 text-[10px]">
-                                                    {order.lastStatusTime ? new Date(order.lastStatusTime).toLocaleString() : ""}
-                                                </span>
-                                            </div>
-                                        ) : "-"}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
-                                            {liveStatusText}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${paymentColor}`}>
-                                            {paymentStatusText}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-center whitespace-nowrap">
-                                        <div className="flex justify-center items-center gap-2">
-                                            <button
-                                                onClick={() => refreshTracking(trackingNo, true)}
-                                                title="Refresh Status & Payment"
-                                                className="text-gray-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 transition-colors"
-                                            >
-                                                <RefreshCw className="w-4 h-4" />
+                                <>
+                                    <tr
+                                        key={trackingNo || order.orderRefNumber}
+                                        className={`hover:bg-blue-50/50 transition-colors group ${isExpanded ? "bg-blue-50/30" : ""}`}
+                                    >
+                                        <td className="px-2 py-4 text-center cursor-pointer" onClick={() => setExpandedRow(isExpanded ? null : trackingNo)}>
+                                            <button className="p-1 hover:bg-gray-200 rounded-full transition">
+                                                <ChevronRight size={16} className={`text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-90 text-blue-600" : ""}`} />
                                             </button>
-                                            <a
-                                                href={`https://postex.pk/tracking?trackingNumber=${trackingNo}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-gray-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 transition-colors"
-                                                title="View on PostEx"
-                                            >
-                                                <ExternalLink className="w-4 h-4" />
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-500 text-xs whitespace-nowrap group-hover:text-blue-600">
+                                            {rowNumber}
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-500 text-xs whitespace-nowrap">
+                                            {(order.orderDate || order.transactionDate) ? new Date(order.orderDate || order.transactionDate!).toLocaleDateString() : "-"}
+                                        </td>
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{order.orderRefNumber}</td>
+                                        <td className="px-6 py-4 font-mono text-xs text-blue-600 whitespace-nowrap">{trackingNo}</td>
+                                        <td className="px-6 py-4 text-gray-900 whitespace-nowrap">{order.customerName}</td>
+                                        <td className="px-6 py-4 text-gray-900 whitespace-nowrap">{order.cityName}</td>
+                                        <td className="px-6 py-4 font-mono text-xs text-gray-500 whitespace-nowrap">{order.customerPhone}</td>
+                                        <td className="px-6 py-4 text-gray-600 text-xs min-w-[200px]">{order.deliveryAddress}</td>
+                                        <td className="px-6 py-4 text-gray-600 text-xs min-w-[150px]">{order.orderDetail}</td>
+                                        <td className="px-6 py-4 text-right font-medium whitespace-nowrap">
+                                            {new Intl.NumberFormat("en-PK", {
+                                                style: "currency",
+                                                currency: "PKR",
+                                            }).format(order.invoicePayment)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
+                                            {(() => {
+                                                const isReturn =
+                                                    (order.transactionStatus && order.transactionStatus.toLowerCase().includes("return")) ||
+                                                    (order.orderStatus && order.orderStatus.toLowerCase().includes("return")) ||
+                                                    (liveStatusText.toLowerCase().includes("return"));
+
+                                                const val = isReturn ? (order.reversalTax ?? order.transactionTax) : order.transactionTax;
+                                                return val ? val.toFixed(2) : "-";
+                                            })()}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
+                                            {(() => {
+                                                const isReturn =
+                                                    (order.transactionStatus && order.transactionStatus.toLowerCase().includes("return")) ||
+                                                    (order.orderStatus && order.orderStatus.toLowerCase().includes("return")) ||
+                                                    (liveStatusText.toLowerCase().includes("return"));
+
+                                                const val = isReturn ? (order.reversalFee ?? order.transactionFee) : order.transactionFee;
+                                                return val ? val.toFixed(2) : "-";
+                                            })()}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
+                                            {order.upfrontPayment ? order.upfrontPayment.toFixed(2) : "-"}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
+                                            {order.actualWeight ? `${order.actualWeight} kg` : "-"}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-xs text-gray-600 whitespace-nowrap">
+                                            {order.salesWithholdingTax ? order.salesWithholdingTax.toFixed(2) : "0.00"}
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
+                                            {order.netAmount ? new Intl.NumberFormat("en-PK", {
+                                                style: "currency",
+                                                currency: "PKR",
+                                            }).format(order.netAmount) : "-"}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs text-gray-500 whitespace-nowrap">
+                                            {order.transactionStatus || order.orderStatus || "-"}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs whitespace-nowrap">
+                                            {order.lastStatus ? (
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-gray-700">{order.lastStatus}</span>
+                                                    <span className="text-gray-400 text-[10px]">
+                                                        {order.lastStatusTime ? new Date(order.lastStatusTime).toLocaleString() : ""}
+                                                    </span>
+                                                </div>
+                                            ) : "-"}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+                                                {liveStatusText}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${paymentColor}`}>
+                                                {paymentStatusText}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                                            <div className="flex justify-center items-center gap-2">
+                                                <button
+                                                    onClick={() => refreshTracking(trackingNo, true)}
+                                                    title="Refresh Status & Payment"
+                                                    className="text-gray-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                                                >
+                                                    <RefreshCw className="w-4 h-4" />
+                                                </button>
+                                                <a
+                                                    href={`https://postex.pk/tracking?trackingNumber=${trackingNo}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-gray-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                                                    title="View on PostEx"
+                                                >
+                                                    <ExternalLink className="w-4 h-4" />
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    {isExpanded && (
+                                        <tr className="bg-gray-50 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <td colSpan={22} className="px-6 py-4">
+                                                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                                                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                                                        <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                                                            <Loader2 size={16} className="text-blue-600" />
+                                                            Transaction History
+                                                        </h4>
+                                                        {!liveStatus && (
+                                                            <button
+                                                                onClick={() => refreshTracking(trackingNo, true)}
+                                                                className="text-xs text-blue-600 hover:underline"
+                                                            >
+                                                                Load History
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {!liveStatus ? (
+                                                        <div className="p-8 text-center text-gray-500 text-sm">
+                                                            No history loaded. Click "Load History" or the refresh icon.
+                                                        </div>
+                                                    ) : (
+                                                        <div className="max-h-60 overflow-y-auto">
+                                                            <table className="w-full text-xs text-left">
+                                                                <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0">
+                                                                    <tr>
+                                                                        <th className="px-4 py-2 w-40">Date</th>
+                                                                        <th className="px-4 py-2 w-48">Status</th>
+                                                                        <th className="px-4 py-2">Details / Comments</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-gray-100">
+                                                                    {statusData.transactionStatusHistory && statusData.transactionStatusHistory.length > 0 ? (
+                                                                        statusData.transactionStatusHistory.map((item: any, idx: number) => (
+                                                                            <tr key={idx} className="hover:bg-gray-50">
+                                                                                <td className="px-4 py-2 text-gray-600 whitespace-nowrap">
+                                                                                    {item.transactionDate ? new Date(item.transactionDate).toLocaleString() : "-"}
+                                                                                </td>
+                                                                                <td className="px-4 py-2 font-medium text-gray-900">
+                                                                                    {item.transactionStatus}
+                                                                                </td>
+                                                                                <td className="px-4 py-2 text-gray-500">
+                                                                                    {item.comments || "-"}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))
+                                                                    ) : statusData.activityHistory && statusData.activityHistory.length > 0 ? (
+                                                                        statusData.activityHistory.map((item: any, idx: number) => (
+                                                                            <tr key={idx} className="hover:bg-gray-50">
+                                                                                <td className="px-4 py-2 text-gray-600 whitespace-nowrap">
+                                                                                    {item.date ? new Date(item.date).toLocaleString() : "-"}
+                                                                                </td>
+                                                                                <td className="px-4 py-2 font-medium text-gray-900">
+                                                                                    {item.status}
+                                                                                </td>
+                                                                                <td className="px-4 py-2 text-gray-500">
+                                                                                    {item.details || "-"}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))
+                                                                    ) : (
+                                                                        <tr>
+                                                                            <td colSpan={3} className="px-4 py-6 text-center text-gray-400">
+                                                                                No detailed history available.
+                                                                            </td>
+                                                                        </tr>
+                                                                    )}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </>
                             );
                         })}
                     </tbody>
