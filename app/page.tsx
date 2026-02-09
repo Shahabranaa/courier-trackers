@@ -87,7 +87,11 @@ export default function UnifiedDashboard() {
       }
 
       if (tranzoToken) {
-        const tranzoUrl = `/api/tranzo/orders${forceSync ? '?sync=true' : ''}`;
+        const tranzoParams = new URLSearchParams();
+        tranzoParams.set("startDate", startDate);
+        tranzoParams.set("endDate", endDate);
+        if (forceSync) tranzoParams.set("sync", "true");
+        const tranzoUrl = `/api/tranzo/orders?${tranzoParams.toString()}`;
         promises.push(
           fetch(tranzoUrl, {
             headers: {
@@ -135,14 +139,15 @@ export default function UnifiedDashboard() {
       return d.split("T")[0]; // ISO to YYYY-MM-DD
     }
 
-    // Process PostEx
+    // Process PostEx (DB fields are camelCase)
     postexData.forEach(o => {
-      // STRICT: Only use Order Date (Dispatch Date)
-      const day = getDay(o.orderDate);
+      const day = getDay(o.orderDate || o.transactionDate);
       if (!dailyMap[day]) dailyMap[day] = { date: day, postexOrders: 0, postexRevenue: 0, tranzoOrders: 0, tranzoRevenue: 0, totalOrders: 0, totalRevenue: 0 };
 
-      const net = parseFloat(o.netAmount || o.invoicePayment || "0");
-      if ((o.orderStatus || "").toLowerCase() !== "cancelled") {
+      const status = (o.orderStatus || o.transactionStatus || "").toLowerCase();
+      const net = parseFloat(o.netAmount || "0");
+
+      if (!status.includes("cancel")) {
         dailyMap[day].postexOrders += 1;
         dailyMap[day].postexRevenue += net;
         dailyMap[day].totalOrders += 1;
@@ -153,20 +158,13 @@ export default function UnifiedDashboard() {
       }
     });
 
-    // Process Tranzo
+    // Process Tranzo (DB fields are camelCase)
     tranzoData.forEach(o => {
-      // STRICT: Use created_at or booking_date logic
-      const day = getDay(o.created_at || o.orderDate);
+      const day = getDay(o.orderDate || o.transactionDate);
       if (!dailyMap[day]) dailyMap[day] = { date: day, postexOrders: 0, postexRevenue: 0, tranzoOrders: 0, tranzoRevenue: 0, totalOrders: 0, totalRevenue: 0 };
 
-      // Tranzo Adapter Logic (simplified)
-      const amount = parseFloat(o.cod_amount || o.invoicePayment || "0");
-      const status = (o.order_status || o.transactionStatus || "Unknown").toLowerCase();
-
-      let net = o.netAmount ? parseFloat(o.netAmount) : 0;
-      if (!net && !status.includes("cancel")) {
-        net = amount;
-      }
+      const status = (o.orderStatus || o.transactionStatus || "Unknown").toLowerCase();
+      const net = parseFloat(o.netAmount || "0");
 
       if (!status.includes("cancel") && !status.includes("return")) {
         dailyMap[day].tranzoOrders += 1;
@@ -187,8 +185,8 @@ export default function UnifiedDashboard() {
       totalRevenue: totRevenue,
       dailyStats: sortedDays,
       statsByCourier: [
-        { name: 'PostEx', value: postexData.length, revenue: postexData.reduce((acc, o) => acc + (parseFloat(o.netAmount || 0)), 0) },
-        { name: 'Tranzo', value: tranzoData.length, revenue: tranzoData.reduce((acc, o) => acc + (parseFloat(o.netAmount || 0)), 0) }
+        { name: 'PostEx', value: postexData.filter(o => !(o.orderStatus || "").toLowerCase().includes("cancel")).length, revenue: postexData.reduce((acc, o) => acc + parseFloat(o.netAmount || "0"), 0) },
+        { name: 'Tranzo', value: tranzoData.filter(o => { const s = (o.orderStatus || "").toLowerCase(); return !s.includes("cancel") && !s.includes("return"); }).length, revenue: tranzoData.reduce((acc, o) => acc + parseFloat(o.netAmount || "0"), 0) }
       ]
     };
 
