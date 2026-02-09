@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Order, TrackingStatus } from "@/lib/types";
-import { Loader2, RefreshCw, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Truck, Clock, MapPin } from "lucide-react";
 
 export default function OrdersTable({
     orders,
@@ -238,78 +238,100 @@ export default function OrdersTable({
                                     </tr>
 
                                     {isExpanded && (
-                                        <tr className="bg-gray-50 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <tr className="bg-gray-50/50 animate-in fade-in slide-in-from-top-1 duration-200">
                                             <td colSpan={22} className="px-6 py-4">
-                                                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                                                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                                                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm max-w-4xl mx-auto">
+                                                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                                                         <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-                                                            <Loader2 size={16} className="text-blue-600" />
-                                                            Transaction History
+                                                            <Truck size={16} className="text-blue-600" />
+                                                            Order Journey
                                                         </h4>
                                                         {!liveStatus && (
                                                             <button
                                                                 onClick={() => refreshTracking(trackingNo, true)}
-                                                                className="text-xs text-blue-600 hover:underline"
+                                                                className="text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-blue-100 hover:border-blue-200"
                                                             >
-                                                                Load History
+                                                                Load Latest Status
                                                             </button>
                                                         )}
                                                     </div>
 
-                                                    {!liveStatus ? (
-                                                        <div className="p-8 text-center text-gray-500 text-sm">
-                                                            No history loaded. Click "Load History" or the refresh icon.
-                                                        </div>
-                                                    ) : (
-                                                        <div className="max-h-60 overflow-y-auto">
-                                                            <table className="w-full text-xs text-left">
-                                                                <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0">
-                                                                    <tr>
-                                                                        <th className="px-4 py-2 w-40">Date</th>
-                                                                        <th className="px-4 py-2 w-48">Status</th>
-                                                                        <th className="px-4 py-2">Details / Comments</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className="divide-y divide-gray-100">
-                                                                    {statusData.transactionStatusHistory && statusData.transactionStatusHistory.length > 0 ? (
-                                                                        statusData.transactionStatusHistory.map((item: any, idx: number) => (
-                                                                            <tr key={idx} className="hover:bg-gray-50">
-                                                                                <td className="px-4 py-2 text-gray-600 whitespace-nowrap">
-                                                                                    {item.transactionDate ? new Date(item.transactionDate).toLocaleString() : "-"}
-                                                                                </td>
-                                                                                <td className="px-4 py-2 font-medium text-gray-900">
-                                                                                    {item.transactionStatus}
-                                                                                </td>
-                                                                                <td className="px-4 py-2 text-gray-500">
-                                                                                    {item.comments || "-"}
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))
-                                                                    ) : statusData.activityHistory && statusData.activityHistory.length > 0 ? (
-                                                                        statusData.activityHistory.map((item: any, idx: number) => (
-                                                                            <tr key={idx} className="hover:bg-gray-50">
-                                                                                <td className="px-4 py-2 text-gray-600 whitespace-nowrap">
-                                                                                    {item.date ? new Date(item.date).toLocaleString() : "-"}
-                                                                                </td>
-                                                                                <td className="px-4 py-2 font-medium text-gray-900">
-                                                                                    {item.status}
-                                                                                </td>
-                                                                                <td className="px-4 py-2 text-gray-500">
-                                                                                    {item.details || "-"}
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))
-                                                                    ) : (
-                                                                        <tr>
-                                                                            <td colSpan={3} className="px-4 py-6 text-center text-gray-400">
-                                                                                No detailed history available.
-                                                                            </td>
-                                                                        </tr>
-                                                                    )}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    )}
+                                                    <div className="p-6">
+                                                        {!liveStatus ? (
+                                                            <div className="text-center py-8">
+                                                                <div className="bg-gray-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                                    <RefreshCw className="w-5 h-5 text-gray-400" />
+                                                                </div>
+                                                                <p className="text-gray-500 text-sm font-medium">History not loaded</p>
+                                                                <p className="text-xs text-gray-400 mt-1">Click the refresh icon to fetch live data</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="relative pl-2">
+                                                                {/* Timeline Connector Line */}
+                                                                <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100" />
+
+                                                                {(() => {
+                                                                    const history = statusData.transactionStatusHistory || statusData.activityHistory || [];
+
+                                                                    if (history.length === 0) {
+                                                                        return (
+                                                                            <div className="text-center py-6 text-gray-400 text-sm">
+                                                                                No tracking updates available.
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    return history.map((item: any, idx: number) => {
+                                                                        const dateStr = item.transactionDate || item.date;
+                                                                        const status = item.transactionStatus || item.status;
+                                                                        const details = item.comments || item.details;
+                                                                        const isLatest = idx === 0; // Assuming API returns latest first? Usually history is chronological or reverse. Let's assume order is fine.
+                                                                        // Actually let's assume raw order. If chronological, last is latest.
+
+                                                                        // Icon Logic
+                                                                        const isDelivered = status.toLowerCase().includes("delivered");
+                                                                        const isReturned = status.toLowerCase().includes("return");
+                                                                        const isPickup = status.toLowerCase().includes("pic") || status.toLowerCase().includes("book");
+
+                                                                        return (
+                                                                            <div key={idx} className="relative flex gap-4 pb-8 last:pb-0 group">
+                                                                                {/* Icon Node */}
+                                                                                <div className={`
+                                                                                    relative z-10 flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors
+                                                                                    ${isDelivered ? "bg-green-50 border-green-100 text-green-600" :
+                                                                                        isReturned ? "bg-red-50 border-red-100 text-red-600" :
+                                                                                            isPickup ? "bg-blue-50 border-blue-100 text-blue-600" :
+                                                                                                "bg-white border-gray-200 text-gray-400 group-hover:border-blue-200 group-hover:text-blue-500"}
+                                                                                `}>
+                                                                                    {isDelivered ? <CheckCircle2 size={18} /> :
+                                                                                        isReturned ? <XCircle size={18} /> :
+                                                                                            isPickup ? <MapPin size={18} /> :
+                                                                                                <Truck size={18} />}
+                                                                                </div>
+
+                                                                                {/* Content */}
+                                                                                <div className="flex-1 pt-1.5 min-w-0">
+                                                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
+                                                                                        <h5 className={`text-sm font-semibold ${isDelivered ? "text-green-700" : isReturned ? "text-red-700" : "text-gray-900"}`}>
+                                                                                            {status}
+                                                                                        </h5>
+                                                                                        <span className="text-xs text-gray-400 font-mono whitespace-nowrap bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                                                                            {dateStr ? new Date(dateStr).toLocaleString() : "Date Unknown"}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    {details && (
+                                                                                        <p className="mt-2 text-xs text-gray-500 leading-relaxed bg-gray-50/80 p-3 rounded-lg border border-gray-100">
+                                                                                            {details}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    });
+                                                                })()}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>

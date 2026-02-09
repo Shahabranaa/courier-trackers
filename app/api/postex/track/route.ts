@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         // Let's assume 'track-order' as it's a common convention and fits the others.
 
         const response = await fetch(
-            `https://api.postex.pk/services/integration/api/order/v1/track-order/${trackingNumber}`,
+            `https://api.postex.pk/services/integration/api/order/v1/get-order-status/${trackingNumber}`,
             {
                 method: "GET",
                 headers: {
