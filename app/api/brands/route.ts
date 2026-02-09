@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
     try {
+        const user = await getCurrentUser();
+        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
         const brands = await prisma.brand.findMany({
             orderBy: { createdAt: 'asc' }
         });
@@ -20,6 +24,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
     try {
+        const user = await getCurrentUser();
+        if (!user || user.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         const body = await req.json();
         const { name, apiToken, tranzoToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret } = body;
 

@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
+import { useAuth } from "@/components/providers/AuthContext";
 import { Plus, Trash2, Edit2, Check, X, Building2, Key, Globe } from "lucide-react";
 
 export default function SettingsPage() {
     const { brands, addBrand, updateBrand, deleteBrand, selectBrand, selectedBrand } = useBrand();
+    const { user } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (user && user.role !== "admin") {
+            router.push("/");
+        }
+    }, [user, router]);
+
+    if (!user || user.role !== "admin") return null;
 
     // Form State
     const [isAdding, setIsAdding] = useState(false);

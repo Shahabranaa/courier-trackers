@@ -2,16 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell } from "lucide-react";
+import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Shield } from "lucide-react";
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
+import { useAuth } from "./providers/AuthContext";
 
 export default function DashboardSidebar() {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
     const [brandMenuOpen, setBrandMenuOpen] = useState(false);
-
+    const { user, logout } = useAuth();
     const { brands, selectedBrand, selectBrand } = useBrand();
+
+    const isAdmin = user?.role === "admin";
 
     const navItems = [
         { name: "Overview", href: "/", icon: LayoutDashboard },
@@ -30,10 +33,8 @@ export default function DashboardSidebar() {
         { name: "Smart Alerts", href: "/alerts", icon: Bell },
     ];
 
-    // Track expanded state for menus (default PostEx open if on a sub-page? or just manual?)
-    // Let's default to expanded if pathname starts with href
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-        "/postex": true // Default expanded for visibility
+        "/postex": true
     });
 
     const toggleGroup = (href: string) => {
@@ -44,7 +45,6 @@ export default function DashboardSidebar() {
         <aside
             className={`bg-white border-r border-gray-200 h-screen sticky top-0 flex flex-col transition-all duration-300 z-40 ${collapsed ? "w-20" : "w-64"}`}
         >
-            {/* Logo Area */}
             <div className="h-16 flex items-center justify-center border-b border-gray-100 relative">
                 {collapsed ? (
                     <div className="h-10 w-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
@@ -60,7 +60,6 @@ export default function DashboardSidebar() {
                 )}
             </div>
 
-            {/* Brand Switcher */}
             {!collapsed && (
                 <div className="px-3 pt-4 pb-2">
                     <div className="relative">
@@ -80,7 +79,6 @@ export default function DashboardSidebar() {
                             <ChevronDown size={16} className={`text-gray-400 transition-transform ${brandMenuOpen ? "rotate-180" : ""}`} />
                         </button>
 
-                        {/* Dropdown */}
                         {brandMenuOpen && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setBrandMenuOpen(false)}></div>
@@ -100,13 +98,8 @@ export default function DashboardSidebar() {
                                             </button>
                                         ))}
                                         {brands.length === 0 && (
-                                            <div className="px-4 py-3 text-xs text-gray-400 text-center">No brands found</div>
+                                            <div className="px-4 py-3 text-xs text-gray-400 text-center">No brands available</div>
                                         )}
-                                    </div>
-                                    <div className="border-t border-gray-100 p-2 bg-gray-50">
-                                        <Link href="/settings" onClick={() => setBrandMenuOpen(false)} className="flex items-center justify-center gap-2 w-full p-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:text-indigo-600 hover:border-indigo-200 transition-colors">
-                                            <Plus size={14} /> Manage Brands
-                                        </Link>
                                     </div>
                                 </div>
                             </>
@@ -115,7 +108,6 @@ export default function DashboardSidebar() {
                 </div>
             )}
 
-            {/* Navigation */}
             <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href || (item.children && item.children.some(child => pathname === child.href));
@@ -159,7 +151,6 @@ export default function DashboardSidebar() {
                                 )}
                             </div>
 
-                            {/* Sub-menu */}
                             {!collapsed && item.children && isExpanded && (
                                 <div className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 pl-2">
                                     {item.children.map((child) => {
@@ -184,29 +175,57 @@ export default function DashboardSidebar() {
                 })}
             </nav>
 
-            {/* Footer / User Profile */}
-            <div className="p-3 border-t border-gray-100">
-                <Link href="/settings" className="flex items-center gap-3 w-full p-2 hover:bg-gray-50 rounded-xl transition-colors group">
-                    <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200 group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                        <Settings size={18} />
+            <div className="p-3 border-t border-gray-100 space-y-1">
+                {isAdmin && (
+                    <Link href="/admin" className={`flex items-center gap-3 w-full p-2 rounded-xl transition-colors group ${pathname === "/admin" ? "bg-indigo-50 text-indigo-700" : "hover:bg-gray-50"}`}>
+                        <div className={`h-9 w-9 rounded-full flex items-center justify-center border transition-colors ${pathname === "/admin" ? "bg-indigo-100 border-indigo-200 text-indigo-600" : "bg-gray-100 border-gray-200 text-gray-500 group-hover:border-indigo-200 group-hover:text-indigo-600"}`}>
+                            <Shield size={18} />
+                        </div>
+                        {!collapsed && (
+                            <div className="text-left overflow-hidden">
+                                <p className={`text-sm font-medium ${pathname === "/admin" ? "text-indigo-700" : "text-gray-900 group-hover:text-indigo-700"}`}>Admin Panel</p>
+                                <p className="text-xs text-gray-500 truncate">Manage users</p>
+                            </div>
+                        )}
+                    </Link>
+                )}
+
+                {isAdmin && (
+                    <Link href="/settings" className={`flex items-center gap-3 w-full p-2 rounded-xl transition-colors group ${pathname === "/settings" ? "bg-indigo-50 text-indigo-700" : "hover:bg-gray-50"}`}>
+                        <div className={`h-9 w-9 rounded-full flex items-center justify-center border transition-colors ${pathname === "/settings" ? "bg-indigo-100 border-indigo-200 text-indigo-600" : "bg-gray-100 border-gray-200 text-gray-500 group-hover:border-indigo-200 group-hover:text-indigo-600"}`}>
+                            <Settings size={18} />
+                        </div>
+                        {!collapsed && (
+                            <div className="text-left overflow-hidden">
+                                <p className={`text-sm font-medium ${pathname === "/settings" ? "text-indigo-700" : "text-gray-900 group-hover:text-indigo-700"}`}>Settings</p>
+                                <p className="text-xs text-gray-500 truncate">Manage keys</p>
+                            </div>
+                        )}
+                    </Link>
+                )}
+
+                <button
+                    onClick={logout}
+                    className="flex items-center gap-3 w-full p-2 hover:bg-red-50 rounded-xl transition-colors group"
+                >
+                    <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200 group-hover:border-red-200 group-hover:text-red-600 transition-colors">
+                        <LogOut size={18} />
                     </div>
                     {!collapsed && (
                         <div className="text-left overflow-hidden">
-                            <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-700">Settings</p>
-                            <p className="text-xs text-gray-500 truncate">Manage keys</p>
+                            <p className="text-sm font-medium text-gray-900 group-hover:text-red-700">{user?.username || "Logout"}</p>
+                            <p className="text-xs text-gray-500 truncate">Sign out</p>
                         </div>
                     )}
-                </Link>
+                </button>
             </div>
 
-            {/* Collapse Toggle */}
             <button
                 onClick={() => setCollapsed(!collapsed)}
                 className="absolute -right-3 top-20 bg-white border border-gray-200 rounded-full p-1 shadow-sm text-gray-400 hover:text-indigo-600 hover:border-indigo-200 transition-all"
             >
                 {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
-
         </aside>
     );
 }
