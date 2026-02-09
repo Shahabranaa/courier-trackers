@@ -227,6 +227,11 @@ export async function GET(req: NextRequest) {
                             ? `${order.customer.first_name || ""} ${order.customer.last_name || ""}`.trim()
                             : (order.billing_address?.name || "");
 
+                        const addr = order.shipping_address || order.billing_address || {};
+                        const phone = order.phone || addr.phone || order.customer?.phone || "";
+                        const shippingAddress = [addr.address1, addr.address2].filter(Boolean).join(", ");
+                        const shippingCity = addr.city || "";
+
                         return prisma.shopifyOrder.upsert({
                             where: { shopifyOrderId: String(order.id) },
                             update: {
@@ -235,6 +240,9 @@ export async function GET(req: NextRequest) {
                                 orderName: order.name || "",
                                 email: order.email || "",
                                 customerName,
+                                phone,
+                                shippingAddress,
+                                shippingCity,
                                 createdAt: order.created_at || new Date().toISOString(),
                                 financialStatus: order.financial_status || "",
                                 fulfillmentStatus: order.fulfillment_status || "unfulfilled",
@@ -268,6 +276,9 @@ export async function GET(req: NextRequest) {
                                 orderName: order.name || "",
                                 email: order.email || "",
                                 customerName,
+                                phone,
+                                shippingAddress,
+                                shippingCity,
                                 createdAt: order.created_at || new Date().toISOString(),
                                 financialStatus: order.financial_status || "",
                                 fulfillmentStatus: order.fulfillment_status || "unfulfilled",

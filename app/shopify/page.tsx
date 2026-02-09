@@ -685,6 +685,11 @@ export default function ShopifyOrdersPage() {
                                                         <span>{order.customerName || "No customer"}</span>
                                                         <span className="font-mono font-bold text-gray-700">Rs. {Math.round(order.totalPrice).toLocaleString()}</span>
                                                     </div>
+                                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1 text-[11px] text-gray-400">
+                                                        {order.phone && <span>Ph: {order.phone}</span>}
+                                                        {order.shippingCity && <span>{order.shippingCity}</span>}
+                                                        {order.shippingAddress && <span className="truncate max-w-[250px]">{order.shippingAddress}</span>}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="mt-3 relative">

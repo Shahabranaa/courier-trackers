@@ -74,6 +74,9 @@ model ShopifyOrder {
   fulfillments      String   @default("[]")
   trackingNumbers   String   @default("[]")
   courierPartner    String   @default("")
+  phone             String   @default("")
+  shippingAddress   String   @default("")
+  shippingCity      String   @default("")
   pendingRemark     String   @default("")
   lastFetchedAt     DateTime @default(now())
 
