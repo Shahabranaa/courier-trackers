@@ -41,7 +41,7 @@ export default function CityStats({
                 total: data.total,
                 delivered: data.delivered
             }))
-            .sort((a, b) => a.rate - b.rate); // Lowest rate first
+            .sort((a, b) => b.total - a.total);
     }, [orders, trackingStatuses]);
 
     if (orders.length === 0) return null;
@@ -50,7 +50,7 @@ export default function CityStats({
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden h-fit sticky top-24">
             <div className="p-4 border-b border-gray-100 bg-gray-50/50">
                 <h3 className="font-semibold text-gray-800">Delivery Rates</h3>
-                <p className="text-xs text-gray-500">By City (Lowest First)</p>
+                <p className="text-xs text-gray-500">By City (Most Orders First)</p>
             </div>
             <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
                 <table className="w-full text-sm text-left">
