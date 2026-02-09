@@ -18,12 +18,13 @@ export default function SettingsPage() {
         tranzoToken: "",
         proxyUrl: "",
         shopifyStore: "",
+        shopifyAccessToken: "",
         shopifyClientId: "",
         shopifyClientSecret: ""
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", tranzoToken: "", proxyUrl: "", shopifyStore: "", shopifyClientId: "", shopifyClientSecret: "" });
+        setFormData({ name: "", apiToken: "", tranzoToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -55,6 +56,7 @@ export default function SettingsPage() {
             tranzoToken: brand.tranzoToken || "",
             proxyUrl: brand.proxyUrl || "",
             shopifyStore: brand.shopifyStore || "",
+            shopifyAccessToken: brand.shopifyAccessToken || "",
             shopifyClientId: brand.shopifyClientId || "",
             shopifyClientSecret: brand.shopifyClientSecret || ""
         });
@@ -138,7 +140,7 @@ export default function SettingsPage() {
                                 </h4>
                             </div>
 
-                            <div>
+                            <div className="col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Store Domain</label>
                                 <input
                                     type="text"
@@ -147,6 +149,24 @@ export default function SettingsPage() {
                                     placeholder="mystore.myshopify.com"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all font-mono text-sm"
                                 />
+                            </div>
+
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Admin API Access Token</label>
+                                <input
+                                    type="password"
+                                    value={formData.shopifyAccessToken}
+                                    onChange={e => setFormData({ ...formData, shopifyAccessToken: e.target.value })}
+                                    placeholder="shpat_xxxxx... (from Custom App in Shopify Admin)"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all font-mono text-sm"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">For Custom Apps created in Shopify Admin &gt; Settings &gt; Apps &gt; Develop apps</p>
+                            </div>
+
+                            <div className="col-span-2 flex items-center gap-3 text-xs text-gray-400">
+                                <div className="flex-1 h-px bg-gray-200" />
+                                <span>OR use Client Credentials (Dev Dashboard apps)</span>
+                                <div className="flex-1 h-px bg-gray-200" />
                             </div>
 
                             <div>
@@ -266,7 +286,7 @@ export default function SettingsPage() {
                                         </div>
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Shopify</span>
-                                            {brand.shopifyClientId && brand.shopifyClientSecret ? (
+                                            {(brand.shopifyAccessToken || (brand.shopifyClientId && brand.shopifyClientSecret)) ? (
                                                 <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
                                             ) : (
                                                 <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>

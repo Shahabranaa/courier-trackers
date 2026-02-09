@@ -46,12 +46,13 @@ export interface TrackingStatus {
 export interface Brand {
   id: string;
   name: string;
-  apiToken: string; // PostEx Token
-  tranzoToken?: string; // Tranzo Token
-  proxyUrl?: string; // Optional proxy for geo-restricted APIs (e.g., http://ip:port)
-  shopifyStore?: string; // Shopify store domain (e.g., mystore.myshopify.com)
-  shopifyClientId?: string; // Shopify App Client ID
-  shopifyClientSecret?: string; // Shopify App Client Secret (masked in client)
+  apiToken: string;
+  tranzoToken?: string;
+  proxyUrl?: string;
+  shopifyStore?: string;
+  shopifyAccessToken?: string;
+  shopifyClientId?: string;
+  shopifyClientSecret?: string;
 }
 
 export interface PaymentStatus {

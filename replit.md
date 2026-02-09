@@ -4,7 +4,7 @@
 A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopify. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
 
 ## Recent Changes
-- **2026-02-09**: Migrated Shopify auth from static access token to OAuth Client Credentials Grant flow. Brand model now stores shopifyClientId + shopifyClientSecret (replacing shopifyAccessToken). Server exchanges credentials for short-lived tokens (cached 23h). Client Secret masked in API responses.
+- **2026-02-09**: Shopify auth now supports BOTH methods: Direct Admin API Access Token (for Custom Apps) AND Client Credentials Grant (for Dev Dashboard apps). Brand model has shopifyAccessToken, shopifyClientId, shopifyClientSecret fields. Server auto-detects which method to use. Improved error handling with specific messages for DNS failures, 403/401 errors, and missing credentials. Settings UI shows both options with clear separator.
 - **2026-02-09**: Added Shopify Orders page. Fetches orders via Shopify Admin API, compares daily Shopify orders vs dispatched orders by courier partner (PostEx/Tranzo). Includes DB-first architecture, daily comparison chart, fulfillment tracking, and revenue summary.
 - **2026-02-09**: Refactored ALL pages to DB-first architecture. PostEx, Tranzo, Overview, and Critical Orders all load from database on page open. External courier APIs only called when user clicks "Sync Live Data". Removed auto-sync and cache TTL logic.
 - **2026-02-09**: Migrated brand settings from localStorage to PostgreSQL. Brands now persist across deployments/devices. Auto-migrates existing localStorage brands on first load.

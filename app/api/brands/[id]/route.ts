@@ -5,8 +5,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        const { name, apiToken, tranzoToken, proxyUrl, shopifyStore, shopifyClientId, shopifyClientSecret } = body;
+        const { name, apiToken, tranzoToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret } = body;
 
+        const shouldUpdateAccessToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
         const shouldUpdateSecret = shopifyClientSecret !== undefined && shopifyClientSecret !== "••••••••";
 
         const brand = await prisma.brand.update({
@@ -17,6 +18,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(tranzoToken !== undefined && { tranzoToken }),
                 ...(proxyUrl !== undefined && { proxyUrl }),
                 ...(shopifyStore !== undefined && { shopifyStore }),
+                ...(shouldUpdateAccessToken && { shopifyAccessToken }),
                 ...(shopifyClientId !== undefined && { shopifyClientId }),
                 ...(shouldUpdateSecret && { shopifyClientSecret })
             }
@@ -24,6 +26,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         return NextResponse.json({
             ...brand,
+            shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : "",
             shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : ""
         });
     } catch (error: any) {

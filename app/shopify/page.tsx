@@ -207,7 +207,9 @@ export default function ShopifyOrdersPage() {
         };
     }, [shopifyOrders, courierOrders]);
 
-    const hasShopifyCredentials = selectedBrand?.shopifyStore && selectedBrand?.shopifyClientId && selectedBrand?.shopifyClientSecret && selectedBrand.shopifyClientSecret !== "";
+    const hasDirectToken = !!(selectedBrand?.shopifyAccessToken && selectedBrand.shopifyAccessToken !== "" && selectedBrand.shopifyAccessToken !== "••••••••" ? true : selectedBrand?.shopifyAccessToken === "••••••••");
+    const hasClientCreds = !!(selectedBrand?.shopifyClientId && selectedBrand?.shopifyClientSecret && selectedBrand.shopifyClientSecret !== "");
+    const hasShopifyCredentials = selectedBrand?.shopifyStore && (hasDirectToken || hasClientCreds);
 
     return (
         <DashboardLayout>
@@ -255,9 +257,7 @@ export default function ShopifyOrdersPage() {
                                     ? "Select a brand first, then add your Shopify credentials in Settings."
                                     : !selectedBrand.shopifyStore
                                         ? `Brand "${selectedBrand.name}" is missing a Shopify store domain.`
-                                        : !selectedBrand.shopifyClientId
-                                            ? `Brand "${selectedBrand.name}" is missing a Shopify Client ID.`
-                                            : `Brand "${selectedBrand.name}" is missing a Shopify Client Secret.`
+                                        : `Brand "${selectedBrand.name}" needs Shopify authentication. Add either an Admin API Access Token or Client ID + Client Secret.`
                                 }
                             </p>
                             <Link
