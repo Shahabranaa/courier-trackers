@@ -4,6 +4,7 @@
 A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopify. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
 
 ## Recent Changes
+- **2026-02-09**: Added Delivery Performance Insights to Analytics page: average delivery time by city (horizontal bar chart, color-coded by speed), return rate analysis by city and product (ranked lists with rate bars), courier comparison (PostEx vs Tranzo side-by-side with delivery/return/in-transit/cancelled breakdown + stacked progress bars + comparison bar chart). New API route at /api/analytics/performance. Overall stats cards show avg delivery days, delivered count, returned count, total orders.
 - **2026-02-09**: Added Analytics page with order trends (daily/weekly/monthly toggle with growth %), peak order days (day-of-week chart + top dates), and Pakistan city heatmap (SVG map with 44 cities, heat-colored circles sized by order volume). API route at /api/analytics aggregates from both Order and ShopifyOrder tables. Added Analytics link to sidebar.
 - **2026-02-09**: Added phone, shippingAddress, shippingCity fields to ShopifyOrder model. Pending orders modal now shows address, city, and phone number for each order.
 - **2026-02-09**: Added upfront payment total to PostEx dashboard monthly snapshot widget.

@@ -10,7 +10,8 @@ import {
 import {
   TrendingUp, TrendingDown, ArrowUp, ArrowDown,
   Package, DollarSign, CalendarDays, MapPin,
-  BarChart3, Loader2, AlertCircle, Trophy
+  BarChart3, Loader2, AlertCircle, Trophy, Clock,
+  RotateCcw, Truck, CheckCircle, XCircle, Timer
 } from "lucide-react";
 
 interface DailyTrend {
@@ -37,6 +38,20 @@ interface AnalyticsData {
   };
   cityBreakdown: { city: string; count: number; revenue: number; percentage: number }[];
 }
+
+interface PerformanceData {
+  overallStats: { totalOrders: number; totalDelivered: number; totalReturned: number; avgDeliveryDays: number };
+  deliveryByCity: { city: string; avgDays: number; deliveredCount: number }[];
+  deliveryByCourier: { courier: string; avgDays: number; deliveredCount: number }[];
+  cityReturnRates: { city: string; total: number; returned: number; rate: number }[];
+  productReturnRates: { product: string; total: number; returned: number; rate: number }[];
+  courierComparison: { courier: string; total: number; delivered: number; returned: number; inTransit: number; cancelled: number; deliveryRate: number; returnRate: number }[];
+}
+
+const COURIER_COLORS: Record<string, string> = {
+  PostEx: "#f97316",
+  Tranzo: "#8b5cf6",
+};
 
 const PAKISTAN_CITIES: Record<string, { x: number; y: number; province: string }> = {
   "karachi": { x: 245, y: 580, province: "Sindh" },
@@ -155,6 +170,7 @@ function groupByWeek(data: DailyTrend[]): DailyTrend[] {
 export default function AnalyticsPage() {
   const { selectedBrand } = useBrand();
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [perfData, setPerfData] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -174,6 +190,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (!selectedBrand) {
       setData(null);
+      setPerfData(null);
       return;
     }
 
@@ -182,12 +199,18 @@ export default function AnalyticsPage() {
       setError(null);
       try {
         const { startDate, endDate } = getDateRange();
-        const res = await fetch(`/api/analytics?startDate=${startDate}&endDate=${endDate}`, {
-          headers: { "brand-id": selectedBrand.id },
-        });
-        if (!res.ok) throw new Error("Failed to fetch analytics");
-        const json = await res.json();
+        const headers = { "brand-id": selectedBrand.id };
+        const [analyticsRes, perfRes] = await Promise.all([
+          fetch(`/api/analytics?startDate=${startDate}&endDate=${endDate}`, { headers }),
+          fetch(`/api/analytics/performance?startDate=${startDate}&endDate=${endDate}`, { headers }),
+        ]);
+        if (!analyticsRes.ok) throw new Error("Failed to fetch analytics");
+        const json = await analyticsRes.json();
         setData(json);
+        if (perfRes.ok) {
+          const perfJson = await perfRes.json();
+          setPerfData(perfJson);
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -660,6 +683,260 @@ export default function AnalyticsPage() {
                 </div>
               )}
             </section>
+
+            {/* Section 4: Delivery Performance Insights */}
+            {perfData && (
+              <section>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-emerald-50 rounded-xl">
+                    <Truck className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Delivery Performance</h2>
+                    <p className="text-sm text-gray-500">Delivery times, return rates, and courier comparison</p>
+                  </div>
+                </div>
+
+                {/* Overall Stats Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-blue-50 rounded-lg"><Timer className="w-4 h-4 text-blue-600" /></div>
+                      <span className="text-sm text-gray-500">Avg Delivery Time</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{perfData.overallStats.avgDeliveryDays} <span className="text-sm font-normal text-gray-400">days</span></p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-green-50 rounded-lg"><CheckCircle className="w-4 h-4 text-green-600" /></div>
+                      <span className="text-sm text-gray-500">Delivered</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{perfData.overallStats.totalDelivered.toLocaleString()}</p>
+                    {perfData.overallStats.totalOrders > 0 && (
+                      <p className="text-xs text-gray-400 mt-1">{Math.round((perfData.overallStats.totalDelivered / perfData.overallStats.totalOrders) * 100)}% of total</p>
+                    )}
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-red-50 rounded-lg"><RotateCcw className="w-4 h-4 text-red-500" /></div>
+                      <span className="text-sm text-gray-500">Returned</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{perfData.overallStats.totalReturned.toLocaleString()}</p>
+                    {perfData.overallStats.totalOrders > 0 && (
+                      <p className="text-xs text-gray-400 mt-1">{Math.round((perfData.overallStats.totalReturned / perfData.overallStats.totalOrders) * 100)}% return rate</p>
+                    )}
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-indigo-50 rounded-lg"><Package className="w-4 h-4 text-indigo-600" /></div>
+                      <span className="text-sm text-gray-500">Total Orders</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{perfData.overallStats.totalOrders.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  {/* Courier Comparison Side-by-Side */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <h3 className="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-gray-500" />
+                      Courier Comparison
+                    </h3>
+                    {perfData.courierComparison.length > 0 ? (
+                      <div className="space-y-6">
+                        {perfData.courierComparison.map((c) => (
+                          <div key={c.courier} className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-bold" style={{ color: COURIER_COLORS[c.courier] || "#6366f1" }}>{c.courier}</span>
+                              <span className="text-xs text-gray-400">{c.total} orders</span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              <div className="text-center p-2 bg-green-50 rounded-lg">
+                                <p className="text-lg font-bold text-green-700">{c.deliveryRate}%</p>
+                                <p className="text-[10px] text-green-600 font-medium">Delivered</p>
+                              </div>
+                              <div className="text-center p-2 bg-red-50 rounded-lg">
+                                <p className="text-lg font-bold text-red-600">{c.returnRate}%</p>
+                                <p className="text-[10px] text-red-500 font-medium">Returned</p>
+                              </div>
+                              <div className="text-center p-2 bg-amber-50 rounded-lg">
+                                <p className="text-lg font-bold text-amber-700">{c.inTransit}</p>
+                                <p className="text-[10px] text-amber-600 font-medium">In Transit</p>
+                              </div>
+                              <div className="text-center p-2 bg-gray-50 rounded-lg">
+                                <p className="text-lg font-bold text-gray-600">{c.cancelled}</p>
+                                <p className="text-[10px] text-gray-500 font-medium">Cancelled</p>
+                              </div>
+                            </div>
+                            <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+                              {c.delivered > 0 && (
+                                <div className="bg-green-500 transition-all" style={{ width: `${(c.delivered / c.total) * 100}%` }} title={`Delivered: ${c.delivered}`} />
+                              )}
+                              {c.returned > 0 && (
+                                <div className="bg-red-400 transition-all" style={{ width: `${(c.returned / c.total) * 100}%` }} title={`Returned: ${c.returned}`} />
+                              )}
+                              {c.inTransit > 0 && (
+                                <div className="bg-amber-400 transition-all" style={{ width: `${(c.inTransit / c.total) * 100}%` }} title={`In Transit: ${c.inTransit}`} />
+                              )}
+                              {c.cancelled > 0 && (
+                                <div className="bg-gray-400 transition-all" style={{ width: `${(c.cancelled / c.total) * 100}%` }} title={`Cancelled: ${c.cancelled}`} />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {perfData.courierComparison.length >= 2 && (
+                          <div className="pt-4 border-t border-gray-100">
+                            <p className="text-xs text-gray-500 mb-2 font-medium">Delivery Rate Comparison</p>
+                            <div className="h-48">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={perfData.courierComparison} barCategoryGap="30%">
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                  <XAxis dataKey="courier" tick={{ fontSize: 12 }} />
+                                  <YAxis tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
+                                  <Tooltip
+                                    contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", padding: "12px" }}
+                                    formatter={(value: number | undefined, name: string | undefined) => [`${value ?? 0}%`, name === "deliveryRate" ? "Delivery Rate" : "Return Rate"]}
+                                  />
+                                  <Bar dataKey="deliveryRate" name="deliveryRate" fill="#22c55e" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                                  <Bar dataKey="returnRate" name="returnRate" fill="#ef4444" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <Truck className="w-8 h-8 mb-2" />
+                        <p className="text-sm">No courier data available</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Average Delivery Time by City */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <h3 className="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-500" />
+                      Avg Delivery Time by City
+                    </h3>
+                    {perfData.deliveryByCity.length > 0 ? (
+                      <>
+                        <div className="h-64 mb-4">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={perfData.deliveryByCity.slice(0, 10)} layout="vertical" margin={{ left: 10, right: 20 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                              <XAxis type="number" tick={{ fontSize: 11 }} unit=" d" />
+                              <YAxis type="category" dataKey="city" tick={{ fontSize: 11 }} width={80} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", padding: "12px" }}
+                                formatter={(value: number | undefined) => [`${value ?? 0} days`, "Avg Delivery"]}
+                              />
+                              <Bar dataKey="avgDays" radius={[0, 6, 6, 0]} maxBarSize={24}>
+                                {perfData.deliveryByCity.slice(0, 10).map((entry, index) => (
+                                  <Cell key={index} fill={entry.avgDays <= 3 ? "#22c55e" : entry.avgDays <= 5 ? "#f59e0b" : "#ef4444"} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        {perfData.deliveryByCourier.length > 0 && (
+                          <div className="flex gap-4 pt-3 border-t border-gray-100">
+                            {perfData.deliveryByCourier.map((c) => (
+                              <div key={c.courier} className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COURIER_COLORS[c.courier] || "#6366f1" }} />
+                                <span className="text-xs text-gray-600">{c.courier}: <strong>{c.avgDays}d</strong> avg ({c.deliveredCount} orders)</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <Clock className="w-8 h-8 mb-2" />
+                        <p className="text-sm">No delivery time data available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Return Rate Analysis */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Return Rate by City */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <h3 className="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                      <RotateCcw className="w-4 h-4 text-red-500" />
+                      Return Rate by City
+                    </h3>
+                    {perfData.cityReturnRates.length > 0 ? (
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                        {perfData.cityReturnRates.map((city, i) => {
+                          const maxRate = perfData.cityReturnRates[0].rate;
+                          return (
+                            <div key={city.city} className="group">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-gray-400 w-5">{i + 1}</span>
+                                  <span className="text-sm font-medium text-gray-800">{city.city}</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-right">
+                                  <span className="text-xs text-gray-400">{city.returned}/{city.total} orders</span>
+                                  <span className={`text-sm font-bold ${city.rate > 30 ? "text-red-600" : city.rate > 15 ? "text-amber-600" : "text-green-600"}`}>{city.rate}%</span>
+                                </div>
+                              </div>
+                              <div className="ml-7 bg-gray-100 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-500"
+                                  style={{
+                                    width: `${maxRate > 0 ? (city.rate / maxRate) * 100 : 0}%`,
+                                    backgroundColor: city.rate > 30 ? "#ef4444" : city.rate > 15 ? "#f59e0b" : "#22c55e",
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <RotateCcw className="w-8 h-8 mb-2" />
+                        <p className="text-sm">No return data available</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Return Rate by Product */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <h3 className="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                      <XCircle className="w-4 h-4 text-red-500" />
+                      Highest Return Products
+                    </h3>
+                    {perfData.productReturnRates.length > 0 ? (
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                        {perfData.productReturnRates.map((p, i) => (
+                          <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${p.rate > 30 ? "bg-red-100 text-red-700" : p.rate > 15 ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
+                              {i + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate" title={p.product}>{p.product}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs text-gray-400">{p.returned}/{p.total} returned</span>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.rate > 30 ? "bg-red-100 text-red-700" : p.rate > 15 ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>{p.rate}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <XCircle className="w-8 h-8 mb-2" />
+                        <p className="text-sm">No product return data</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
           </>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
