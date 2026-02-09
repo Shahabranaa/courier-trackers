@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("PRISMA_DATABASE_URL") // Connection pool / Accelerate
-  directUrl = env("DIRECT_URL")          // Direct connection for migrations
+  directUrl = env("POSTGRES_URL")        // Direct connection for migrations
 }
 
 model Order {
