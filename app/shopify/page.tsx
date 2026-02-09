@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import {
@@ -253,12 +254,19 @@ export default function ShopifyOrdersPage() {
                                 {!selectedBrand
                                     ? "Select a brand first, then add your Shopify credentials in Settings."
                                     : !selectedBrand.shopifyStore
-                                        ? `Brand "${selectedBrand.name}" is missing a Shopify store domain. Go to Settings to add it.`
+                                        ? `Brand "${selectedBrand.name}" is missing a Shopify store domain.`
                                         : !selectedBrand.shopifyClientId
-                                            ? `Brand "${selectedBrand.name}" is missing a Shopify Client ID. Go to Settings to add it.`
-                                            : `Brand "${selectedBrand.name}" is missing a Shopify Client Secret. Go to Settings to add it.`
+                                            ? `Brand "${selectedBrand.name}" is missing a Shopify Client ID.`
+                                            : `Brand "${selectedBrand.name}" is missing a Shopify Client Secret.`
                                 }
                             </p>
+                            <Link
+                                href="/settings"
+                                className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-4 py-2 rounded-lg transition-colors"
+                            >
+                                Go to Settings
+                                <ArrowRight className="w-4 h-4" />
+                            </Link>
                         </div>
                     </div>
                 )}
