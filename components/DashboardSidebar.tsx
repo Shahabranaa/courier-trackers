@@ -15,9 +15,27 @@ export default function DashboardSidebar() {
 
     const navItems = [
         { name: "Overview", href: "/", icon: LayoutDashboard },
-        { name: "PostEx Portal", href: "/postex", icon: Truck },
+        {
+            name: "PostEx Portal",
+            href: "/postex",
+            icon: Truck,
+            children: [
+                { name: "All Orders", href: "/postex" },
+                { name: "Critical Orders", href: "/postex/critical" },
+            ]
+        },
         { name: "Tranzo Portal", href: "/tranzo", icon: Package },
     ];
+
+    // Track expanded state for menus (default PostEx open if on a sub-page? or just manual?)
+    // Let's default to expanded if pathname starts with href
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+        "/postex": true // Default expanded for visibility
+    });
+
+    const toggleGroup = (href: string) => {
+        setExpandedGroups(prev => ({ ...prev, [href]: !prev[href] }));
+    };
 
     return (
         <aside
@@ -95,29 +113,70 @@ export default function DashboardSidebar() {
             )}
 
             {/* Navigation */}
-            <nav className="flex-1 py-4 px-3 space-y-1">
+            <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
                 {navItems.map((item) => {
-                    const isActive = pathname === item.href;
+                    const isActive = pathname === item.href || (item.children && item.children.some(child => pathname === child.href));
+                    const isExpanded = expandedGroups[item.href] || false;
                     const Icon = item.icon;
 
                     return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all group ${isActive
-                                ? "bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200"
-                                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                                }`}
-                            title={collapsed ? item.name : ""}
-                        >
-                            <div className={`${isActive ? "text-indigo-600" : "text-gray-400 group-hover:text-gray-600"}`}>
-                                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                        <div key={item.href}>
+                            <div
+                                onClick={() => item.children ? toggleGroup(item.href) : null}
+                                className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all group cursor-pointer ${(!item.children && isActive)
+                                        ? "bg-indigo-50 text-indigo-700 font-medium shadow-sm ring-1 ring-indigo-200"
+                                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                                    }`}
+                                title={collapsed ? item.name : ""}
+                            >
+                                <Link
+                                    href={item.children ? "#" : item.href}
+                                    onClick={(e) => {
+                                        if (item.children) {
+                                            e.preventDefault();
+                                            toggleGroup(item.href);
+                                        }
+                                    }}
+                                    className="flex items-center flex-1 gap-3"
+                                >
+                                    <div className={`${isActive ? "text-indigo-600" : "text-gray-400 group-hover:text-gray-600"}`}>
+                                        <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                                    </div>
+
+                                    {!collapsed && (
+                                        <span className="whitespace-nowrap flex-1">{item.name}</span>
+                                    )}
+                                </Link>
+
+                                {!collapsed && item.children && (
+                                    <ChevronDown
+                                        size={16}
+                                        className={`text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                                    />
+                                )}
                             </div>
 
-                            {!collapsed && (
-                                <span className="whitespace-nowrap">{item.name}</span>
+                            {/* Sub-menu */}
+                            {!collapsed && item.children && isExpanded && (
+                                <div className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 pl-2">
+                                    {item.children.map((child) => {
+                                        const isChildActive = pathname === child.href;
+                                        return (
+                                            <Link
+                                                key={child.href}
+                                                href={child.href}
+                                                className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${isChildActive
+                                                        ? "text-indigo-700 font-medium bg-indigo-50/50"
+                                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                                                    }`}
+                                            >
+                                                {child.name}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
                             )}
-                        </Link>
+                        </div>
                     );
                 })}
             </nav>
