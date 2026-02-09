@@ -183,11 +183,12 @@ export default function PostExDashboard() {
 
     // Monthly Snapshot Stats
     const monthlyStats = useMemo(() => {
-        const stats = { count: 0, revenue: 0, net: 0, delivered: 0, returned: 0 };
+        const stats = { count: 0, revenue: 0, net: 0, delivered: 0, returned: 0, upfront: 0 };
         orders.forEach(o => {
             stats.count++;
             stats.revenue += (o.orderAmount || o.invoicePayment || 0);
             stats.net += (o.netAmount || 0);
+            stats.upfront += (o.upfrontPayment || 0);
 
             const status = (o.transactionStatus || "").toLowerCase();
             if (status === "delivered" || status === "transferred" || status === "payment transferred") stats.delivered++;
@@ -343,6 +344,12 @@ export default function PostExDashboard() {
                                             <div>
                                                 <p className="text-xs uppercase font-bold tracking-wider opacity-70">Net Amount</p>
                                                 <p className="text-2xl font-bold text-emerald-100 mt-1">Rs. {monthlyStats.net.toLocaleString()}</p>
+                                            </div>
+                                        )}
+                                        {monthlyStats.upfront > 0 && (
+                                            <div>
+                                                <p className="text-xs uppercase font-bold tracking-wider opacity-70">Upfront Payment</p>
+                                                <p className="text-2xl font-bold text-yellow-100 mt-1">Rs. {monthlyStats.upfront.toLocaleString()}</p>
                                             </div>
                                         )}
                                         <div className="pl-6 border-l border-white/20">
