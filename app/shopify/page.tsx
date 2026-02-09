@@ -25,6 +25,9 @@ interface ShopifyOrderData {
     fulfillments: string;
     trackingNumbers: string;
     courierPartner: string;
+    phone: string;
+    shippingAddress: string;
+    shippingCity: string;
     pendingRemark: string;
 }
 
