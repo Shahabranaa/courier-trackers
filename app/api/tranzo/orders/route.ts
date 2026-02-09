@@ -64,96 +64,104 @@ export async function GET(req: NextRequest) {
         console.log(`Fetched ${results.length} live orders. Syncing to DB...`);
 
         if (results.length > 0) {
-            await prisma.$transaction(
-                results.map((order: any) => {
-                    const amount = parseFloat(order.cod_amount || "0");
-                    const statusVal = (order.order_status || "Unknown").toLowerCase();
-                    const cityVal = (order.destination_city_name || order.city_name || "").toLowerCase();
+            console.log(`Syncing ${results.length} Tranzo orders to DB...`);
 
-                    // Calculate Fees
-                    let fee = 0;
-                    let tax = 0;
-                    let other = 0;
+            // Process in chunks to avoid Prisma Accelerate limits (P6009)
+            const chunkSize = 50;
+            for (let i = 0; i < results.length; i += chunkSize) {
+                const chunk = results.slice(i, i + chunkSize);
 
-                    if (!statusVal.includes("cancel")) {
-                        if (cityVal.includes("lahore")) {
-                            fee = 90;
-                            tax = 13.44;
-                            other = 4;
-                        } else if (cityVal.includes("karachi")) {
-                            fee = 140;
-                            tax = 21.84;
-                            other = 6.5;
-                        } else {
-                            fee = 130;
-                            tax = 20.16;
-                            other = 0;
+                await prisma.$transaction(
+                    chunk.map((order: any) => {
+                        const amount = parseFloat(order.cod_amount || "0");
+                        const statusVal = (order.order_status || "Unknown").toLowerCase();
+                        const cityVal = (order.destination_city_name || order.city_name || "").toLowerCase();
+
+                        // Calculate Fees
+                        let fee = 0;
+                        let tax = 0;
+                        let other = 0;
+
+                        if (!statusVal.includes("cancel")) {
+                            if (cityVal.includes("lahore")) {
+                                fee = 90;
+                                tax = 13.44;
+                                other = 4;
+                            } else if (cityVal.includes("karachi")) {
+                                fee = 140;
+                                tax = 21.84;
+                                other = 6.5;
+                            } else {
+                                fee = 130;
+                                tax = 20.16;
+                                other = 0;
+                            }
                         }
-                    }
 
-                    // Withholding (Requested to be 0 for all orders)
-                    let withholding = 0;
+                        // Withholding (Requested to be 0 for all orders)
+                        let withholding = 0;
 
-                    const net = amount - (fee + tax + other) - withholding;
+                        const net = amount - (fee + tax + other) - withholding;
 
-                    return prisma.order.upsert({
-                        where: { trackingNumber: order.tracking_number },
-                        update: {
-                            brandId: brandId, // Update brand ownership if token/context changes (important!)
-                            courier: "Tranzo",
-                            orderRefNumber: order.reference_number || "",
-                            invoicePayment: amount,
-                            customerName: order.customer_name || "N/A",
-                            customerPhone: order.customer_phone || "",
-                            deliveryAddress: order.delivery_address || "",
-                            cityName: order.destination_city_name || order.city_name || null,
-                            transactionDate: order.created_at || new Date().toISOString(),
-                            orderDetail: order.order_details || "",
-                            orderType: "COD",
-                            orderDate: order.created_at || new Date().toISOString(),
-                            orderAmount: amount,
-                            orderStatus: order.order_status || "Unknown",
-                            transactionStatus: order.order_status || "Unknown",
-                            actualWeight: parseFloat(order.actual_weight || "0"),
+                        return prisma.order.upsert({
+                            where: { trackingNumber: order.tracking_number },
+                            update: {
+                                brandId: brandId, // Update brand ownership if token/context changes (important!)
+                                courier: "Tranzo",
+                                orderRefNumber: order.reference_number || "",
+                                invoicePayment: amount,
+                                customerName: order.customer_name || "N/A",
+                                customerPhone: order.customer_phone || "",
+                                deliveryAddress: order.delivery_address || "",
+                                cityName: order.destination_city_name || order.city_name || null,
+                                transactionDate: order.created_at || new Date().toISOString(),
+                                orderDetail: order.order_details || "",
+                                orderType: "COD",
+                                orderDate: order.created_at || new Date().toISOString(),
+                                orderAmount: amount,
+                                orderStatus: order.order_status || "Unknown",
+                                transactionStatus: order.order_status || "Unknown",
+                                actualWeight: parseFloat(order.actual_weight || "0"),
 
-                            // Financials
-                            transactionTax: tax,
-                            transactionFee: fee + other,
-                            upfrontPayment: 0,
-                            salesWithholdingTax: withholding,
-                            netAmount: net,
+                                // Financials
+                                transactionTax: tax,
+                                transactionFee: fee + other,
+                                upfrontPayment: 0,
+                                salesWithholdingTax: withholding,
+                                netAmount: net,
 
-                            lastFetchedAt: new Date()
-                        },
-                        create: {
-                            trackingNumber: order.tracking_number,
-                            brandId: brandId,
-                            courier: "Tranzo",
-                            orderRefNumber: order.reference_number || "",
-                            invoicePayment: amount,
-                            customerName: order.customer_name || "N/A",
-                            customerPhone: order.customer_phone || "",
-                            deliveryAddress: order.delivery_address || "",
-                            cityName: order.destination_city_name || order.city_name || null,
-                            transactionDate: order.created_at || new Date().toISOString(),
-                            orderDetail: order.order_details || "",
-                            orderType: "COD",
-                            orderDate: order.created_at || new Date().toISOString(),
-                            orderAmount: amount,
-                            orderStatus: order.order_status || "Unknown",
-                            transactionStatus: order.order_status || "Unknown",
-                            actualWeight: parseFloat(order.actual_weight || "0"),
+                                lastFetchedAt: new Date()
+                            },
+                            create: {
+                                trackingNumber: order.tracking_number,
+                                brandId: brandId,
+                                courier: "Tranzo",
+                                orderRefNumber: order.reference_number || "",
+                                invoicePayment: amount,
+                                customerName: order.customer_name || "N/A",
+                                customerPhone: order.customer_phone || "",
+                                deliveryAddress: order.delivery_address || "",
+                                cityName: order.destination_city_name || order.city_name || null,
+                                transactionDate: order.created_at || new Date().toISOString(),
+                                orderDetail: order.order_details || "",
+                                orderType: "COD",
+                                orderDate: order.created_at || new Date().toISOString(),
+                                orderAmount: amount,
+                                orderStatus: order.order_status || "Unknown",
+                                transactionStatus: order.order_status || "Unknown",
+                                actualWeight: parseFloat(order.actual_weight || "0"),
 
-                            // Financials
-                            transactionTax: tax,
-                            transactionFee: fee + other,
-                            upfrontPayment: 0,
-                            salesWithholdingTax: withholding,
-                            netAmount: net
-                        }
-                    });
-                })
-            );
+                                // Financials
+                                transactionTax: tax,
+                                transactionFee: fee + other,
+                                upfrontPayment: 0,
+                                salesWithholdingTax: withholding,
+                                netAmount: net
+                            }
+                        });
+                    })
+                );
+            }
         }
 
         // Return standardized LIVE response
