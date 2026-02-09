@@ -44,6 +44,16 @@ model Order {
   lastFetchedAt DateTime @default(now())
 }
 
+model Brand {
+  id          String  @id @default(cuid())
+  name        String
+  apiToken    String  @default("")
+  tranzoToken String  @default("")
+  proxyUrl    String  @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model TrackingStatus {
   trackingNumber String @id
   data           String // JSON string

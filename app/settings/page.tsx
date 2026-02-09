@@ -25,15 +25,23 @@ export default function SettingsPage() {
         setEditId(null);
     };
 
-    const handleSave = () => {
-        if (!formData.name) return; // Simple validation
+    const [saving, setSaving] = useState(false);
 
-        if (editId) {
-            updateBrand(editId, formData);
-        } else {
-            addBrand(formData);
+    const handleSave = async () => {
+        if (!formData.name) return;
+        setSaving(true);
+        try {
+            if (editId) {
+                await updateBrand(editId, formData);
+            } else {
+                await addBrand(formData);
+            }
+            resetForm();
+        } catch (e) {
+            console.error("Failed to save brand:", e);
+        } finally {
+            setSaving(false);
         }
-        resetForm();
     };
 
     const startEdit = (brand: any) => {
@@ -47,9 +55,9 @@ export default function SettingsPage() {
         setIsAdding(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm("Are you sure you want to delete this brand?")) {
-            deleteBrand(id);
+            await deleteBrand(id);
         }
     };
 
@@ -142,10 +150,10 @@ export default function SettingsPage() {
                             </button>
                             <button
                                 onClick={handleSave}
-                                disabled={!formData.name}
+                                disabled={!formData.name || saving}
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-sm disabled:opacity-50 transition-all"
                             >
-                                Save Brand
+                                {saving ? "Saving..." : "Save Brand"}
                             </button>
                         </div>
                     </div>

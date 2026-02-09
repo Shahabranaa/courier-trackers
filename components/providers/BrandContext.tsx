@@ -1,15 +1,16 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Brand } from "@/lib/types";
 
 interface BrandContextType {
     brands: Brand[];
     selectedBrand: Brand | null;
-    addBrand: (brand: Omit<Brand, "id">) => void;
-    updateBrand: (id: string, updates: Partial<Brand>) => void;
-    deleteBrand: (id: string) => void;
+    addBrand: (brand: Omit<Brand, "id">) => Promise<void>;
+    updateBrand: (id: string, updates: Partial<Brand>) => Promise<void>;
+    deleteBrand: (id: string) => Promise<void>;
     selectBrand: (id: string) => void;
+    loading: boolean;
 }
 
 const BrandContext = createContext<BrandContextType | undefined>(undefined);
@@ -17,85 +18,123 @@ const BrandContext = createContext<BrandContextType | undefined>(undefined);
 export function BrandProvider({ children }: { children: React.ReactNode }) {
     const [brands, setBrands] = useState<Brand[]>([]);
     const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    // Load from localStorage on mount
-    useEffect(() => {
+    const loadBrands = useCallback(async () => {
         try {
-            const savedBrands = localStorage.getItem("hub_logistic_brands_v1");
+            const res = await fetch("/api/brands");
+            if (!res.ok) throw new Error("Failed to load brands");
+            const data = await res.json();
+            setBrands(data);
+
             const savedSelection = localStorage.getItem("hub_logistic_selected_brand_v1");
+            if (savedSelection) {
+                const found = data.find((b: Brand) => b.id === savedSelection);
+                if (found) setSelectedBrand(found);
+                else if (data.length > 0) setSelectedBrand(data[0]);
+            } else if (data.length > 0) {
+                setSelectedBrand(data[0]);
+            }
 
-            if (savedBrands) {
-                const parsed = JSON.parse(savedBrands);
-                setBrands(parsed);
-
-                // Restore selection logic
-                if (savedSelection) {
-                    const found = parsed.find((b: Brand) => b.id === savedSelection);
-                    if (found) setSelectedBrand(found);
-                    else if (parsed.length > 0) setSelectedBrand(parsed[0]);
-                } else if (parsed.length > 0) {
-                    setSelectedBrand(parsed[0]);
-                }
-            } else {
-                // Migration from old keys (Attempt to recover "postex_brands_v1")
-                const oldPostExBrands = localStorage.getItem("postex_brands_v1");
-                if (oldPostExBrands) {
-                    const parsedOld = JSON.parse(oldPostExBrands);
-                    if (Array.isArray(parsedOld)) {
-                        setBrands(parsedOld);
-                        if (parsedOld.length > 0) setSelectedBrand(parsedOld[0]);
-                        // Save immediately to new key
-                        localStorage.setItem("hub_logistic_brands_v1", JSON.stringify(parsedOld));
+            if (data.length === 0) {
+                const oldBrands = localStorage.getItem("hub_logistic_brands_v1");
+                if (oldBrands) {
+                    const parsed = JSON.parse(oldBrands);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        let allSucceeded = true;
+                        for (const old of parsed) {
+                            const postRes = await fetch("/api/brands", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    name: old.name,
+                                    apiToken: old.apiToken || "",
+                                    tranzoToken: old.tranzoToken || "",
+                                    proxyUrl: old.proxyUrl || ""
+                                })
+                            });
+                            if (!postRes.ok) allSucceeded = false;
+                        }
+                        const refreshRes = await fetch("/api/brands");
+                        if (refreshRes.ok) {
+                            const refreshed = await refreshRes.json();
+                            setBrands(refreshed);
+                            if (refreshed.length > 0) setSelectedBrand(refreshed[0]);
+                        }
+                        if (allSucceeded) {
+                            localStorage.removeItem("hub_logistic_brands_v1");
+                            localStorage.removeItem("postex_brands_v1");
+                        }
                     }
                 }
             }
         } catch (e) {
-            console.error("Failed to load brands", e);
+            console.error("Failed to load brands from DB:", e);
         } finally {
-            setIsLoaded(true);
+            setLoading(false);
         }
     }, []);
 
-    // Persistence
     useEffect(() => {
-        if (!isLoaded) return;
-        localStorage.setItem("hub_logistic_brands_v1", JSON.stringify(brands));
-    }, [brands, isLoaded]);
+        loadBrands();
+    }, [loadBrands]);
 
     useEffect(() => {
-        if (!isLoaded) return;
         if (selectedBrand) {
             localStorage.setItem("hub_logistic_selected_brand_v1", selectedBrand.id);
         } else {
             localStorage.removeItem("hub_logistic_selected_brand_v1");
         }
-    }, [selectedBrand, isLoaded]);
+    }, [selectedBrand]);
 
-    const addBrand = (data: Omit<Brand, "id">) => {
-        const newBrand: Brand = {
-            id: `brand_${Date.now()}`,
-            ...data
-        };
-        const updated = [...brands, newBrand];
-        setBrands(updated);
-
-        // Auto-select if first
-        if (brands.length === 0) setSelectedBrand(newBrand);
-    };
-
-    const updateBrand = (id: string, updates: Partial<Brand>) => {
-        setBrands(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
-        if (selectedBrand?.id === id) {
-            setSelectedBrand(prev => prev ? { ...prev, ...updates } : null);
+    const addBrand = async (data: Omit<Brand, "id">) => {
+        try {
+            const res = await fetch("/api/brands", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error("Failed to create brand");
+            const newBrand = await res.json();
+            setBrands(prev => [...prev, newBrand]);
+            if (brands.length === 0) setSelectedBrand(newBrand);
+        } catch (e) {
+            console.error("Failed to add brand:", e);
+            throw e;
         }
     };
 
-    const deleteBrand = (id: string) => {
-        const updated = brands.filter(b => b.id !== id);
-        setBrands(updated);
-        if (selectedBrand?.id === id) {
-            setSelectedBrand(updated.length > 0 ? updated[0] : null);
+    const updateBrand = async (id: string, updates: Partial<Brand>) => {
+        try {
+            const res = await fetch(`/api/brands/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updates)
+            });
+            if (!res.ok) throw new Error("Failed to update brand");
+            const updated = await res.json();
+            setBrands(prev => prev.map(b => b.id === id ? updated : b));
+            if (selectedBrand?.id === id) {
+                setSelectedBrand(updated);
+            }
+        } catch (e) {
+            console.error("Failed to update brand:", e);
+            throw e;
+        }
+    };
+
+    const deleteBrand = async (id: string) => {
+        try {
+            const res = await fetch(`/api/brands/${id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete brand");
+            const updated = brands.filter(b => b.id !== id);
+            setBrands(updated);
+            if (selectedBrand?.id === id) {
+                setSelectedBrand(updated.length > 0 ? updated[0] : null);
+            }
+        } catch (e) {
+            console.error("Failed to delete brand:", e);
+            throw e;
         }
     };
 
@@ -105,7 +144,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <BrandContext.Provider value={{ brands, selectedBrand, addBrand, updateBrand, deleteBrand, selectBrand }}>
+        <BrandContext.Provider value={{ brands, selectedBrand, addBrand, updateBrand, deleteBrand, selectBrand, loading }}>
             {children}
         </BrandContext.Provider>
     );

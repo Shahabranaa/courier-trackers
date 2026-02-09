@@ -4,6 +4,7 @@
 A unified logistics dashboard for managing orders from PostEx and Tranzo courier services. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
 
 ## Recent Changes
+- **2026-02-09**: Migrated brand settings from localStorage to PostgreSQL. Brands now persist across deployments/devices. Auto-migrates existing localStorage brands on first load.
 - **2026-02-09**: Refactored Tranzo API to DB-first approach. Page loads read from database only; external Tranzo API is only called when user clicks "Sync Live Data". All synced data stored in DB for fast subsequent loads.
 - **2026-02-09**: Fixed 9 bugs + 5 performance improvements (bulk tracking, cache TTL, server-side filtering, memoized cities, conditional logging).
 - **2026-02-09**: Migrated from Vercel to Replit environment. Configured port 5000, PostgreSQL database, Prisma schema sync.
