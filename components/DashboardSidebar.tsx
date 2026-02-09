@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2 } from "lucide-react";
+import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
 
@@ -25,6 +25,7 @@ export default function DashboardSidebar() {
             ]
         },
         { name: "Tranzo Portal", href: "/tranzo", icon: Package },
+        { name: "Shopify Orders", href: "/shopify", icon: ShoppingBag },
     ];
 
     // Track expanded state for menus (default PostEx open if on a sub-page? or just manual?)

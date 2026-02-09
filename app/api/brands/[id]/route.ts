@@ -5,7 +5,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        const { name, apiToken, tranzoToken, proxyUrl } = body;
+        const { name, apiToken, tranzoToken, proxyUrl, shopifyStore, shopifyAccessToken } = body;
+
+        const shouldUpdateShopifyToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
 
         const brand = await prisma.brand.update({
             where: { id },
@@ -13,11 +15,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(name !== undefined && { name }),
                 ...(apiToken !== undefined && { apiToken }),
                 ...(tranzoToken !== undefined && { tranzoToken }),
-                ...(proxyUrl !== undefined && { proxyUrl })
+                ...(proxyUrl !== undefined && { proxyUrl }),
+                ...(shopifyStore !== undefined && { shopifyStore }),
+                ...(shouldUpdateShopifyToken && { shopifyAccessToken })
             }
         });
 
-        return NextResponse.json(brand);
+        return NextResponse.json({
+            ...brand,
+            shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : ""
+        });
     } catch (error: any) {
         console.error("Failed to update brand:", error.message);
         return NextResponse.json({ error: "Failed to update brand" }, { status: 500 });

@@ -6,7 +6,11 @@ export async function GET() {
         const brands = await prisma.brand.findMany({
             orderBy: { createdAt: 'asc' }
         });
-        return NextResponse.json(brands);
+        const safeBrands = brands.map(b => ({
+            ...b,
+            shopifyAccessToken: b.shopifyAccessToken ? "••••••••" : ""
+        }));
+        return NextResponse.json(safeBrands);
     } catch (error: any) {
         console.error("Failed to fetch brands:", error.message);
         return NextResponse.json({ error: "Failed to fetch brands" }, { status: 500 });
@@ -16,7 +20,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { name, apiToken, tranzoToken, proxyUrl } = body;
+        const { name, apiToken, tranzoToken, proxyUrl, shopifyStore, shopifyAccessToken } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -27,11 +31,16 @@ export async function POST(req: NextRequest) {
                 name,
                 apiToken: apiToken || "",
                 tranzoToken: tranzoToken || "",
-                proxyUrl: proxyUrl || ""
+                proxyUrl: proxyUrl || "",
+                shopifyStore: shopifyStore || "",
+                shopifyAccessToken: shopifyAccessToken || ""
             }
         });
 
-        return NextResponse.json(brand, { status: 201 });
+        return NextResponse.json({
+            ...brand,
+            shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : ""
+        }, { status: 201 });
     } catch (error: any) {
         console.error("Failed to create brand:", error.message);
         return NextResponse.json({ error: "Failed to create brand" }, { status: 500 });

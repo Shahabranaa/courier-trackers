@@ -16,11 +16,13 @@ export default function SettingsPage() {
         name: "",
         apiToken: "",
         tranzoToken: "",
-        proxyUrl: ""
+        proxyUrl: "",
+        shopifyStore: "",
+        shopifyAccessToken: ""
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", tranzoToken: "", proxyUrl: "" });
+        setFormData({ name: "", apiToken: "", tranzoToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -50,7 +52,9 @@ export default function SettingsPage() {
             name: brand.name,
             apiToken: brand.apiToken,
             tranzoToken: brand.tranzoToken || "",
-            proxyUrl: brand.proxyUrl || ""
+            proxyUrl: brand.proxyUrl || "",
+            shopifyStore: brand.shopifyStore || "",
+            shopifyAccessToken: brand.shopifyAccessToken || ""
         });
         setIsAdding(true);
     };
@@ -123,6 +127,34 @@ export default function SettingsPage() {
                                     onChange={e => setFormData({ ...formData, tranzoToken: e.target.value })}
                                     placeholder="Enter Tranzo Token"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm"
+                                />
+                            </div>
+
+                            <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-green-500"></span> Shopify Integration
+                                </h4>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Store Domain</label>
+                                <input
+                                    type="text"
+                                    value={formData.shopifyStore}
+                                    onChange={e => setFormData({ ...formData, shopifyStore: e.target.value })}
+                                    placeholder="mystore.myshopify.com"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all font-mono text-sm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Admin API Access Token</label>
+                                <input
+                                    type="password"
+                                    value={formData.shopifyAccessToken}
+                                    onChange={e => setFormData({ ...formData, shopifyAccessToken: e.target.value })}
+                                    placeholder="shpat_..."
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition-all font-mono text-sm"
                                 />
                             </div>
 
@@ -214,6 +246,14 @@ export default function SettingsPage() {
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Tranzo</span>
                                             {brand.tranzoToken ? (
+                                                <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
+                                            ) : (
+                                                <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Shopify</span>
+                                            {brand.shopifyAccessToken ? (
                                                 <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
                                             ) : (
                                                 <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>

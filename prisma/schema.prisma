@@ -45,13 +45,36 @@ model Order {
 }
 
 model Brand {
-  id          String  @id @default(cuid())
-  name        String
-  apiToken    String  @default("")
-  tranzoToken String  @default("")
-  proxyUrl    String  @default("")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String  @id @default(cuid())
+  name                 String
+  apiToken             String  @default("")
+  tranzoToken          String  @default("")
+  proxyUrl             String  @default("")
+  shopifyStore         String  @default("")
+  shopifyAccessToken   String  @default("")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model ShopifyOrder {
+  shopifyOrderId    String   @id
+  brandId           String
+  orderNumber       String
+  orderName         String
+  email             String   @default("")
+  customerName      String   @default("")
+  createdAt         String
+  financialStatus   String   @default("")
+  fulfillmentStatus String   @default("")
+  totalPrice        Float    @default(0)
+  currency          String   @default("PKR")
+  lineItems         String   @default("[]")
+  fulfillments      String   @default("[]")
+  trackingNumbers   String   @default("[]")
+  courierPartner    String   @default("")
+  lastFetchedAt     DateTime @default(now())
+
+  @@index([brandId, createdAt])
 }
 
 model TrackingStatus {
