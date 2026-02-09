@@ -10,3 +10,36 @@ channel = "stable-25_05"
 [userenv.shared]
 PRISMA_DATABASE_URL = "postgresql://postgres:password@helium/heliumdb?sslmode=disable"
 POSTGRES_URL = "postgresql://postgres:password@helium/heliumdb?sslmode=disable"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace && npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "cd /home/runner/workspace && npm run start"]
+build = ["bash", "-c", "cd /home/runner/workspace && npm run build"]

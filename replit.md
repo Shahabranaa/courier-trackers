@@ -1,0 +1,42 @@
+# PostEx Dashboard (HubLogistic)
+
+## Overview
+A unified logistics dashboard for managing orders from PostEx and Tranzo courier services. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
+
+## Recent Changes
+- **2026-02-09**: Migrated from Vercel to Replit environment. Configured port 5000, PostgreSQL database, Prisma schema sync.
+
+## Project Architecture
+- **Framework**: Next.js 16 (App Router with Turbopack)
+- **Database**: PostgreSQL via Prisma ORM
+- **Styling**: Tailwind CSS v4
+- **Charts**: Recharts
+- **Package Manager**: npm
+
+### Directory Structure
+```
+app/              - Next.js App Router pages and API routes
+  api/            - Backend API routes (postex, tranzo)
+  postex/         - PostEx portal pages
+  tranzo/         - Tranzo portal pages
+  settings/       - Settings page
+  daily/          - Daily reports page
+components/       - React UI components (Dashboard, Charts, Tables)
+lib/              - Shared utilities (Prisma client, types)
+prisma/           - Database schema
+scripts/          - Diagnostic and maintenance scripts
+public/           - Static assets
+```
+
+### Key Environment Variables
+- `PRISMA_DATABASE_URL` - PostgreSQL connection string (connection pool)
+- `POSTGRES_URL` - Direct PostgreSQL connection (for migrations)
+- `DATABASE_URL` - Replit-provided PostgreSQL URL
+
+### Development
+- Dev server: `npm run dev` (runs on port 5000)
+- Build: `npm run build` (generates Prisma client, pushes schema, builds Next.js)
+- Start: `npm run start` (production server on port 5000)
+
+## User Preferences
+- No specific preferences recorded yet.
