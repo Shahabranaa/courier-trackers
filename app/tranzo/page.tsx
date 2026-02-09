@@ -142,10 +142,10 @@ export default function TranzoDashboard() {
             console.log("Tranzo List to Normalize:", list);
 
             // Normalize Data
-            const normalized = list.map(normalizeTranzoOrder);
+            const normalized = (list as any[]).map(normalizeTranzoOrder);
 
             // Filter by Month (Client Side for now)
-            const filteredByMonth = normalized.filter(o =>
+            const filteredByMonth = normalized.filter((o: Order) =>
                 (o.orderDate || "").startsWith(selectedMonth)
             );
 
