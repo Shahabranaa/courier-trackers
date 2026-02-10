@@ -2,16 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-    const token = req.headers.get("authorization");
+    const rawToken = req.headers.get("authorization");
     const brandId = req.headers.get("brand-id") || "default";
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const forceSync = searchParams.get("sync") === "true";
 
-    if (!token) {
+    if (!rawToken) {
         return NextResponse.json({ error: "Missing Authorization header" }, { status: 401 });
     }
+
+    const token = rawToken.replace(/^(Bearer|Token)\s+/i, "").trim();
 
     if (!forceSync) {
         try {
@@ -45,11 +47,10 @@ export async function GET(req: NextRequest) {
     try {
         console.log(`Syncing Tranzo orders from API for Brand: ${brandId}...`);
 
-        let targetUrl = "https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/";
+        let targetUrl = `https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/?Authorization=${encodeURIComponent(token)}`;
         let response = await fetch(targetUrl, {
             method: "GET",
             headers: {
-                "Authorization": token,
                 "Content-Type": "application/json"
             }
         });
@@ -65,11 +66,10 @@ export async function GET(req: NextRequest) {
 
         if (totalCount > currentCount) {
             console.log(`Detected Pagination. Total: ${totalCount}, Fetched: ${currentCount}. Re-fetching ALL with limit=${totalCount}...`);
-            targetUrl = `https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/?page=1&limit=${totalCount}`;
+            targetUrl = `https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/?Authorization=${encodeURIComponent(token)}&page=1&limit=${totalCount}`;
             const fullResp = await fetch(targetUrl, {
                 method: "GET",
                 headers: {
-                    "Authorization": token,
                     "Content-Type": "application/json"
                 }
             });
