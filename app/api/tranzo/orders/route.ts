@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const TRANZO_TOKEN = process.env.TRANZO_API_TOKEN || "";
-
 export async function GET(req: NextRequest) {
     const brandId = req.headers.get("brand-id") || "default";
     const { searchParams } = new URL(req.url);
@@ -10,10 +8,13 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get("endDate");
     const forceSync = searchParams.get("sync") === "true";
 
-    const tranzoAuthHeader = TRANZO_TOKEN.startsWith("Bearer ") ? TRANZO_TOKEN : `Bearer ${TRANZO_TOKEN}`;
-    if (!TRANZO_TOKEN) {
+    const rawToken = (process.env.TRANZO_API_TOKEN || "").trim();
+    if (!rawToken) {
         console.warn("TRANZO_API_TOKEN env var not set");
     }
+    const cleanToken = rawToken.replace(/^Bearer\s+/i, "").trim();
+    const tranzoAuthHeader = `Bearer ${cleanToken}`;
+    console.log(`Tranzo auth: token length=${cleanToken.length}, header="${tranzoAuthHeader.substring(0, 15)}..."`);
 
     if (!forceSync) {
         try {
