@@ -47,11 +47,10 @@ export async function GET(req: NextRequest) {
     try {
         console.log(`Syncing Tranzo orders from API for Brand: ${brandId}...`);
 
-        let targetUrl = "https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/";
+        let targetUrl = `https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/?Authorization=${token}`;
         let response = await fetch(targetUrl, {
             method: "GET",
             headers: {
-                "Authorization": token,
                 "Content-Type": "application/json"
             }
         });
@@ -67,11 +66,10 @@ export async function GET(req: NextRequest) {
 
         if (totalCount > currentCount) {
             console.log(`Detected Pagination. Total: ${totalCount}, Fetched: ${currentCount}. Re-fetching ALL with limit=${totalCount}...`);
-            targetUrl = `https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/?page=1&limit=${totalCount}`;
+            targetUrl = `https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/?Authorization=${token}&page=1&limit=${totalCount}`;
             const fullResp = await fetch(targetUrl, {
                 method: "GET",
                 headers: {
-                    "Authorization": token,
                     "Content-Type": "application/json"
                 }
             });
