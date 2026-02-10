@@ -102,7 +102,7 @@ export default function TranzoDashboard() {
     const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
 
     useEffect(() => {
-        if (selectedBrand && selectedBrand.tranzoToken) {
+        if (selectedBrand) {
             loadOrdersFromDB();
         } else {
             setOrders([]);
@@ -110,18 +110,14 @@ export default function TranzoDashboard() {
     }, [selectedBrand, selectedMonth]);
 
     const loadOrdersFromDB = async () => {
-        if (!selectedBrand?.tranzoToken) return;
+        if (!selectedBrand) return;
 
         setLoading(true);
         setError(null);
 
         try {
-            const rawToken = selectedBrand.tranzoToken || "";
-            const cleanToken = sanitizeHeader(rawToken.replace(/^(Bearer|Token)\s+/i, ""));
-
             const res = await fetch("/api/tranzo/orders", {
                 headers: {
-                    "Authorization": `Bearer ${cleanToken}`,
                     "brand-id": sanitizeHeader(selectedBrand.id)
                 }
             });
@@ -141,18 +137,14 @@ export default function TranzoDashboard() {
     };
 
     const syncOrdersFromAPI = async () => {
-        if (!selectedBrand?.tranzoToken) return;
+        if (!selectedBrand) return;
 
         setLoading(true);
         setError(null);
 
         try {
-            const rawToken = selectedBrand.tranzoToken || "";
-            const cleanToken = sanitizeHeader(rawToken.replace(/^(Bearer|Token)\s+/i, ""));
-
             const res = await fetch("/api/tranzo/orders?sync=true", {
                 headers: {
-                    "Authorization": `Bearer ${cleanToken}`,
                     "brand-id": sanitizeHeader(selectedBrand.id)
                 }
             });
@@ -278,7 +270,7 @@ export default function TranzoDashboard() {
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                         <button
                             onClick={syncOrdersFromAPI}
-                            disabled={loading || !selectedBrand?.tranzoToken}
+                            disabled={loading || !selectedBrand}
                             className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-md active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 ml-auto lg:ml-0"
                         >
                             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -295,15 +287,6 @@ export default function TranzoDashboard() {
                     </div>
                 )}
 
-                {selectedBrand && !selectedBrand.tranzoToken && (
-                    <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-center gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-600" />
-                        <div className="flex-1">
-                            <p className="font-semibold text-sm">Tranzo API Token Missing</p>
-                            <p className="text-xs opacity-80 mt-1">Please configure keys in settings.</p>
-                        </div>
-                    </div>
-                )}
 
 
                 {/* Filters & Content Grid */}
