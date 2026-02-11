@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
         lastStatus: true,
         lastStatusTime: true,
         lastFetchedAt: true,
+        transactionDate: true,
         cityName: true,
         invoicePayment: true,
         orderDetail: true,
@@ -84,8 +85,8 @@ export async function GET(req: NextRequest) {
       if (isDelivered && order.orderDate) {
         const deliverTimestamp = order.lastStatusTime
           ? new Date(order.lastStatusTime).getTime()
-          : order.lastFetchedAt
-            ? new Date(order.lastFetchedAt).getTime()
+          : order.transactionDate
+            ? new Date(order.transactionDate).getTime()
             : null;
         if (deliverTimestamp) {
           const orderTime = new Date(order.orderDate).getTime();
