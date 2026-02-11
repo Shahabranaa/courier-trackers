@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const user = await getCurrentUser();
-        if (!user || user.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         const { id } = await params;
         const body = await req.json();
         const { name, apiToken, tranzoToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret } = body;
@@ -40,8 +37,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const user = await getCurrentUser();
-        if (!user || user.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         const { id } = await params;
         await prisma.brand.delete({ where: { id } });
         return NextResponse.json({ success: true });

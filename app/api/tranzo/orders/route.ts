@@ -2,19 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
+    const token = req.headers.get("authorization");
     const brandId = req.headers.get("brand-id") || "default";
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const forceSync = searchParams.get("sync") === "true";
 
-    const rawToken = (process.env.TRANZO_API_TOKEN || "").trim();
-    if (!rawToken) {
-        console.warn("TRANZO_API_TOKEN env var not set");
+    if (!token) {
+        return NextResponse.json({ error: "Missing Authorization header" }, { status: 401 });
     }
-    const cleanToken = rawToken.replace(/^Bearer\s+/i, "").trim();
-    const tranzoAuthHeader = `Bearer ${cleanToken}`;
-    console.log(`Tranzo auth: token length=${cleanToken.length}, header="${tranzoAuthHeader.substring(0, 15)}..."`);
 
     if (!forceSync) {
         try {
@@ -52,7 +49,7 @@ export async function GET(req: NextRequest) {
         let response = await fetch(targetUrl, {
             method: "GET",
             headers: {
-                "Authorization": tranzoAuthHeader,
+                "Authorization": token,
                 "Content-Type": "application/json"
             }
         });
@@ -72,7 +69,7 @@ export async function GET(req: NextRequest) {
             const fullResp = await fetch(targetUrl, {
                 method: "GET",
                 headers: {
-                    "Authorization": tranzoAuthHeader,
+                    "Authorization": token,
                     "Content-Type": "application/json"
                 }
             });
