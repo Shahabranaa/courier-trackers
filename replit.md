@@ -4,6 +4,7 @@
 A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopify. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
 
 ## Recent Changes
+- **2026-02-11**: Fixed analytics double-counting: Analytics and Customer Insights now use ShopifyOrder as single source of truth (removed Order table counting which duplicated Shopify orders). Courier breakdown (PostEx/Tranzo/Zoom/Unfulfilled) derived from courierPartner and fulfillments data. Chart updated with Zoom (blue) and Unfulfilled (gray) series replacing old "Shopify" series.
 - **2026-02-11**: Added Zoom orders to Shopify Orders page: Zoom bar in daily comparison chart (blue, stacked with PostEx/Tranzo), Zoom count in Dispatch Summary sidebar, Zoom column in Daily Breakdown table. Detection uses courierPartner or fulfillments tracking_company containing "zoom".
 - **2026-02-11**: Added Zoom tracking numbers: API extracts tracking numbers specifically from Zoom fulfillments (tracking_company containing "Zoom"). Tracking # column in orders table replaces Tags column. CSV export includes tracking numbers. Supports both tracking_numbers array and tracking_number singular fields.
 - **2026-02-11**: Updated Zoom Courier Portal to filter by fulfillment courier (courierPartner/tracking_company containing "Zoom") instead of by tags. API fetches all brand orders for date range then filters by courier partner field and fulfillments JSON. UI updated with correct messaging.

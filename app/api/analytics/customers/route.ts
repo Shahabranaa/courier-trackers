@@ -19,23 +19,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing brand-id header" }, { status: 400 });
     }
 
-    const orders = await prisma.order.findMany({
-      where: { brandId },
-      select: {
-        trackingNumber: true,
-        customerName: true,
-        customerPhone: true,
-        cityName: true,
-        orderDate: true,
-        invoicePayment: true,
-        orderAmount: true,
-        orderStatus: true,
-        transactionStatus: true,
-        orderDetail: true,
-        courier: true,
-      },
-    });
-
     const shopifyOrders = await prisma.shopifyOrder.findMany({
       where: { brandId },
       select: {
@@ -49,6 +32,8 @@ export async function GET(req: NextRequest) {
         fulfillmentStatus: true,
         financialStatus: true,
         lineItems: true,
+        courierPartner: true,
+        fulfillments: true,
       },
     });
 
@@ -66,45 +51,6 @@ export async function GET(req: NextRequest) {
       products: Set<string>;
       couriers: Set<string>;
     }> = {};
-
-    for (const order of orders) {
-      const phone = normalizePhone(order.customerPhone || "");
-      if (!phone || phone.length < 5) continue;
-
-      if (!customerMap[phone]) {
-        customerMap[phone] = {
-          name: order.customerName || "Unknown",
-          phone: order.customerPhone || "",
-          city: titleCase((order.cityName || "Unknown").trim().toLowerCase()),
-          totalOrders: 0,
-          totalRevenue: 0,
-          firstOrder: order.orderDate,
-          lastOrder: order.orderDate,
-          deliveredCount: 0,
-          returnedCount: 0,
-          cancelledCount: 0,
-          products: new Set(),
-          couriers: new Set(),
-        };
-      }
-
-      const c = customerMap[phone];
-      c.totalOrders++;
-      c.totalRevenue += order.invoicePayment || 0;
-
-      if (order.orderDate < c.firstOrder) c.firstOrder = order.orderDate;
-      if (order.orderDate > c.lastOrder) c.lastOrder = order.orderDate;
-
-      const status = (order.transactionStatus || order.orderStatus || "").toLowerCase();
-      if (status.includes("deliver")) c.deliveredCount++;
-      else if (status.includes("return")) c.returnedCount++;
-      else if (status.includes("cancel")) c.cancelledCount++;
-
-      if (order.orderDetail) c.products.add(order.orderDetail.trim());
-      if (order.courier) c.couriers.add(order.courier);
-
-      if (order.customerName && c.name === "Unknown") c.name = order.customerName;
-    }
 
     for (const order of shopifyOrders) {
       const phone = normalizePhone(order.phone || "");
@@ -135,13 +81,35 @@ export async function GET(req: NextRequest) {
       if (order.createdAt > c.lastOrder) c.lastOrder = order.createdAt;
 
       const fulfillment = (order.fulfillmentStatus || "").toLowerCase();
-      if (fulfillment === "fulfilled") c.deliveredCount++;
-      else if (fulfillment === "restocked" || fulfillment.includes("return")) c.returnedCount++;
-
       const financial = (order.financialStatus || "").toLowerCase();
-      if (financial === "refunded" || financial === "voided") c.returnedCount++;
 
-      c.couriers.add("Shopify");
+      if (fulfillment === "fulfilled") {
+        c.deliveredCount++;
+      }
+      if (financial === "refunded" || financial === "voided" || fulfillment === "restocked" || fulfillment.includes("return")) {
+        c.returnedCount++;
+      }
+      if (financial === "voided") {
+        c.cancelledCount++;
+      }
+
+      const partner = (order.courierPartner || "").toLowerCase();
+      if (partner.includes("postex") || partner.includes("post ex")) c.couriers.add("PostEx");
+      else if (partner.includes("tranzo")) c.couriers.add("Tranzo");
+      else if (partner.includes("zoom")) c.couriers.add("Zoom");
+      else {
+        try {
+          const fulfillments = JSON.parse(order.fulfillments || "[]");
+          if (Array.isArray(fulfillments)) {
+            for (const f of fulfillments) {
+              const tc = (f.tracking_company || "").toLowerCase();
+              if (tc.includes("postex") || tc.includes("post ex")) c.couriers.add("PostEx");
+              else if (tc.includes("tranzo")) c.couriers.add("Tranzo");
+              else if (tc.includes("zoom")) c.couriers.add("Zoom");
+            }
+          }
+        } catch {}
+      }
 
       if (order.customerName && c.name === "Unknown") c.name = order.customerName;
 

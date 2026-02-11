@@ -20,7 +20,8 @@ interface DailyTrend {
   total: number;
   postex: number;
   tranzo: number;
-  shopify: number;
+  zoom: number;
+  other: number;
   revenue: number;
 }
 
@@ -194,7 +195,8 @@ function groupByWeek(data: DailyTrend[]): DailyTrend[] {
       total: week.reduce((s, d) => s + d.total, 0),
       postex: week.reduce((s, d) => s + d.postex, 0),
       tranzo: week.reduce((s, d) => s + d.tranzo, 0),
-      shopify: week.reduce((s, d) => s + d.shopify, 0),
+      zoom: week.reduce((s, d) => s + d.zoom, 0),
+      other: week.reduce((s, d) => s + d.other, 0),
       revenue: week.reduce((s, d) => s + d.revenue, 0),
     };
   });
@@ -420,9 +422,13 @@ export default function AnalyticsPage() {
                           <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
                           <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                         </linearGradient>
-                        <linearGradient id="gradShopify" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        <linearGradient id="gradZoom" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradOther" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#6b7280" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#6b7280" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -443,13 +449,14 @@ export default function AnalyticsPage() {
                         }}
                         labelFormatter={(val) => viewMode === "daily" ? formatFullDate(val) : val}
                         formatter={(value: number | undefined, name: string | undefined) => {
-                          const labels: Record<string, string> = { postex: "PostEx", tranzo: "Tranzo", shopify: "Shopify" };
+                          const labels: Record<string, string> = { postex: "PostEx", tranzo: "Tranzo", zoom: "Zoom", other: "Unfulfilled/Other" };
                           return [value ?? 0, labels[name ?? ""] || name || ""];
                         }}
                       />
                       <Area type="monotone" dataKey="postex" stackId="1" stroke="#f97316" fill="url(#gradPostex)" strokeWidth={2} name="postex" />
                       <Area type="monotone" dataKey="tranzo" stackId="1" stroke="#8b5cf6" fill="url(#gradTranzo)" strokeWidth={2} name="tranzo" />
-                      <Area type="monotone" dataKey="shopify" stackId="1" stroke="#22c55e" fill="url(#gradShopify)" strokeWidth={2} name="shopify" />
+                      <Area type="monotone" dataKey="zoom" stackId="1" stroke="#3b82f6" fill="url(#gradZoom)" strokeWidth={2} name="zoom" />
+                      <Area type="monotone" dataKey="other" stackId="1" stroke="#6b7280" fill="url(#gradOther)" strokeWidth={2} name="other" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
@@ -469,8 +476,12 @@ export default function AnalyticsPage() {
                     <span className="text-xs text-gray-500 font-medium">Tranzo</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
-                    <span className="text-xs text-gray-500 font-medium">Shopify</span>
+                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    <span className="text-xs text-gray-500 font-medium">Zoom</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-500" />
+                    <span className="text-xs text-gray-500 font-medium">Unfulfilled</span>
                   </div>
                 </div>
               </div>

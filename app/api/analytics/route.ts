@@ -7,6 +7,27 @@ function toDateString(isoString: string): string {
   return isoString.slice(0, 10);
 }
 
+function detectCourier(courierPartner: string | null, fulfillments: string | null): string {
+  const partner = (courierPartner || "").toLowerCase();
+  if (partner.includes("zoom")) return "zoom";
+  if (partner.includes("postex") || partner.includes("post ex")) return "postex";
+  if (partner.includes("tranzo")) return "tranzo";
+
+  try {
+    const list = JSON.parse(fulfillments || "[]");
+    if (Array.isArray(list)) {
+      for (const f of list) {
+        const tc = (f.tracking_company || "").toLowerCase();
+        if (tc.includes("zoom")) return "zoom";
+        if (tc.includes("postex") || tc.includes("post ex")) return "postex";
+        if (tc.includes("tranzo")) return "tranzo";
+      }
+    }
+  } catch {}
+
+  return "other";
+}
+
 export async function GET(req: NextRequest) {
   try {
     const brandId = req.headers.get("brand-id");
@@ -36,22 +57,7 @@ export async function GET(req: NextRequest) {
     const prevStartQuery = prevStartStr + "T00:00:00.000Z";
     const prevEndQuery = prevEndStr + "T23:59:59.999Z";
 
-    const [currentOrders, currentShopifyOrders, prevOrders, prevShopifyOrders] = await Promise.all([
-      prisma.order.findMany({
-        where: {
-          brandId,
-          AND: [
-            { orderDate: { gte: startQuery } },
-            { orderDate: { lte: endQuery } },
-          ],
-        },
-        select: {
-          courier: true,
-          orderDate: true,
-          invoicePayment: true,
-          cityName: true,
-        },
-      }),
+    const [currentShopifyOrders, prevShopifyOrders] = await Promise.all([
       prisma.shopifyOrder.findMany({
         where: {
           brandId,
@@ -64,18 +70,9 @@ export async function GET(req: NextRequest) {
           createdAt: true,
           totalPrice: true,
           shippingCity: true,
-        },
-      }),
-      prisma.order.findMany({
-        where: {
-          brandId,
-          AND: [
-            { orderDate: { gte: prevStartQuery } },
-            { orderDate: { lte: prevEndQuery } },
-          ],
-        },
-        select: {
-          invoicePayment: true,
+          courierPartner: true,
+          fulfillments: true,
+          fulfillmentStatus: true,
         },
       }),
       prisma.shopifyOrder.findMany({
@@ -92,47 +89,28 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const dailyMap: Record<string, { total: number; postex: number; tranzo: number; shopify: number; revenue: number }> = {};
+    const dailyMap: Record<string, { total: number; postex: number; tranzo: number; zoom: number; other: number; revenue: number }> = {};
     const dayOfWeekCounts: Record<string, number> = {};
     const cityMap: Record<string, { count: number; revenue: number }> = {};
 
     let currentOrderCount = 0;
     let currentRevenue = 0;
 
-    for (const order of currentOrders) {
-      const date = toDateString(order.orderDate);
-      if (!dailyMap[date]) {
-        dailyMap[date] = { total: 0, postex: 0, tranzo: 0, shopify: 0, revenue: 0 };
-      }
-      dailyMap[date].total++;
-      dailyMap[date].revenue += order.invoicePayment || 0;
-
-      if (order.courier === "PostEx") {
-        dailyMap[date].postex++;
-      } else if (order.courier === "Tranzo") {
-        dailyMap[date].tranzo++;
-      }
-
-      const dayName = DAY_NAMES[new Date(date).getUTCDay()];
-      dayOfWeekCounts[dayName] = (dayOfWeekCounts[dayName] || 0) + 1;
-
-      const city = (order.cityName || "Unknown").trim().toLowerCase();
-      if (!cityMap[city]) cityMap[city] = { count: 0, revenue: 0 };
-      cityMap[city].count++;
-      cityMap[city].revenue += order.invoicePayment || 0;
-
-      currentOrderCount++;
-      currentRevenue += order.invoicePayment || 0;
-    }
-
     for (const order of currentShopifyOrders) {
       const date = toDateString(order.createdAt);
       if (!dailyMap[date]) {
-        dailyMap[date] = { total: 0, postex: 0, tranzo: 0, shopify: 0, revenue: 0 };
+        dailyMap[date] = { total: 0, postex: 0, tranzo: 0, zoom: 0, other: 0, revenue: 0 };
       }
       dailyMap[date].total++;
-      dailyMap[date].shopify++;
       dailyMap[date].revenue += order.totalPrice || 0;
+
+      const status = (order.fulfillmentStatus || "").toLowerCase();
+      if (status === "fulfilled") {
+        const courier = detectCourier(order.courierPartner, order.fulfillments);
+        dailyMap[date][courier === "postex" ? "postex" : courier === "tranzo" ? "tranzo" : courier === "zoom" ? "zoom" : "other"]++;
+      } else {
+        dailyMap[date].other++;
+      }
 
       const dayName = DAY_NAMES[new Date(date).getUTCDay()];
       dayOfWeekCounts[dayName] = (dayOfWeekCounts[dayName] || 0) + 1;
@@ -150,9 +128,8 @@ export async function GET(req: NextRequest) {
       .map(([date, data]) => ({ date, ...data }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    let prevOrderCount = prevOrders.length + prevShopifyOrders.length;
+    let prevOrderCount = prevShopifyOrders.length;
     let prevRevenue = 0;
-    for (const o of prevOrders) prevRevenue += o.invoicePayment || 0;
     for (const o of prevShopifyOrders) prevRevenue += o.totalPrice || 0;
 
     const orderGrowthPct = prevOrderCount > 0
