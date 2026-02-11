@@ -80,6 +80,7 @@ model ShopifyOrder {
   phone             String   @default("")
   shippingAddress   String   @default("")
   shippingCity      String   @default("")
+  tags              String   @default("")
   pendingRemark     String   @default("")
   lastFetchedAt     DateTime @default(now())
 

@@ -28,6 +28,7 @@ interface ShopifyOrderData {
     phone: string;
     shippingAddress: string;
     shippingCity: string;
+    tags: string;
     pendingRemark: string;
 }
 
@@ -577,6 +578,7 @@ export default function ShopifyOrdersPage() {
                                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Order</th>
                                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Customer</th>
                                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tags</th>
                                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
                                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Courier</th>
                                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Amount</th>
@@ -599,6 +601,19 @@ export default function ShopifyOrdersPage() {
                                             <td className="px-6 py-3 text-sm text-gray-600">{order.customerName || "-"}</td>
                                             <td className="px-6 py-3 text-sm text-gray-500">
                                                 {new Date(order.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                {order.tags ? (
+                                                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                                        {order.tags.split(",").map((tag, i) => (
+                                                            <span key={i} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap">
+                                                                {tag.trim()}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-300">-</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-3 text-center">
                                                 {fulfillStatus === "fulfilled" ? (
@@ -630,7 +645,7 @@ export default function ShopifyOrdersPage() {
                                 })}
                                 {shopifyOrders.length === 0 && !loading && (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-gray-400 text-sm">
+                                        <td colSpan={7} className="px-6 py-12 text-center text-gray-400 text-sm">
                                             No orders to display
                                         </td>
                                     </tr>
