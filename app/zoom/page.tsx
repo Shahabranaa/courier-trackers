@@ -156,7 +156,7 @@ export default function ZoomPortal() {
                             <Zap className="w-8 h-8 text-blue-600" />
                             Zoom Courier Portal
                         </h1>
-                        <p className="text-gray-500 mt-2">Shopify orders tagged with Zoom Courier Service</p>
+                        <p className="text-gray-500 mt-2">Shopify orders fulfilled by Zoom Courier</p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
@@ -345,7 +345,8 @@ export default function ZoomPortal() {
                             <div className="h-64 flex flex-col items-center justify-center text-center text-gray-400 bg-white rounded-2xl border border-gray-100 border-dashed">
                                 <Package className="w-12 h-12 text-gray-200 mb-3" />
                                 <p>No Zoom Courier orders found for this month.</p>
-                                <p className="text-sm text-gray-400 mt-1">Orders tagged "Zoom Courier Service" in Shopify will appear here.</p>
+                                <p className="text-sm text-gray-400 mt-1">Orders fulfilled by Zoom Courier in Shopify will appear here.</p>
+                                <p className="text-xs text-gray-300 mt-1">Make sure to sync Shopify data first from the Shopify Orders page.</p>
                             </div>
                         )}
 

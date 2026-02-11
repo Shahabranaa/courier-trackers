@@ -16,16 +16,30 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const orders = await prisma.shopifyOrder.findMany({
+        const allOrders = await prisma.shopifyOrder.findMany({
             where: {
                 brandId,
-                tags: { contains: "Zoom Courier Service", mode: "insensitive" },
                 AND: [
                     { createdAt: { gte: startDate + "T00:00:00.000Z" } },
                     { createdAt: { lte: endDate + "T23:59:59.999Z" } }
                 ]
             },
             orderBy: { createdAt: "desc" }
+        });
+
+        const orders = allOrders.filter(order => {
+            if (order.courierPartner && order.courierPartner.toLowerCase().includes("zoom")) {
+                return true;
+            }
+            try {
+                const fulfillments = JSON.parse(order.fulfillments || "[]");
+                if (Array.isArray(fulfillments)) {
+                    return fulfillments.some((f: any) =>
+                        f.tracking_company && f.tracking_company.toLowerCase().includes("zoom")
+                    );
+                }
+            } catch {}
+            return false;
         });
 
         const stats = {
