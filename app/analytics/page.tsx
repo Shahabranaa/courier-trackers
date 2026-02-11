@@ -5,7 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, AreaChart, Area, Cell, Legend
+  CartesianGrid, AreaChart, Area, Cell
 } from "recharts";
 import {
   TrendingUp, TrendingDown, ArrowUp, ArrowDown,
@@ -868,107 +868,97 @@ export default function AnalyticsPage() {
                   </div>
 
                   {/* Average Delivery Time by City - PostEx vs Tranzo */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <h3 className="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-gray-500" />
-                      Avg Delivery Time by City
-                    </h3>
-                    <p className="text-xs text-gray-400 mb-4">Dispatch date to delivery date (PostEx vs Tranzo)</p>
-                    {perfData.deliveryByCity.length > 0 ? (
-                      <>
-                        <div className="relative mb-4">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search city..."
-                            value={deliveryCitySearch}
-                            onChange={(e) => setDeliveryCitySearch(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
-                          />
-                        </div>
-                        {(() => {
-                          const filtered = deliveryCitySearch
-                            ? perfData.deliveryByCity.filter(c => c.city.toLowerCase().includes(deliveryCitySearch.toLowerCase()))
-                            : perfData.deliveryByCity;
-                          const chartData = filtered.slice(0, 12);
-                          return chartData.length > 0 ? (
-                            <>
-                              <div className="h-80 mb-4">
-                                <ResponsiveContainer width="100%" height="100%">
-                                  <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 20 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                                    <XAxis type="number" tick={{ fontSize: 11 }} unit=" d" />
-                                    <YAxis type="category" dataKey="city" tick={{ fontSize: 11 }} width={80} />
-                                    <Tooltip
-                                      contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", padding: "12px" }}
-                                      formatter={(value: any, name: any) => {
-                                        if (value === null || value === undefined) return ["-", name];
-                                        const label = name === "postexAvg" ? "PostEx" : name === "tranzoAvg" ? "Tranzo" : "Combined";
-                                        return [`${value} days`, label];
-                                      }}
-                                    />
-                                    <Legend
-                                      verticalAlign="top"
-                                      height={30}
-                                      formatter={(value: string) => value === "postexAvg" ? "PostEx" : value === "tranzoAvg" ? "Tranzo" : value}
-                                    />
-                                    <Bar dataKey="postexAvg" name="postexAvg" fill="#f97316" radius={[0, 4, 4, 0]} maxBarSize={16} />
-                                    <Bar dataKey="tranzoAvg" name="tranzoAvg" fill="#8b5cf6" radius={[0, 4, 4, 0]} maxBarSize={16} />
-                                  </BarChart>
-                                </ResponsiveContainer>
-                              </div>
-                              {deliveryCitySearch && <p className="text-xs text-gray-400 mb-2">Showing {filtered.length} of {perfData.deliveryByCity.length} cities</p>}
-                              <div className="space-y-1 max-h-48 overflow-y-auto">
-                                <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 border-b border-gray-100">
-                                  <span>City</span>
-                                  <span className="text-center">PostEx</span>
-                                  <span className="text-center">Tranzo</span>
-                                  <span className="text-center">Combined</span>
-                                </div>
-                                {filtered.map((c) => (
-                                  <div key={c.city} className="grid grid-cols-4 gap-2 text-xs px-2 py-1.5 hover:bg-gray-50 rounded-lg">
-                                    <span className="font-medium text-gray-700 truncate">{c.city}</span>
-                                    <span className="text-center">
-                                      {c.postexAvg !== null ? (
-                                        <span className={`font-semibold ${c.postexAvg <= 3 ? "text-green-600" : c.postexAvg <= 5 ? "text-amber-600" : "text-red-600"}`}>
-                                          {c.postexAvg}d <span className="font-normal text-gray-400">({c.postexCount})</span>
-                                        </span>
-                                      ) : <span className="text-gray-300">-</span>}
-                                    </span>
-                                    <span className="text-center">
-                                      {c.tranzoAvg !== null ? (
-                                        <span className={`font-semibold ${c.tranzoAvg <= 3 ? "text-green-600" : c.tranzoAvg <= 5 ? "text-amber-600" : "text-red-600"}`}>
-                                          {c.tranzoAvg}d <span className="font-normal text-gray-400">({c.tranzoCount})</span>
-                                        </span>
-                                      ) : <span className="text-gray-300">-</span>}
-                                    </span>
-                                    <span className="text-center">
-                                      <span className={`font-semibold ${c.avgDays <= 3 ? "text-green-600" : c.avgDays <= 5 ? "text-amber-600" : "text-red-600"}`}>
-                                        {c.avgDays}d
-                                      </span>
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-                              <Search className="w-6 h-6 mb-2" />
-                              <p className="text-sm">No cities match &ldquo;{deliveryCitySearch}&rdquo;</p>
-                            </div>
-                          );
-                        })()}
-                        {perfData.deliveryByCourier.length > 0 && (
-                          <div className="flex gap-4 pt-3 mt-3 border-t border-gray-100">
-                            {perfData.deliveryByCourier.map((c) => (
-                              <div key={c.courier} className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.courier === "PostEx" ? "#f97316" : "#8b5cf6" }} />
-                                <span className="text-xs text-gray-600">{c.courier}: <strong>{c.avgDays}d</strong> avg ({c.deliveredCount} orders)</span>
-                              </div>
-                            ))}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+                      <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                        Avg Delivery Days by City
+                      </h3>
+                      <p className="text-xs text-gray-500">Dispatch to delivery (Most Orders First)</p>
+                    </div>
+                    {perfData.deliveryByCourier.length > 0 && (
+                      <div className="flex gap-4 px-4 py-2 border-b border-gray-100 bg-gray-50/30">
+                        {perfData.deliveryByCourier.map((c) => (
+                          <div key={c.courier} className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.courier === "PostEx" ? "#f97316" : "#8b5cf6" }} />
+                            <span className="text-xs text-gray-600">{c.courier}: <strong>{c.avgDays}d</strong> avg ({c.deliveredCount})</span>
                           </div>
-                        )}
-                      </>
+                        ))}
+                      </div>
+                    )}
+                    <div className="px-4 pt-3 pb-2">
+                      <input
+                        type="text"
+                        placeholder="Search city..."
+                        value={deliveryCitySearch}
+                        onChange={(e) => setDeliveryCitySearch(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 placeholder-gray-400"
+                      />
+                      {deliveryCitySearch.trim() && (
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {perfData.deliveryByCity.filter(c => c.city.toLowerCase().includes(deliveryCitySearch.toLowerCase())).length} of {perfData.deliveryByCity.length} cities
+                        </p>
+                      )}
+                    </div>
+                    {perfData.deliveryByCity.length > 0 ? (
+                      <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+                        <table className="w-full text-sm text-left">
+                          <thead className="bg-gray-50 text-gray-600 font-medium text-xs sticky top-0">
+                            <tr>
+                              <th className="px-4 py-2">City</th>
+                              <th className="px-4 py-2 text-right">PostEx</th>
+                              <th className="px-4 py-2 text-right">Tranzo</th>
+                              <th className="px-4 py-2 text-right">Combined</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {(() => {
+                              const filtered = deliveryCitySearch.trim()
+                                ? perfData.deliveryByCity.filter(c => c.city.toLowerCase().includes(deliveryCitySearch.toLowerCase()))
+                                : perfData.deliveryByCity;
+                              return filtered.length === 0 ? (
+                                <tr>
+                                  <td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-sm">
+                                    No cities match &ldquo;{deliveryCitySearch}&rdquo;
+                                  </td>
+                                </tr>
+                              ) : (
+                                filtered.map((c) => {
+                                  const getDayColor = (days: number) =>
+                                    days <= 3 ? "text-green-600 bg-green-50" : days <= 5 ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50";
+                                  return (
+                                    <tr key={c.city} className="hover:bg-gray-50/50">
+                                      <td className="px-4 py-3">
+                                        <div className="font-medium text-gray-900">{c.city}</div>
+                                        <div className="text-[10px] text-gray-400">{c.deliveredCount} delivered</div>
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                        {c.postexAvg !== null ? (
+                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${getDayColor(c.postexAvg)}`}>
+                                            {c.postexAvg}d
+                                          </span>
+                                        ) : <span className="text-gray-300 text-xs">-</span>}
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                        {c.tranzoAvg !== null ? (
+                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${getDayColor(c.tranzoAvg)}`}>
+                                            {c.tranzoAvg}d
+                                          </span>
+                                        ) : <span className="text-gray-300 text-xs">-</span>}
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${getDayColor(c.avgDays)}`}>
+                                          {c.avgDays}d
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              );
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                         <Clock className="w-8 h-8 mb-2" />
