@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import OrdersTable from "@/components/OrdersTable";
 import OrderCharts from "@/components/OrderCharts";
 import CityStats from "@/components/CityStats";
+import SyncToast from "@/components/SyncToast";
 import { Truck, RefreshCw, Calendar, Download, Filter, AlertCircle } from "lucide-react";
 import { useBrand } from "@/components/providers/BrandContext";
 import { Order, TrackingStatus, PaymentStatus } from "@/lib/types";
@@ -16,6 +17,7 @@ export default function PostExDashboard() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [dataSource, setDataSource] = useState<string>("unknown");
+    const [syncSummary, setSyncSummary] = useState<any>(null);
 
     // Filters
     const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -85,6 +87,7 @@ export default function PostExDashboard() {
 
         setLoading(true);
         setError(null);
+        setSyncSummary(null);
 
         try {
             const { startDate, endDate } = getDateRange();
@@ -101,6 +104,10 @@ export default function PostExDashboard() {
             }
 
             setOrders(data.dist || []);
+
+            if (data.syncSummary) {
+                setSyncSummary(data.syncSummary);
+            }
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -218,6 +225,7 @@ export default function PostExDashboard() {
 
     return (
         <DashboardLayout>
+            <SyncToast summary={syncSummary} onClose={() => setSyncSummary(null)} courier="PostEx" />
             <div className="flex flex-col gap-6 p-6 lg:p-10">
 
                 {/* Page Header */}

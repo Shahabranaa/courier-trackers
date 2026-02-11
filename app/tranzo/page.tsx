@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import OrdersTable from "@/components/OrdersTable";
 import OrderCharts from "@/components/OrderCharts";
 import CityStats from "@/components/CityStats";
+import SyncToast from "@/components/SyncToast";
 import { Package, RefreshCw, Calendar, Download, WifiOff, AlertCircle, Filter, Truck } from "lucide-react";
 import { useBrand } from "@/components/providers/BrandContext";
 import { Order, TrackingStatus } from "@/lib/types";
@@ -88,6 +89,7 @@ export default function TranzoDashboard() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [syncSummary, setSyncSummary] = useState<any>(null);
 
     // Filters
     const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -145,6 +147,7 @@ export default function TranzoDashboard() {
 
         setLoading(true);
         setError(null);
+        setSyncSummary(null);
 
         try {
             const rawToken = selectedBrand.tranzoToken || "";
@@ -163,6 +166,10 @@ export default function TranzoDashboard() {
 
             const data = await res.json();
             processOrderResponse(data);
+
+            if (data.syncSummary) {
+                setSyncSummary(data.syncSummary);
+            }
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -263,6 +270,7 @@ export default function TranzoDashboard() {
 
     return (
         <DashboardLayout>
+            <SyncToast summary={syncSummary} onClose={() => setSyncSummary(null)} courier="Tranzo" />
             <div className="flex flex-col gap-6 p-6 lg:p-10">
 
                 {/* Page Header */}

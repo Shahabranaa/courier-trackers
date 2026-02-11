@@ -83,6 +83,23 @@ export async function GET(req: NextRequest) {
 
         console.log(`Fetched ${results.length} live orders. Storing to DB...`);
 
+        // Snapshot existing orders for diff comparison
+        const incomingTrackingNumbers = (results as any[]).map((o: any) => o.tracking_number).filter(Boolean);
+        const existingOrdersMap: Record<string, string> = {};
+        if (incomingTrackingNumbers.length > 0) {
+            const batchSize = 200;
+            for (let i = 0; i < incomingTrackingNumbers.length; i += batchSize) {
+                const batch = incomingTrackingNumbers.slice(i, i + batchSize);
+                const existing = await prisma.order.findMany({
+                    where: { trackingNumber: { in: batch }, brandId, courier: "Tranzo" },
+                    select: { trackingNumber: true, transactionStatus: true },
+                });
+                existing.forEach((o) => {
+                    existingOrdersMap[o.trackingNumber] = (o.transactionStatus || "").toLowerCase();
+                });
+            }
+        }
+
         if (results.length > 0) {
             const chunkSize = 50;
             for (let i = 0; i < results.length; i += chunkSize) {
@@ -173,6 +190,39 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        // Calculate sync diff
+        let newOrders = 0;
+        let newDelivered = 0;
+        let newReturned = 0;
+        let statusChanged = 0;
+
+        for (const order of results as any[]) {
+            const tn = order.tracking_number;
+            if (!tn) continue;
+            const newStatus = (order.order_status || "Unknown").toLowerCase();
+            const oldStatus = existingOrdersMap[tn];
+
+            if (oldStatus === undefined) {
+                newOrders++;
+                if (newStatus.includes("deliver")) newDelivered++;
+                if (newStatus.includes("return")) newReturned++;
+            } else {
+                if (oldStatus !== newStatus) {
+                    statusChanged++;
+                    if (!oldStatus.includes("deliver") && newStatus.includes("deliver")) newDelivered++;
+                    if (!oldStatus.includes("return") && newStatus.includes("return")) newReturned++;
+                }
+            }
+        }
+
+        const syncSummary = {
+            totalFetched: results.length,
+            newOrders,
+            newDelivered,
+            newReturned,
+            statusChanged,
+        };
+
         const whereClause: any = {
             courier: "Tranzo",
             brandId: brandId
@@ -191,7 +241,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
             source: "live",
             count: freshOrders.length,
-            results: freshOrders
+            results: freshOrders,
+            syncSummary,
         });
 
     } catch (error: any) {

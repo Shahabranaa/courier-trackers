@@ -96,10 +96,26 @@ export async function GET(req: NextRequest) {
             const data = await response.json();
             const orders = data.dist || [];
 
-            // 3. Save/Update to DB with Brand ID
+            // 3. Snapshot existing orders for diff comparison
+            const incomingTrackingNumbers = (orders as any[]).map((o: any) => o.trackingNumber).filter(Boolean);
+            const existingOrdersMap: Record<string, string> = {};
+            if (incomingTrackingNumbers.length > 0) {
+                const batchSize = 200;
+                for (let i = 0; i < incomingTrackingNumbers.length; i += batchSize) {
+                    const batch = incomingTrackingNumbers.slice(i, i + batchSize);
+                    const existing = await prisma.order.findMany({
+                        where: { trackingNumber: { in: batch }, brandId, courier: "PostEx" },
+                        select: { trackingNumber: true, transactionStatus: true },
+                    });
+                    existing.forEach((o) => {
+                        existingOrdersMap[o.trackingNumber] = (o.transactionStatus || "").toLowerCase();
+                    });
+                }
+            }
+
+            // 4. Save/Update to DB with Brand ID
             if (Array.isArray(orders) && orders.length > 0) {
                 console.log(`Caching ${orders.length} orders to DB for brand ${brandId}...`);
-                // Process in chunks to avoid Prisma Accelerate limits (P6009)
                 const chunkSize = 50;
                 for (let i = 0; i < orders.length; i += chunkSize) {
                     const chunk = orders.slice(i, i + chunkSize);
@@ -189,6 +205,39 @@ export async function GET(req: NextRequest) {
                 }
             }
 
+            // 5. Calculate sync diff
+            let newOrders = 0;
+            let newDelivered = 0;
+            let newReturned = 0;
+            let statusChanged = 0;
+
+            for (const order of orders as any[]) {
+                const tn = order.trackingNumber;
+                if (!tn) continue;
+                const newStatus = (order.transactionStatus || order.orderStatus || "").toLowerCase();
+                const oldStatus = existingOrdersMap[tn];
+
+                if (oldStatus === undefined) {
+                    newOrders++;
+                    if (newStatus.includes("deliver")) newDelivered++;
+                    if (newStatus.includes("return")) newReturned++;
+                } else {
+                    if (oldStatus !== newStatus) {
+                        statusChanged++;
+                        if (!oldStatus.includes("deliver") && newStatus.includes("deliver")) newDelivered++;
+                        if (!oldStatus.includes("return") && newStatus.includes("return")) newReturned++;
+                    }
+                }
+            }
+
+            const syncSummary = {
+                totalFetched: orders.length,
+                newOrders,
+                newDelivered,
+                newReturned,
+                statusChanged,
+            };
+
             const freshOrders = await prisma.order.findMany({
                 where: {
                     brandId: brandId,
@@ -207,7 +256,8 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({
                 dist: freshOrders,
                 source: "live",
-                count: freshOrders.length
+                count: freshOrders.length,
+                syncSummary,
             });
 
         } catch (error: any) {
