@@ -4,6 +4,10 @@
 A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopify. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
 
 ## Recent Changes
+- **2026-02-11**: Added Zoom Courier Portal page at /zoom. Displays Shopify orders tagged with "Zoom Courier Service". PostEx-style UI with blue theme: monthly snapshot (total orders, revenue, fulfilled, pending, fulfillment rate), city filter dropdown, fulfillment rates by city sidebar with search, orders table with tags display, CSV export. API route at /api/zoom/orders queries ShopifyOrder table filtering by tag. Added to sidebar navigation.
+- **2026-02-11**: Added tags field to ShopifyOrder model. Shopify sync now fetches and stores order tags. Tags displayed as pills in Shopify Recent Orders table.
+- **2026-02-11**: Added city search bar to PostEx delivery rates by city widget.
+- **2026-02-11**: Fixed analytics date filtering: Tranzo dates normalized to ISO format, standardized query boundaries across all routes, added DB indexes on (brandId, orderDate) and (brandId, courier).
 - **2026-02-11**: Added sync notification toasts for PostEx and Tranzo. After clicking "Sync Live Data", a toast notification shows: total orders fetched, new orders added, newly delivered, new returns, and status changes. API routes snapshot existing order statuses before upsert and compute diff summary. SyncToast component auto-dismisses after 8 seconds. Brand-scoped diff queries for multi-tenant safety.
 - **2026-02-09**: Added Smart Alerts & Notifications page at /alerts. Separate page from Analytics. Three alert types: stuck-in-transit orders (configurable day threshold, critical/warning severity), return rate spikes by city (flagged when exceeding threshold %), courier performance drops (delivery rate below threshold). Expandable alert cards with detailed tables/charts. Configurable thresholds via settings panel. Filter by type and severity. Summary stat cards. API route at /api/alerts. Bell icon in sidebar.
 - **2026-02-09**: Added Customer Insights to Analytics page: repeat customer identification (phone-based matching across Order + ShopifyOrder), customer lifetime value tracking (top 20 by revenue with progress bars), problem customer flagging (frequent returns/cancellations with visual order history). New API route at /api/analytics/customers. Tabbed interface with summary stats cards. Customer data is aggregated across all time (not filtered by month).
@@ -29,10 +33,11 @@ A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopi
 ### Directory Structure
 ```
 app/              - Next.js App Router pages and API routes
-  api/            - Backend API routes (postex, tranzo, shopify)
+  api/            - Backend API routes (postex, tranzo, shopify, zoom)
   postex/         - PostEx portal pages
   tranzo/         - Tranzo portal pages
   shopify/        - Shopify orders comparison page
+  zoom/           - Zoom Courier portal (Shopify orders tagged "Zoom Courier Service")
   settings/       - Settings page
   daily/          - Daily reports page
 components/       - React UI components (Dashboard, Charts, Tables)
