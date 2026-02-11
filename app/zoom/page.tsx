@@ -24,6 +24,7 @@ interface ZoomOrder {
     shippingAddress: string;
     shippingCity: string;
     tags: string;
+    zoomTrackingNumbers: string[];
 }
 
 export default function ZoomPortal() {
@@ -128,12 +129,17 @@ export default function ZoomPortal() {
             .sort((a, b) => b.total - a.total);
     }, [filteredOrders]);
 
+    const getZoomTracking = (order: ZoomOrder): string => {
+        const nums = order.zoomTrackingNumbers || [];
+        return nums.length > 0 ? nums.join(", ") : "-";
+    };
+
     const downloadCSV = () => {
         if (filteredOrders.length === 0) return;
-        const headers = ["Date", "Order", "Customer", "City", "Address", "Phone", "Amount", "Status", "Tags"];
+        const headers = ["Date", "Order", "Customer", "City", "Address", "Phone", "Amount", "Status", "Tracking Number"];
         const rows = filteredOrders.map(o => [
             o.createdAt?.split("T")[0], o.orderName, o.customerName, o.shippingCity,
-            o.shippingAddress, o.phone, o.totalPrice, o.fulfillmentStatus, o.tags
+            o.shippingAddress, o.phone, o.totalPrice, o.fulfillmentStatus, getZoomTracking(o)
         ]);
         const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -294,7 +300,7 @@ export default function ZoomPortal() {
                                                 <th className="px-4 py-3 text-left font-semibold">Phone</th>
                                                 <th className="px-4 py-3 text-right font-semibold">Amount</th>
                                                 <th className="px-4 py-3 text-center font-semibold">Status</th>
-                                                <th className="px-4 py-3 text-left font-semibold">Tags</th>
+                                                <th className="px-4 py-3 text-left font-semibold">Tracking #</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
@@ -322,11 +328,11 @@ export default function ZoomPortal() {
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-3">
-                                                            {order.tags ? (
-                                                                <div className="flex flex-wrap gap-1 max-w-[180px]">
-                                                                    {order.tags.split(",").map((tag, i) => (
-                                                                        <span key={i} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap">
-                                                                            {tag.trim()}
+                                                            {order.zoomTrackingNumbers && order.zoomTrackingNumbers.length > 0 ? (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    {order.zoomTrackingNumbers.map((tn, i) => (
+                                                                        <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-mono font-medium whitespace-nowrap inline-block w-fit">
+                                                                            {tn}
                                                                         </span>
                                                                     ))}
                                                                 </div>

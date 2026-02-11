@@ -27,20 +27,40 @@ export async function GET(req: NextRequest) {
             orderBy: { createdAt: "desc" }
         });
 
-        const orders = allOrders.filter(order => {
-            if (order.courierPartner && order.courierPartner.toLowerCase().includes("zoom")) {
-                return true;
-            }
-            try {
-                const fulfillments = JSON.parse(order.fulfillments || "[]");
-                if (Array.isArray(fulfillments)) {
-                    return fulfillments.some((f: any) =>
-                        f.tracking_company && f.tracking_company.toLowerCase().includes("zoom")
-                    );
+        const orders = allOrders
+            .map(order => {
+                const zoomTrackingNumbers: string[] = [];
+                let isZoomOrder = false;
+
+                try {
+                    const fulfillments = JSON.parse(order.fulfillments || "[]");
+                    if (Array.isArray(fulfillments)) {
+                        for (const f of fulfillments) {
+                            if (f.tracking_company && f.tracking_company.toLowerCase().includes("zoom")) {
+                                isZoomOrder = true;
+                                if (f.tracking_numbers && Array.isArray(f.tracking_numbers)) {
+                                    zoomTrackingNumbers.push(...f.tracking_numbers);
+                                } else if (f.tracking_number) {
+                                    zoomTrackingNumbers.push(f.tracking_number);
+                                }
+                            }
+                        }
+                    }
+                } catch {}
+
+                if (!isZoomOrder && order.courierPartner && order.courierPartner.toLowerCase().includes("zoom")) {
+                    isZoomOrder = true;
+                    try {
+                        const allTracking = JSON.parse(order.trackingNumbers || "[]");
+                        if (Array.isArray(allTracking)) {
+                            zoomTrackingNumbers.push(...allTracking);
+                        }
+                    } catch {}
                 }
-            } catch {}
-            return false;
-        });
+
+                return isZoomOrder ? { ...order, zoomTrackingNumbers } : null;
+            })
+            .filter((o): o is NonNullable<typeof o> => o !== null);
 
         const stats = {
             total: orders.length,
