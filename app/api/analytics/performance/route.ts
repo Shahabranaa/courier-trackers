@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
         transactionStatus: true,
         lastStatus: true,
         lastStatusTime: true,
+        lastFetchedAt: true,
         cityName: true,
         invoicePayment: true,
         orderDetail: true,
@@ -80,18 +81,24 @@ export async function GET(req: NextRequest) {
         courierStats[courier].inTransit++;
       }
 
-      if (isDelivered && order.lastStatusTime && order.orderDate) {
-        const orderTime = new Date(order.orderDate).getTime();
-        const deliverTime = new Date(order.lastStatusTime).getTime();
-        if (deliverTime > orderTime) {
-          const daysDiff = Math.round((deliverTime - orderTime) / (1000 * 60 * 60 * 24) * 10) / 10;
-          if (daysDiff > 0 && daysDiff < 60) {
-            const key = `${city}__${courier}`;
-            if (!deliveryTimeByCityCourier[key]) {
-              deliveryTimeByCityCourier[key] = { totalDays: 0, count: 0, courier, city: cityDisplay };
+      if (isDelivered && order.orderDate) {
+        const deliverTimestamp = order.lastStatusTime
+          ? new Date(order.lastStatusTime).getTime()
+          : order.lastFetchedAt
+            ? new Date(order.lastFetchedAt).getTime()
+            : null;
+        if (deliverTimestamp) {
+          const orderTime = new Date(order.orderDate).getTime();
+          if (deliverTimestamp > orderTime) {
+            const daysDiff = Math.round((deliverTimestamp - orderTime) / (1000 * 60 * 60 * 24) * 10) / 10;
+            if (daysDiff > 0 && daysDiff < 60) {
+              const key = `${city}__${courier}`;
+              if (!deliveryTimeByCityCourier[key]) {
+                deliveryTimeByCityCourier[key] = { totalDays: 0, count: 0, courier, city: cityDisplay };
+              }
+              deliveryTimeByCityCourier[key].totalDays += daysDiff;
+              deliveryTimeByCityCourier[key].count++;
             }
-            deliveryTimeByCityCourier[key].totalDays += daysDiff;
-            deliveryTimeByCityCourier[key].count++;
           }
         }
       }
