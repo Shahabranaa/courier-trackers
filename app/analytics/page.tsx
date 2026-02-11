@@ -12,7 +12,7 @@ import {
   Package, DollarSign, CalendarDays, MapPin,
   BarChart3, Loader2, AlertCircle, Trophy, Clock,
   RotateCcw, Truck, CheckCircle, XCircle, Timer,
-  Users, UserCheck, UserX, Crown, AlertTriangle, Phone
+  Users, UserCheck, UserX, Crown, AlertTriangle, Phone, Search
 } from "lucide-react";
 
 interface DailyTrend {
@@ -213,6 +213,8 @@ export default function AnalyticsPage() {
   );
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
   const [hoveredCity, setHoveredCity] = useState<{ city: string; count: number; revenue: number; percentage: number; x: number; y: number } | null>(null);
+  const [deliveryCitySearch, setDeliveryCitySearch] = useState("");
+  const [returnCitySearch, setReturnCitySearch] = useState("");
 
   const getDateRange = useCallback(() => {
     const [year, month] = selectedMonth.split("-").map(Number);
@@ -856,30 +858,56 @@ export default function AnalyticsPage() {
 
                   {/* Average Delivery Time by City */}
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <h3 className="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Clock className="w-4 h-4 text-gray-500" />
                       Avg Delivery Time by City
                     </h3>
                     {perfData.deliveryByCity.length > 0 ? (
                       <>
-                        <div className="h-64 mb-4">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={perfData.deliveryByCity.slice(0, 10)} layout="vertical" margin={{ left: 10, right: 20 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                              <XAxis type="number" tick={{ fontSize: 11 }} unit=" d" />
-                              <YAxis type="category" dataKey="city" tick={{ fontSize: 11 }} width={80} />
-                              <Tooltip
-                                contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", padding: "12px" }}
-                                formatter={(value: number | undefined) => [`${value ?? 0} days`, "Avg Delivery"]}
-                              />
-                              <Bar dataKey="avgDays" radius={[0, 6, 6, 0]} maxBarSize={24}>
-                                {perfData.deliveryByCity.slice(0, 10).map((entry, index) => (
-                                  <Cell key={index} fill={entry.avgDays <= 3 ? "#22c55e" : entry.avgDays <= 5 ? "#f59e0b" : "#ef4444"} />
-                                ))}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
+                        <div className="relative mb-4">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search city..."
+                            value={deliveryCitySearch}
+                            onChange={(e) => setDeliveryCitySearch(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+                          />
                         </div>
+                        {(() => {
+                          const filtered = deliveryCitySearch
+                            ? perfData.deliveryByCity.filter(c => c.city.toLowerCase().includes(deliveryCitySearch.toLowerCase()))
+                            : perfData.deliveryByCity;
+                          const chartData = filtered.slice(0, 10);
+                          return chartData.length > 0 ? (
+                            <>
+                              <div className="h-64 mb-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                                    <XAxis type="number" tick={{ fontSize: 11 }} unit=" d" />
+                                    <YAxis type="category" dataKey="city" tick={{ fontSize: 11 }} width={80} />
+                                    <Tooltip
+                                      contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", padding: "12px" }}
+                                      formatter={(value: number | undefined) => [`${value ?? 0} days`, "Avg Delivery"]}
+                                    />
+                                    <Bar dataKey="avgDays" radius={[0, 6, 6, 0]} maxBarSize={24}>
+                                      {chartData.map((entry, index) => (
+                                        <Cell key={index} fill={entry.avgDays <= 3 ? "#22c55e" : entry.avgDays <= 5 ? "#f59e0b" : "#ef4444"} />
+                                      ))}
+                                    </Bar>
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              </div>
+                              {deliveryCitySearch && <p className="text-xs text-gray-400 mb-2">Showing {filtered.length} of {perfData.deliveryByCity.length} cities</p>}
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                              <Search className="w-6 h-6 mb-2" />
+                              <p className="text-sm">No cities match &ldquo;{deliveryCitySearch}&rdquo;</p>
+                            </div>
+                          );
+                        })()}
                         {perfData.deliveryByCourier.length > 0 && (
                           <div className="flex gap-4 pt-3 border-t border-gray-100">
                             {perfData.deliveryByCourier.map((c) => (
@@ -904,39 +932,66 @@ export default function AnalyticsPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Return Rate by City */}
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <h3 className="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <RotateCcw className="w-4 h-4 text-red-500" />
                       Return Rate by City
                     </h3>
                     {perfData.cityReturnRates.length > 0 ? (
-                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                        {perfData.cityReturnRates.map((city, i) => {
-                          const maxRate = perfData.cityReturnRates[0].rate;
-                          return (
-                            <div key={city.city} className="group">
-                              <div className="flex items-center justify-between mb-1.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-gray-400 w-5">{i + 1}</span>
-                                  <span className="text-sm font-medium text-gray-800">{city.city}</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-right">
-                                  <span className="text-xs text-gray-400">{city.returned}/{city.total} orders</span>
-                                  <span className={`text-sm font-bold ${city.rate > 30 ? "text-red-600" : city.rate > 15 ? "text-amber-600" : "text-green-600"}`}>{city.rate}%</span>
-                                </div>
+                      <>
+                        <div className="relative mb-4">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search city..."
+                            value={returnCitySearch}
+                            onChange={(e) => setReturnCitySearch(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+                          />
+                        </div>
+                        {(() => {
+                          const filtered = returnCitySearch
+                            ? perfData.cityReturnRates.filter(c => c.city.toLowerCase().includes(returnCitySearch.toLowerCase()))
+                            : perfData.cityReturnRates;
+                          return filtered.length > 0 ? (
+                            <>
+                              {returnCitySearch && <p className="text-xs text-gray-400 mb-2">Showing {filtered.length} of {perfData.cityReturnRates.length} cities</p>}
+                              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                                {filtered.map((city, i) => {
+                                  const maxRate = filtered[0].rate;
+                                  return (
+                                    <div key={city.city} className="group">
+                                      <div className="flex items-center justify-between mb-1.5">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-bold text-gray-400 w-5">{i + 1}</span>
+                                          <span className="text-sm font-medium text-gray-800">{city.city}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-right">
+                                          <span className="text-xs text-gray-400">{city.returned}/{city.total} orders</span>
+                                          <span className={`text-sm font-bold ${city.rate > 30 ? "text-red-600" : city.rate > 15 ? "text-amber-600" : "text-green-600"}`}>{city.rate}%</span>
+                                        </div>
+                                      </div>
+                                      <div className="ml-7 bg-gray-100 rounded-full h-2">
+                                        <div
+                                          className="h-2 rounded-full transition-all duration-500"
+                                          style={{
+                                            width: `${maxRate > 0 ? (city.rate / maxRate) * 100 : 0}%`,
+                                            backgroundColor: city.rate > 30 ? "#ef4444" : city.rate > 15 ? "#f59e0b" : "#22c55e",
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              <div className="ml-7 bg-gray-100 rounded-full h-2">
-                                <div
-                                  className="h-2 rounded-full transition-all duration-500"
-                                  style={{
-                                    width: `${maxRate > 0 ? (city.rate / maxRate) * 100 : 0}%`,
-                                    backgroundColor: city.rate > 30 ? "#ef4444" : city.rate > 15 ? "#f59e0b" : "#22c55e",
-                                  }}
-                                />
-                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                              <Search className="w-6 h-6 mb-2" />
+                              <p className="text-sm">No cities match &ldquo;{returnCitySearch}&rdquo;</p>
                             </div>
                           );
-                        })}
-                      </div>
+                        })()}
+                      </>
                     ) : (
                       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                         <RotateCcw className="w-8 h-8 mb-2" />
