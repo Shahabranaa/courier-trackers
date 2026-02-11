@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, Package, Settings, ChevronLeft, ChevronRight, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Shield, LogOut } from "lucide-react";
+import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare } from "lucide-react";
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
-import { useAuth } from "./providers/AuthContext";
 
 export default function DashboardSidebar() {
     const pathname = usePathname();
@@ -13,7 +12,6 @@ export default function DashboardSidebar() {
     const [brandMenuOpen, setBrandMenuOpen] = useState(false);
 
     const { brands, selectedBrand, selectBrand } = useBrand();
-    const { user, logout } = useAuth();
 
     const navItems = [
         { name: "Overview", href: "/", icon: LayoutDashboard },
@@ -34,12 +32,10 @@ export default function DashboardSidebar() {
         { name: "Smart Alerts", href: "/alerts", icon: Bell },
     ];
 
-    if (user?.role === "SUPER_ADMIN") {
-        navItems.push({ name: "Admin Panel", href: "/admin", icon: Shield });
-    }
-
+    // Track expanded state for menus (default PostEx open if on a sub-page? or just manual?)
+    // Let's default to expanded if pathname starts with href
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-        "/postex": true
+        "/postex": true // Default expanded for visibility
     });
 
     const toggleGroup = (href: string) => {
@@ -50,6 +46,7 @@ export default function DashboardSidebar() {
         <aside
             className={`bg-white border-r border-gray-200 h-screen sticky top-0 flex flex-col transition-all duration-300 z-40 ${collapsed ? "w-20" : "w-64"}`}
         >
+            {/* Logo Area */}
             <div className="h-16 flex items-center justify-center border-b border-gray-100 relative">
                 {collapsed ? (
                     <div className="h-10 w-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
@@ -65,6 +62,7 @@ export default function DashboardSidebar() {
                 )}
             </div>
 
+            {/* Brand Switcher */}
             {!collapsed && (
                 <div className="px-3 pt-4 pb-2">
                     <div className="relative">
@@ -84,6 +82,7 @@ export default function DashboardSidebar() {
                             <ChevronDown size={16} className={`text-gray-400 transition-transform ${brandMenuOpen ? "rotate-180" : ""}`} />
                         </button>
 
+                        {/* Dropdown */}
                         {brandMenuOpen && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setBrandMenuOpen(false)}></div>
@@ -118,6 +117,7 @@ export default function DashboardSidebar() {
                 </div>
             )}
 
+            {/* Navigation */}
             <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href || (item.children && item.children.some(child => pathname === child.href));
@@ -161,6 +161,7 @@ export default function DashboardSidebar() {
                                 )}
                             </div>
 
+                            {/* Sub-menu */}
                             {!collapsed && item.children && isExpanded && (
                                 <div className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 pl-2">
                                     {item.children.map((child) => {
@@ -185,7 +186,8 @@ export default function DashboardSidebar() {
                 })}
             </nav>
 
-            <div className="p-3 border-t border-gray-100 space-y-1">
+            {/* Footer / User Profile */}
+            <div className="p-3 border-t border-gray-100">
                 <Link href="/settings" className="flex items-center gap-3 w-full p-2 hover:bg-gray-50 rounded-xl transition-colors group">
                     <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200 group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
                         <Settings size={18} />
@@ -197,31 +199,9 @@ export default function DashboardSidebar() {
                         </div>
                     )}
                 </Link>
-
-                {user && (
-                    <div className="flex items-center gap-3 p-2">
-                        <div className="h-9 w-9 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
-                            {(user.displayName || user.username).charAt(0).toUpperCase()}
-                        </div>
-                        {!collapsed && (
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{user.displayName || user.username}</p>
-                                <p className="text-xs text-gray-500 truncate">{user.role === "SUPER_ADMIN" ? "Super Admin" : user.role === "ADMIN" ? "Admin" : "User"}</p>
-                            </div>
-                        )}
-                        {!collapsed && (
-                            <button
-                                onClick={logout}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Sign Out"
-                            >
-                                <LogOut size={16} />
-                            </button>
-                        )}
-                    </div>
-                )}
             </div>
 
+            {/* Collapse Toggle */}
             <button
                 onClick={() => setCollapsed(!collapsed)}
                 className="absolute -right-3 top-20 bg-white border border-gray-200 rounded-full p-1 shadow-sm text-gray-400 hover:text-indigo-600 hover:border-indigo-200 transition-all"

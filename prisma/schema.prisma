@@ -47,62 +47,18 @@ model Order {
   @@index([brandId, courier])
 }
 
-enum UserRole {
-  SUPER_ADMIN
-  ADMIN
-  USER
-}
-
-model User {
-  id           String      @id @default(cuid())
-  username     String      @unique
-  passwordHash String
-  displayName  String      @default("")
-  role         UserRole    @default(USER)
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  sessions     Session[]
-  userBrands   UserBrand[]
-}
-
-model Session {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([token])
-  @@index([userId])
-}
-
-model UserBrand {
-  id      String @id @default(cuid())
-  userId  String
-  brandId String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, brandId])
-  @@index([userId])
-  @@index([brandId])
-}
-
 model Brand {
-  id                   String      @id @default(cuid())
+  id                   String  @id @default(cuid())
   name                 String
-  apiToken             String      @default("")
-  tranzoToken          String      @default("")
-  proxyUrl             String      @default("")
-  shopifyStore          String      @default("")
-  shopifyAccessToken    String      @default("")
-  shopifyClientId       String      @default("")
-  shopifyClientSecret   String      @default("")
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-  userBrands           UserBrand[]
+  apiToken             String  @default("")
+  tranzoToken          String  @default("")
+  proxyUrl             String  @default("")
+  shopifyStore          String  @default("")
+  shopifyAccessToken    String  @default("")
+  shopifyClientId       String  @default("")
+  shopifyClientSecret   String  @default("")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model ShopifyOrder {

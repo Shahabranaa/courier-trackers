@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Brand } from "@/lib/types";
-import { useAuth } from "./AuthContext";
 
 interface BrandContextType {
     brands: Brand[];
@@ -20,26 +19,12 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     const [brands, setBrands] = useState<Brand[]>([]);
     const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
     const [loading, setLoading] = useState(true);
-    const { user, loading: authLoading } = useAuth();
 
     const loadBrands = useCallback(async () => {
-        if (authLoading) return;
-        if (!user) {
-            setBrands([]);
-            setSelectedBrand(null);
-            setLoading(false);
-            return;
-        }
-
         try {
             const res = await fetch("/api/brands");
             if (!res.ok) throw new Error("Failed to load brands");
-            let data: Brand[] = await res.json();
-
-            if (user.brandIds !== "all" && Array.isArray(user.brandIds)) {
-                data = data.filter((b: Brand) => user.brandIds === "all" || (user.brandIds as string[]).includes(b.id));
-            }
-
+            const data = await res.json();
             setBrands(data);
 
             const savedSelection = localStorage.getItem("hub_logistic_selected_brand_v1");
@@ -51,7 +36,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
                 setSelectedBrand(data[0]);
             }
 
-            if (data.length === 0 && user.role === "SUPER_ADMIN") {
+            if (data.length === 0) {
                 const oldBrands = localStorage.getItem("hub_logistic_brands_v1");
                 if (oldBrands) {
                     const parsed = JSON.parse(oldBrands);
@@ -88,7 +73,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setLoading(false);
         }
-    }, [user, authLoading]);
+    }, []);
 
     useEffect(() => {
         loadBrands();
