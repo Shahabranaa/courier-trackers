@@ -120,18 +120,29 @@ export async function GET(req: NextRequest) {
       }))
       .sort((a, b) => a.avgDays - b.avgDays);
 
-    const avgDeliveryByCity: Record<string, { totalDays: number; count: number }> = {};
+    const avgDeliveryByCity: Record<string, { totalDays: number; count: number; postexDays: number; postexCount: number; tranzoDays: number; tranzoCount: number }> = {};
     for (const d of Object.values(deliveryTimeByCityCourier)) {
       const c = d.city.toLowerCase();
-      if (!avgDeliveryByCity[c]) avgDeliveryByCity[c] = { totalDays: 0, count: 0 };
+      if (!avgDeliveryByCity[c]) avgDeliveryByCity[c] = { totalDays: 0, count: 0, postexDays: 0, postexCount: 0, tranzoDays: 0, tranzoCount: 0 };
       avgDeliveryByCity[c].totalDays += d.totalDays;
       avgDeliveryByCity[c].count += d.count;
+      if (d.courier === "PostEx") {
+        avgDeliveryByCity[c].postexDays += d.totalDays;
+        avgDeliveryByCity[c].postexCount += d.count;
+      } else if (d.courier === "Tranzo") {
+        avgDeliveryByCity[c].tranzoDays += d.totalDays;
+        avgDeliveryByCity[c].tranzoCount += d.count;
+      }
     }
     const deliveryByCity = Object.entries(avgDeliveryByCity)
       .map(([city, d]) => ({
         city: titleCase(city),
         avgDays: Math.round((d.totalDays / d.count) * 10) / 10,
         deliveredCount: d.count,
+        postexAvg: d.postexCount > 0 ? Math.round((d.postexDays / d.postexCount) * 10) / 10 : null,
+        postexCount: d.postexCount,
+        tranzoAvg: d.tranzoCount > 0 ? Math.round((d.tranzoDays / d.tranzoCount) * 10) / 10 : null,
+        tranzoCount: d.tranzoCount,
       }))
       .sort((a, b) => a.avgDays - b.avgDays);
 

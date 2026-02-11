@@ -5,7 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, AreaChart, Area, Cell
+  CartesianGrid, AreaChart, Area, Cell, Legend
 } from "recharts";
 import {
   TrendingUp, TrendingDown, ArrowUp, ArrowDown,
@@ -43,7 +43,7 @@ interface AnalyticsData {
 
 interface PerformanceData {
   overallStats: { totalOrders: number; totalDelivered: number; totalReturned: number; avgDeliveryDays: number };
-  deliveryByCity: { city: string; avgDays: number; deliveredCount: number }[];
+  deliveryByCity: { city: string; avgDays: number; deliveredCount: number; postexAvg: number | null; postexCount: number; tranzoAvg: number | null; tranzoCount: number }[];
   deliveryByCourier: { courier: string; avgDays: number; deliveredCount: number }[];
   cityReturnRates: { city: string; total: number; returned: number; rate: number }[];
   productReturnRates: { product: string; total: number; returned: number; rate: number }[];
@@ -867,12 +867,13 @@ export default function AnalyticsPage() {
                     )}
                   </div>
 
-                  {/* Average Delivery Time by City */}
+                  {/* Average Delivery Time by City - PostEx vs Tranzo */}
                   <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
                       <Clock className="w-4 h-4 text-gray-500" />
                       Avg Delivery Time by City
                     </h3>
+                    <p className="text-xs text-gray-400 mb-4">Dispatch date to delivery date (PostEx vs Tranzo)</p>
                     {perfData.deliveryByCity.length > 0 ? (
                       <>
                         <div className="relative mb-4">
@@ -889,10 +890,10 @@ export default function AnalyticsPage() {
                           const filtered = deliveryCitySearch
                             ? perfData.deliveryByCity.filter(c => c.city.toLowerCase().includes(deliveryCitySearch.toLowerCase()))
                             : perfData.deliveryByCity;
-                          const chartData = filtered.slice(0, 10);
+                          const chartData = filtered.slice(0, 12);
                           return chartData.length > 0 ? (
                             <>
-                              <div className="h-64 mb-4">
+                              <div className="h-80 mb-4">
                                 <ResponsiveContainer width="100%" height="100%">
                                   <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
@@ -900,17 +901,55 @@ export default function AnalyticsPage() {
                                     <YAxis type="category" dataKey="city" tick={{ fontSize: 11 }} width={80} />
                                     <Tooltip
                                       contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", padding: "12px" }}
-                                      formatter={(value: number | undefined) => [`${value ?? 0} days`, "Avg Delivery"]}
+                                      formatter={(value: any, name: any) => {
+                                        if (value === null || value === undefined) return ["-", name];
+                                        const label = name === "postexAvg" ? "PostEx" : name === "tranzoAvg" ? "Tranzo" : "Combined";
+                                        return [`${value} days`, label];
+                                      }}
                                     />
-                                    <Bar dataKey="avgDays" radius={[0, 6, 6, 0]} maxBarSize={24}>
-                                      {chartData.map((entry, index) => (
-                                        <Cell key={index} fill={entry.avgDays <= 3 ? "#22c55e" : entry.avgDays <= 5 ? "#f59e0b" : "#ef4444"} />
-                                      ))}
-                                    </Bar>
+                                    <Legend
+                                      verticalAlign="top"
+                                      height={30}
+                                      formatter={(value: string) => value === "postexAvg" ? "PostEx" : value === "tranzoAvg" ? "Tranzo" : value}
+                                    />
+                                    <Bar dataKey="postexAvg" name="postexAvg" fill="#f97316" radius={[0, 4, 4, 0]} maxBarSize={16} />
+                                    <Bar dataKey="tranzoAvg" name="tranzoAvg" fill="#8b5cf6" radius={[0, 4, 4, 0]} maxBarSize={16} />
                                   </BarChart>
                                 </ResponsiveContainer>
                               </div>
                               {deliveryCitySearch && <p className="text-xs text-gray-400 mb-2">Showing {filtered.length} of {perfData.deliveryByCity.length} cities</p>}
+                              <div className="space-y-1 max-h-48 overflow-y-auto">
+                                <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 border-b border-gray-100">
+                                  <span>City</span>
+                                  <span className="text-center">PostEx</span>
+                                  <span className="text-center">Tranzo</span>
+                                  <span className="text-center">Combined</span>
+                                </div>
+                                {filtered.map((c) => (
+                                  <div key={c.city} className="grid grid-cols-4 gap-2 text-xs px-2 py-1.5 hover:bg-gray-50 rounded-lg">
+                                    <span className="font-medium text-gray-700 truncate">{c.city}</span>
+                                    <span className="text-center">
+                                      {c.postexAvg !== null ? (
+                                        <span className={`font-semibold ${c.postexAvg <= 3 ? "text-green-600" : c.postexAvg <= 5 ? "text-amber-600" : "text-red-600"}`}>
+                                          {c.postexAvg}d <span className="font-normal text-gray-400">({c.postexCount})</span>
+                                        </span>
+                                      ) : <span className="text-gray-300">-</span>}
+                                    </span>
+                                    <span className="text-center">
+                                      {c.tranzoAvg !== null ? (
+                                        <span className={`font-semibold ${c.tranzoAvg <= 3 ? "text-green-600" : c.tranzoAvg <= 5 ? "text-amber-600" : "text-red-600"}`}>
+                                          {c.tranzoAvg}d <span className="font-normal text-gray-400">({c.tranzoCount})</span>
+                                        </span>
+                                      ) : <span className="text-gray-300">-</span>}
+                                    </span>
+                                    <span className="text-center">
+                                      <span className={`font-semibold ${c.avgDays <= 3 ? "text-green-600" : c.avgDays <= 5 ? "text-amber-600" : "text-red-600"}`}>
+                                        {c.avgDays}d
+                                      </span>
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </>
                           ) : (
                             <div className="flex flex-col items-center justify-center py-8 text-gray-400">
@@ -920,10 +959,10 @@ export default function AnalyticsPage() {
                           );
                         })()}
                         {perfData.deliveryByCourier.length > 0 && (
-                          <div className="flex gap-4 pt-3 border-t border-gray-100">
+                          <div className="flex gap-4 pt-3 mt-3 border-t border-gray-100">
                             {perfData.deliveryByCourier.map((c) => (
                               <div key={c.courier} className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COURIER_COLORS[c.courier] || "#6366f1" }} />
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.courier === "PostEx" ? "#f97316" : "#8b5cf6" }} />
                                 <span className="text-xs text-gray-600">{c.courier}: <strong>{c.avgDays}d</strong> avg ({c.deliveredCount} orders)</span>
                               </div>
                             ))}
