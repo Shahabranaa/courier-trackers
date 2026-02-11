@@ -42,6 +42,9 @@ model Order {
   paymentStatus     PaymentStatus?
 
   lastFetchedAt DateTime @default(now())
+
+  @@index([brandId, orderDate])
+  @@index([brandId, courier])
 }
 
 model Brand {

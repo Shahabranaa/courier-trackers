@@ -110,6 +110,7 @@ export async function GET(req: NextRequest) {
                         const amount = parseFloat(order.cod_amount || "0");
                         const statusVal = (order.order_status || "Unknown").toLowerCase();
                         const cityVal = (order.destination_city_name || order.city_name || "").toLowerCase();
+                        const safeOrderDate = order.created_at ? new Date(order.created_at).toISOString() : new Date().toISOString();
 
                         let fee = 0;
                         let tax = 0;
@@ -145,10 +146,10 @@ export async function GET(req: NextRequest) {
                                 customerPhone: order.customer_phone || "",
                                 deliveryAddress: order.delivery_address || "",
                                 cityName: order.destination_city_name || order.city_name || null,
-                                transactionDate: order.created_at || new Date().toISOString(),
+                                transactionDate: safeOrderDate,
                                 orderDetail: order.order_details || "",
                                 orderType: "COD",
-                                orderDate: order.created_at || new Date().toISOString(),
+                                orderDate: safeOrderDate,
                                 orderAmount: amount,
                                 orderStatus: order.order_status || "Unknown",
                                 transactionStatus: order.order_status || "Unknown",
@@ -170,10 +171,10 @@ export async function GET(req: NextRequest) {
                                 customerPhone: order.customer_phone || "",
                                 deliveryAddress: order.delivery_address || "",
                                 cityName: order.destination_city_name || order.city_name || null,
-                                transactionDate: order.created_at || new Date().toISOString(),
+                                transactionDate: safeOrderDate,
                                 orderDetail: order.order_details || "",
                                 orderType: "COD",
-                                orderDate: order.created_at || new Date().toISOString(),
+                                orderDate: safeOrderDate,
                                 orderAmount: amount,
                                 orderStatus: order.order_status || "Unknown",
                                 transactionStatus: order.order_status || "Unknown",

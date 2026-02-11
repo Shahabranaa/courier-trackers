@@ -21,20 +21,8 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "Missing startDate" }, { status: 400 });
         }
 
-        // Calculate End Query Boundary for String comparison
-        // Issue: "2026-01-31 23:59:59" is < "2026-01-31T00:00:00Z" (Space < T)
-        // Fix: Use "2026-01-31T23:59:59.999Z" OR simply use next day logic if simplistic.
-        // Robust Fix: Append 'T23:59:59.999Z' if just date.
-        // Or better: lexicographical safe boundary.
-
-        const startQuery = startDate; // e.g., "2026-01-01"
-        // If "2026-01-01" vs "2026-01-01T..." -> "2026-01-01" is smaller. "gte" works.
-
-        let endQuery = endDate ? endDate : startDate;
-        // Make endQuery lexicographically larger than any ISO string of that day
-        // "2026-01-31" -> "2026-01-31T23:59:59.999Z" 
-        // Adding 'T23...' works because 'T' matches 'T' and time is late.
-        endQuery = endQuery + "T23:59:59.999Z";
+        const startQuery = startDate + "T00:00:00.000Z";
+        const endQuery = (endDate || startDate) + "T23:59:59.999Z";
 
 
         if (!forceRefresh) {
