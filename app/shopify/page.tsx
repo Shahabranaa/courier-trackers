@@ -38,6 +38,7 @@ interface DailyComparison {
     dispatchedOrders: number;
     postexDispatched: number;
     tranzoDispatched: number;
+    zoomDispatched: number;
     unfulfilled: number;
     shopifyRevenue: number;
 }
@@ -149,10 +150,24 @@ export default function ShopifyOrdersPage() {
 
         const getDay = (d: string) => d ? d.split("T")[0] : "Unknown";
 
+        const isZoomFulfilled = (order: ShopifyOrderData): boolean => {
+            const partner = order.courierPartner?.toLowerCase() || "";
+            if (partner.includes("zoom")) return true;
+            try {
+                const fulfillments = JSON.parse(order.fulfillments || "[]");
+                if (Array.isArray(fulfillments)) {
+                    return fulfillments.some((f: any) =>
+                        f.tracking_company && f.tracking_company.toLowerCase().includes("zoom")
+                    );
+                }
+            } catch {}
+            return false;
+        };
+
         shopifyOrders.forEach(o => {
             const day = getDay(o.createdAt);
             if (!dailyMap[day]) {
-                dailyMap[day] = { date: day, shopifyOrders: 0, dispatchedOrders: 0, postexDispatched: 0, tranzoDispatched: 0, unfulfilled: 0, shopifyRevenue: 0 };
+                dailyMap[day] = { date: day, shopifyOrders: 0, dispatchedOrders: 0, postexDispatched: 0, tranzoDispatched: 0, zoomDispatched: 0, unfulfilled: 0, shopifyRevenue: 0 };
             }
             dailyMap[day].shopifyOrders += 1;
             dailyMap[day].shopifyRevenue += o.totalPrice;
@@ -167,7 +182,9 @@ export default function ShopifyOrdersPage() {
                 const trackingNums: string[] = JSON.parse(o.trackingNumbers || "[]");
                 const partner = o.courierPartner?.toLowerCase() || "";
 
-                if (partner.includes("postex") || partner.includes("post ex")) {
+                if (isZoomFulfilled(o)) {
+                    dailyMap[day].zoomDispatched += 1;
+                } else if (partner.includes("postex") || partner.includes("post ex")) {
                     dailyMap[day].postexDispatched += 1;
                 } else if (partner.includes("tranzo")) {
                     dailyMap[day].tranzoDispatched += 1;
@@ -441,7 +458,8 @@ export default function ShopifyOrdersPage() {
                                     <Legend verticalAlign="top" height={36} iconType="circle" />
                                     <Bar dataKey="shopifyOrders" name="Shopify Orders" fill="#22c55e" radius={[4, 4, 0, 0]} />
                                     <Bar dataKey="postexDispatched" name="PostEx" stackId="dispatched" fill="#f97316" radius={[0, 0, 0, 0]} />
-                                    <Bar dataKey="tranzoDispatched" name="Tranzo" stackId="dispatched" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="tranzoDispatched" name="Tranzo" stackId="dispatched" fill="#8b5cf6" radius={[0, 0, 0, 0]} />
+                                    <Bar dataKey="zoomDispatched" name="Zoom" stackId="dispatched" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -477,6 +495,15 @@ export default function ShopifyOrdersPage() {
                                         {dailyData.reduce((acc, d) => acc + d.tranzoDispatched, 0)}
                                     </span>
                                 </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                                        <span className="text-sm text-gray-600">Zoom</span>
+                                    </div>
+                                    <span className="font-bold text-gray-900">
+                                        {dailyData.reduce((acc, d) => acc + d.zoomDispatched, 0)}
+                                    </span>
+                                </div>
                                 <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                                     <div className="flex items-center gap-2">
                                         <span className="w-3 h-3 rounded-full bg-amber-500"></span>
@@ -501,6 +528,7 @@ export default function ShopifyOrdersPage() {
                                     <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Shopify Orders</th>
                                     <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">PostEx</th>
                                     <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Tranzo</th>
+                                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Zoom</th>
                                     <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Pending</th>
                                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Revenue</th>
                                 </tr>
@@ -529,6 +557,13 @@ export default function ShopifyOrdersPage() {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center">
+                                            {day.zoomDispatched > 0 ? (
+                                                <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-xs font-bold">{day.zoomDispatched}</span>
+                                            ) : (
+                                                <span className="text-gray-300">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
                                             {day.unfulfilled > 0 ? (
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); openPendingModal(day.date); }}
@@ -548,7 +583,7 @@ export default function ShopifyOrdersPage() {
                                 ))}
                                 {dailyData.length === 0 && !loading && (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-16 text-center text-gray-500">
+                                        <td colSpan={7} className="px-6 py-16 text-center text-gray-500">
                                             <div className="flex flex-col items-center gap-2">
                                                 <div className="bg-gray-100 p-3 rounded-full">
                                                     <ShoppingBag className="w-6 h-6 text-gray-400" />
