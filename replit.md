@@ -4,6 +4,7 @@
 A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopify. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
 
 ## Recent Changes
+- **2026-02-11**: Added authentication and admin panel. User/Session/UserBrand models in Prisma. Cookie-based session auth with bcrypt password hashing. Login page at /login with auto-seed of super_admin (admin/admin123). Middleware redirects unauthenticated users to /login. Admin panel at /admin (SUPER_ADMIN only): create/edit/delete users, assign roles (SUPER_ADMIN/ADMIN/USER), map users to specific brands. BrandContext filters brands by user access. Sidebar shows user info and logout button. Admin Panel link visible only to super admins. Existing APIs preserved — auth layer wraps around brand-id header system.
 - **2026-02-11**: Enhanced avg delivery time by city in Analytics: Now shows PostEx vs Tranzo side-by-side grouped bar chart with orange/violet bars. Below chart, detailed table shows per-city PostEx avg, Tranzo avg, and combined avg with color coding (green ≤3d, amber ≤5d, red >5d). Formula: orderDate (dispatch) to lastStatusTime (delivery).
 - **2026-02-11**: Added Return Discrepancies page at /discrepancies. Cross-references courier orders (PostEx/Tranzo) marked as "returned" against Shopify orders to find parcels courier claims returned but not cancelled/refunded in Shopify. Matches via orderRefNumber->orderNumber/orderName with tracking number fallback. Summary cards (total mismatches, PostEx/Tranzo counts, amount at risk), filterable/sortable table, date range filter, courier filter, search, CSV export. API route at /api/discrepancies. Added to sidebar navigation.
 - **2026-02-11**: Fixed analytics double-counting: Analytics and Customer Insights now use ShopifyOrder as single source of truth (removed Order table counting which duplicated Shopify orders). Courier breakdown (PostEx/Tranzo/Zoom/Unfulfilled) derived from courierPartner and fulfillments data. Chart updated with Zoom (blue) and Unfulfilled (gray) series replacing old "Shopify" series.
@@ -39,7 +40,9 @@ A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopi
 ### Directory Structure
 ```
 app/              - Next.js App Router pages and API routes
-  api/            - Backend API routes (postex, tranzo, shopify, zoom)
+  api/            - Backend API routes (postex, tranzo, shopify, zoom, auth, admin)
+  admin/          - Admin panel (user management, brand assignment)
+  login/          - Login page
   postex/         - PostEx portal pages
   tranzo/         - Tranzo portal pages
   shopify/        - Shopify orders comparison page
@@ -47,8 +50,10 @@ app/              - Next.js App Router pages and API routes
   settings/       - Settings page
   daily/          - Daily reports page
 components/       - React UI components (Dashboard, Charts, Tables)
-lib/              - Shared utilities (Prisma client, types)
-prisma/           - Database schema
+  providers/      - React context providers (AuthContext, BrandContext)
+lib/              - Shared utilities (Prisma client, types, auth)
+middleware.ts     - Auth middleware (redirects to /login if not authenticated)
+prisma/           - Database schema (User, Session, UserBrand, Brand, Order, etc.)
 scripts/          - Diagnostic and maintenance scripts
 public/           - Static assets
 ```
