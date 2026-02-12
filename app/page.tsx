@@ -2,19 +2,21 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Truck, Package, ArrowRight, BarChart3, ShieldCheck, DollarSign, Calendar, TrendingUp, RefreshCw } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
+import { Truck, Package, ArrowRight, BarChart3, ShieldCheck, DollarSign, Calendar, TrendingUp, RefreshCw, Zap } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 
 interface DailyStat {
   date: string;
   postexOrders: number;
-  postexRevenue: number;
+  postexNet: number;
   tranzoOrders: number;
-  tranzoRevenue: number;
+  tranzoNet: number;
+  zoomOrders: number;
+  zoomNet: number;
   totalOrders: number;
-  totalRevenue: number;
+  totalNet: number;
 }
 
 export default function UnifiedDashboard() {
@@ -24,6 +26,7 @@ export default function UnifiedDashboard() {
 
   const [postexData, setPostexData] = useState<any[]>([]);
   const [tranzoData, setTranzoData] = useState<any[]>([]);
+  const [zoomData, setZoomData] = useState<any[]>([]);
 
   const [tokensMissing, setTokensMissing] = useState(false);
 
@@ -45,6 +48,7 @@ export default function UnifiedDashboard() {
     setLoading(true);
     setPostexData([]);
     setTranzoData([]);
+    setZoomData([]);
     setTokensMissing(false);
 
     try {
@@ -59,8 +63,6 @@ export default function UnifiedDashboard() {
 
       if (!postexToken && !tranzoToken) {
         setTokensMissing(true);
-        setLoading(false);
-        return;
       }
 
       const { startDate, endDate } = getDateRange();
@@ -109,11 +111,25 @@ export default function UnifiedDashboard() {
         );
       }
 
+      const zoomUrl = `/api/zoom/orders?startDate=${startDate}&endDate=${endDate}`;
+      promises.push(
+        fetch(zoomUrl, {
+          headers: { "brand-id": sanitizeHeader(postexBrandId) }
+        }).then(async r => {
+          if (r.ok) {
+            const data = await r.json();
+            return { type: 'zoom', data: data.orders || [] };
+          }
+          return { type: 'zoom', data: [] };
+        })
+      );
+
       const results = await Promise.all(promises);
 
       results.forEach(res => {
         if (res.type === 'postex') setPostexData(res.data);
         if (res.type === 'tranzo') setTranzoData(res.data);
+        if (res.type === 'zoom') setZoomData(res.data);
       });
 
     } catch (e) {
@@ -126,78 +142,81 @@ export default function UnifiedDashboard() {
   const loadFromDB = () => fetchData(false);
   const syncLiveData = () => fetchData(true);
 
-  // --- Aggregation Logic ---
-  const { totalOrders, totalRevenue, dailyStats, statsByCourier } = useMemo(() => {
+  const { totalOrders, totalNet, dailyStats } = useMemo(() => {
     let totOrders = 0;
-    let totRevenue = 0;
+    let totNet = 0;
     const dailyMap: Record<string, DailyStat> = {};
 
-    // Helper to init day
     const getDay = (d: string) => {
-      // Normalized date string YYYY-MM-DD
       if (!d) return "Unknown";
-      return d.split("T")[0]; // ISO to YYYY-MM-DD
-    }
+      return d.split("T")[0];
+    };
 
-    // Process PostEx (DB fields are camelCase)
+    const initDay = (day: string): DailyStat => ({
+      date: day, postexOrders: 0, postexNet: 0, tranzoOrders: 0, tranzoNet: 0, zoomOrders: 0, zoomNet: 0, totalOrders: 0, totalNet: 0
+    });
+
     postexData.forEach(o => {
       const day = getDay(o.orderDate || o.transactionDate);
-      if (!dailyMap[day]) dailyMap[day] = { date: day, postexOrders: 0, postexRevenue: 0, tranzoOrders: 0, tranzoRevenue: 0, totalOrders: 0, totalRevenue: 0 };
-
+      if (!dailyMap[day]) dailyMap[day] = initDay(day);
       const status = (o.orderStatus || o.transactionStatus || "").toLowerCase();
       const net = parseFloat(o.netAmount || "0");
-
       if (!status.includes("cancel")) {
         dailyMap[day].postexOrders += 1;
-        dailyMap[day].postexRevenue += net;
+        dailyMap[day].postexNet += net;
         dailyMap[day].totalOrders += 1;
-        dailyMap[day].totalRevenue += net;
-
+        dailyMap[day].totalNet += net;
         totOrders++;
-        totRevenue += net;
+        totNet += net;
       }
     });
 
-    // Process Tranzo (DB fields are camelCase)
     tranzoData.forEach(o => {
       const day = getDay(o.orderDate || o.transactionDate);
-      if (!dailyMap[day]) dailyMap[day] = { date: day, postexOrders: 0, postexRevenue: 0, tranzoOrders: 0, tranzoRevenue: 0, totalOrders: 0, totalRevenue: 0 };
-
+      if (!dailyMap[day]) dailyMap[day] = initDay(day);
       const status = (o.orderStatus || o.transactionStatus || "Unknown").toLowerCase();
       const net = parseFloat(o.netAmount || "0");
-
       if (!status.includes("cancel") && !status.includes("return")) {
         dailyMap[day].tranzoOrders += 1;
-        dailyMap[day].tranzoRevenue += net;
+        dailyMap[day].tranzoNet += net;
         dailyMap[day].totalOrders += 1;
-        dailyMap[day].totalRevenue += net;
-
+        dailyMap[day].totalNet += net;
         totOrders++;
-        totRevenue += net;
+        totNet += net;
       }
     });
 
-    // Sort Days
-    const sortedDays = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+    zoomData.forEach(o => {
+      const day = getDay(o.createdAt || o.orderDate);
+      if (!dailyMap[day]) dailyMap[day] = initDay(day);
+      const totalPrice = parseFloat(o.totalPrice || "0");
+      dailyMap[day].zoomOrders += 1;
+      dailyMap[day].zoomNet += totalPrice;
+      dailyMap[day].totalOrders += 1;
+      dailyMap[day].totalNet += totalPrice;
+      totOrders++;
+      totNet += totalPrice;
+    });
+
+    const sortedDays = Object.values(dailyMap).sort((a, b) => b.date.localeCompare(a.date));
 
     return {
       totalOrders: totOrders,
-      totalRevenue: totRevenue,
+      totalNet: totNet,
       dailyStats: sortedDays,
-      statsByCourier: [
-        { name: 'PostEx', value: postexData.filter(o => !(o.orderStatus || "").toLowerCase().includes("cancel")).length, revenue: postexData.reduce((acc, o) => acc + parseFloat(o.netAmount || "0"), 0) },
-        { name: 'Tranzo', value: tranzoData.filter(o => { const s = (o.orderStatus || "").toLowerCase(); return !s.includes("cancel") && !s.includes("return"); }).length, revenue: tranzoData.reduce((acc, o) => acc + parseFloat(o.netAmount || "0"), 0) }
-      ]
     };
+  }, [postexData, tranzoData, zoomData]);
 
-  }, [postexData, tranzoData]);
+  const chartData = useMemo(() => {
+    return [...dailyStats].sort((a, b) => a.date.localeCompare(b.date));
+  }, [dailyStats]);
 
+  const formatRs = (v: number) => `Rs. ${Math.round(v).toLocaleString()}`;
 
   return (
     <DashboardLayout>
       <div className="flex flex-col gap-8 p-6 lg:p-10">
 
-        {/* Page Header Area */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Overview</h1>
@@ -205,6 +224,14 @@ export default function UnifiedDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={syncLiveData}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 shadow-sm"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Sync Live Data
+            </button>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Calendar className="h-4 w-4 text-gray-400 group-hover:text-indigo-500 transition-colors" />
@@ -219,8 +246,6 @@ export default function UnifiedDashboard() {
           </div>
         </div>
 
-
-        {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 flex flex-col justify-between h-32 hover:shadow-lg transition-shadow">
             <div className="flex justify-between items-start">
@@ -232,19 +257,13 @@ export default function UnifiedDashboard() {
                 <Package className="w-6 h-6" />
               </div>
             </div>
-            {lastDayComparison(dailyStats) && (
-              <div className="text-xs font-medium text-emerald-600 flex items-center gap-1 mt-auto">
-                <TrendingUp size={12} />
-                Looking good today
-              </div>
-            )}
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(16,185,129,0.1)] border border-gray-100 flex flex-col justify-between h-32 hover:shadow-lg transition-shadow">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-medium text-gray-500">Net Amount</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? "..." : `Rs. ${Math.round(totalRevenue).toLocaleString()}`}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? "..." : formatRs(totalNet)}</p>
               </div>
               <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
                 <DollarSign className="w-6 h-6" />
@@ -259,16 +278,8 @@ export default function UnifiedDashboard() {
                 <div className="flex items-center gap-2 mt-2">
                   <span className={`px-2 py-1 rounded-md text-xs font-bold ${postexData.length > 0 ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-400"}`}>PostEx</span>
                   <span className={`px-2 py-1 rounded-md text-xs font-bold ${tranzoData.length > 0 ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-400"}`}>Tranzo</span>
+                  <span className={`px-2 py-1 rounded-md text-xs font-bold ${zoomData.length > 0 ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-400"}`}>Zoom</span>
                 </div>
-
-                {/* Sync Button */}
-                <button
-                  onClick={syncLiveData}
-                  className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                  title="Sync Live Data"
-                >
-                  <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                </button>
               </div>
               <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
                 <ShieldCheck className="w-6 h-6" />
@@ -277,9 +288,7 @@ export default function UnifiedDashboard() {
           </div>
         </div>
 
-        {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Trend Chart */}
           <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
             <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-indigo-500" />
@@ -287,7 +296,7 @@ export default function UnifiedDashboard() {
             </h3>
             <div className="h-[350px] w-full flex-1">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dailyStats} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                   <XAxis
                     dataKey="date"
@@ -298,112 +307,178 @@ export default function UnifiedDashboard() {
                     axisLine={false}
                     dy={10}
                   />
-                  <YAxis
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    dx={-10}
-                  />
+                  <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} dx={-10} />
                   <Tooltip
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     cursor={{ fill: '#F3F4F6' }}
                   />
                   <Legend verticalAlign="top" height={36} iconType="circle" />
-                  <Bar dataKey="postexOrders" name="PostEx" stackId="a" fill="#f97316" radius={[0, 0, 4, 4]} />
-                  <Bar dataKey="tranzoOrders" name="Tranzo" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="postexOrders" name="PostEx" stackId="a" fill="#f97316" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="tranzoOrders" name="Tranzo" stackId="a" fill="#8b5cf6" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="zoomOrders" name="Zoom" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Quick Actions / Portal Navigation */}
-          <div className="space-y-6">
-            <div className="bg-gradient-to-br from-orange-50 to-white p-6 rounded-2xl border border-orange-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all cursor-pointer">
-              <Link href="/postex" className="relative z-10 block h-full">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-3 bg-white text-orange-600 rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                    <Truck className="w-6 h-6" />
+          <div className="space-y-4">
+            <Link href="/postex" className="block bg-gradient-to-br from-orange-50 to-white p-5 rounded-2xl border border-orange-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-white text-orange-600 rounded-xl shadow-sm">
+                    <Truck className="w-5 h-5" />
                   </div>
-                  <ArrowRight className="w-5 h-5 text-orange-300 group-hover:text-orange-600 transition-colors" />
-                </div>
-                <h3 className="font-bold text-gray-900 text-lg">PostEx Portal</h3>
-                <p className="text-sm text-gray-500 mt-1">Manage bookings & payments</p>
-                <div className="mt-6 pt-4 border-t border-orange-100/50 flex justify-between items-center">
-                  <span className="text-gray-500 text-sm">Active Orders</span>
-                  <span className="font-bold text-gray-900 text-xl">{postexData.length}</span>
-                </div>
-              </Link>
-              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-orange-100 rounded-full opacity-50 blur-3xl group-hover:opacity-70 transition-opacity"></div>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-white p-6 rounded-2xl border border-purple-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all cursor-pointer">
-              <Link href="/tranzo" className="relative z-10 block h-full">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-3 bg-white text-purple-600 rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                    <Package className="w-6 h-6" />
+                  <div>
+                    <h3 className="font-bold text-gray-900">PostEx</h3>
+                    <p className="text-xs text-gray-500">{postexData.length} orders</p>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-purple-300 group-hover:text-purple-600 transition-colors" />
                 </div>
-                <h3 className="font-bold text-gray-900 text-lg">Tranzo Portal</h3>
-                <p className="text-sm text-gray-500 mt-1">Manage shipments & fees</p>
-                <div className="mt-6 pt-4 border-t border-purple-100/50 flex justify-between items-center">
-                  <span className="text-gray-500 text-sm">Active Orders</span>
-                  <span className="font-bold text-gray-900 text-xl">{tranzoData.length}</span>
+                <ArrowRight className="w-4 h-4 text-orange-300 group-hover:text-orange-600 transition-colors" />
+              </div>
+            </Link>
+            <Link href="/tranzo" className="block bg-gradient-to-br from-purple-50 to-white p-5 rounded-2xl border border-purple-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-white text-purple-600 rounded-xl shadow-sm">
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Tranzo</h3>
+                    <p className="text-xs text-gray-500">{tranzoData.length} orders</p>
+                  </div>
                 </div>
-              </Link>
-              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-purple-100 rounded-full opacity-50 blur-3xl group-hover:opacity-70 transition-opacity"></div>
-            </div>
+                <ArrowRight className="w-4 h-4 text-purple-300 group-hover:text-purple-600 transition-colors" />
+              </div>
+            </Link>
+            <Link href="/zoom" className="block bg-gradient-to-br from-blue-50 to-white p-5 rounded-2xl border border-blue-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-white text-blue-600 rounded-xl shadow-sm">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Zoom</h3>
+                    <p className="text-xs text-gray-500">{zoomData.length} orders</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-blue-300 group-hover:text-blue-600 transition-colors" />
+              </div>
+            </Link>
           </div>
         </div>
 
-        {/* Detailed Daily Breakdown Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
-            <h3 className="text-lg font-bold text-gray-900">Daily Performance</h3>
-            <button className="text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline">View Full Report</button>
+          <div className="px-6 py-5 border-b border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">Daily Courier Breakdown</h3>
+            <p className="text-sm text-gray-500 mt-0.5">Net payment and orders per courier, per day (newest first)</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50/50">
+              <thead className="bg-gray-50/80">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">PostEx</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Tranzo</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Net Amount</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="text-center border-l border-gray-100" colSpan={2}>
+                    <div className="flex items-center justify-center gap-1.5 py-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">PostEx</span>
+                    </div>
+                  </th>
+                  <th className="text-center border-l border-gray-100" colSpan={2}>
+                    <div className="flex items-center justify-center gap-1.5 py-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tranzo</span>
+                    </div>
+                  </th>
+                  <th className="text-center border-l border-gray-100" colSpan={2}>
+                    <div className="flex items-center justify-center gap-1.5 py-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Zoom</span>
+                    </div>
+                  </th>
+                  <th className="text-center border-l border-gray-200 bg-gray-100/50" colSpan={2}>
+                    <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Total</span>
+                  </th>
+                </tr>
+                <tr className="border-t border-gray-100">
+                  <th className="px-5 py-2 text-left text-[10px] font-medium text-gray-400 uppercase"></th>
+                  <th className="px-3 py-2 text-center text-[10px] font-medium text-gray-400 uppercase border-l border-gray-100">Orders</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-medium text-gray-400 uppercase">Net</th>
+                  <th className="px-3 py-2 text-center text-[10px] font-medium text-gray-400 uppercase border-l border-gray-100">Orders</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-medium text-gray-400 uppercase">Net</th>
+                  <th className="px-3 py-2 text-center text-[10px] font-medium text-gray-400 uppercase border-l border-gray-100">Orders</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-medium text-gray-400 uppercase">Net</th>
+                  <th className="px-3 py-2 text-center text-[10px] font-medium text-gray-400 uppercase border-l border-gray-200 bg-gray-100/50">Orders</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-medium text-gray-400 uppercase bg-gray-100/50">Net</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-50">
                 {dailyStats.map((day) => (
                   <tr
                     key={day.date}
                     className="group hover:bg-indigo-50/30 transition-colors cursor-pointer"
                     onClick={() => window.location.href = `/daily/${day.date}`}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {new Date(day.date + "T00:00:00").toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-600 font-mono">
-                      {day.postexOrders > 0 ? <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.postexOrders}</span> : "-"}
+                    <td className="px-3 py-3.5 whitespace-nowrap text-center text-sm border-l border-gray-50">
+                      {day.postexOrders > 0 ? <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.postexOrders}</span> : <span className="text-gray-300">-</span>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-600 font-mono">
-                      {day.tranzoOrders > 0 ? <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.tranzoOrders}</span> : "-"}
+                    <td className="px-3 py-3.5 whitespace-nowrap text-right text-xs font-mono text-gray-600">
+                      {day.postexNet !== 0 ? formatRs(day.postexNet) : <span className="text-gray-300">-</span>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-bold text-gray-900 font-mono ">
+                    <td className="px-3 py-3.5 whitespace-nowrap text-center text-sm border-l border-gray-50">
+                      {day.tranzoOrders > 0 ? <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.tranzoOrders}</span> : <span className="text-gray-300">-</span>}
+                    </td>
+                    <td className="px-3 py-3.5 whitespace-nowrap text-right text-xs font-mono text-gray-600">
+                      {day.tranzoNet !== 0 ? formatRs(day.tranzoNet) : <span className="text-gray-300">-</span>}
+                    </td>
+                    <td className="px-3 py-3.5 whitespace-nowrap text-center text-sm border-l border-gray-50">
+                      {day.zoomOrders > 0 ? <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.zoomOrders}</span> : <span className="text-gray-300">-</span>}
+                    </td>
+                    <td className="px-3 py-3.5 whitespace-nowrap text-right text-xs font-mono text-gray-600">
+                      {day.zoomNet !== 0 ? formatRs(day.zoomNet) : <span className="text-gray-300">-</span>}
+                    </td>
+                    <td className="px-3 py-3.5 whitespace-nowrap text-center text-sm font-bold text-gray-900 border-l border-gray-200 bg-gray-50/30">
                       {day.totalOrders}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-emerald-600 font-mono">
-                      Rs. {day.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-all inline-block" />
+                    <td className="px-3 py-3.5 whitespace-nowrap text-right text-sm font-bold text-emerald-600 font-mono bg-gray-50/30">
+                      {formatRs(day.totalNet)}
                     </td>
                   </tr>
                 ))}
+                {dailyStats.length > 0 && (
+                  <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                    <td className="px-5 py-4 text-sm text-gray-700">Monthly Total</td>
+                    <td className="px-3 py-4 text-center text-sm text-orange-700 border-l border-gray-100">
+                      {dailyStats.reduce((s, d) => s + d.postexOrders, 0) || '-'}
+                    </td>
+                    <td className="px-3 py-4 text-right text-xs font-mono text-orange-700">
+                      {formatRs(dailyStats.reduce((s, d) => s + d.postexNet, 0))}
+                    </td>
+                    <td className="px-3 py-4 text-center text-sm text-purple-700 border-l border-gray-100">
+                      {dailyStats.reduce((s, d) => s + d.tranzoOrders, 0) || '-'}
+                    </td>
+                    <td className="px-3 py-4 text-right text-xs font-mono text-purple-700">
+                      {formatRs(dailyStats.reduce((s, d) => s + d.tranzoNet, 0))}
+                    </td>
+                    <td className="px-3 py-4 text-center text-sm text-blue-700 border-l border-gray-100">
+                      {dailyStats.reduce((s, d) => s + d.zoomOrders, 0) || '-'}
+                    </td>
+                    <td className="px-3 py-4 text-right text-xs font-mono text-blue-700">
+                      {formatRs(dailyStats.reduce((s, d) => s + d.zoomNet, 0))}
+                    </td>
+                    <td className="px-3 py-4 text-center text-sm text-gray-900 border-l border-gray-200 bg-gray-100/50">
+                      {totalOrders}
+                    </td>
+                    <td className="px-3 py-4 text-right text-sm font-mono text-emerald-700 bg-gray-100/50">
+                      {formatRs(totalNet)}
+                    </td>
+                  </tr>
+                )}
                 {dailyStats.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-16 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-16 text-center text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <div className="bg-gray-100 p-3 rounded-full"><Calendar className="w-6 h-6 text-gray-400" /></div>
                         <p>No data available for this month.</p>
@@ -421,10 +496,4 @@ export default function UnifiedDashboard() {
       </div>
     </DashboardLayout>
   );
-}
-
-// Logic Helper
-function lastDayComparison(stats: DailyStat[]) {
-  // Placeholder logic for "Trend"
-  return stats.length > 0;
 }
