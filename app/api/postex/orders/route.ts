@@ -133,12 +133,6 @@ export async function GET(req: NextRequest) {
                             const safeTransactionDate = order.transactionDate ? new Date(order.transactionDate).toISOString() : new Date().toISOString();
                             const safeOrderDate = order.orderDate ? new Date(order.orderDate).toISOString() : safeTransactionDate;
 
-                            const oldStatus = existingOrdersMap[order.trackingNumber] || "";
-                            const wasDelivered = oldStatus.includes("deliver");
-                            const isNowDelivered = status.includes("deliver");
-                            const isNowReturned = status.includes("return");
-                            const deliveryTransition = (!wasDelivered && isNowDelivered) || (!oldStatus.includes("return") && isNowReturned);
-
                             const updateData: any = {
                                 brandId: brandId,
                                 courier: "PostEx",
@@ -164,10 +158,6 @@ export async function GET(req: NextRequest) {
 
                                 lastFetchedAt: new Date()
                             };
-
-                            if (deliveryTransition) {
-                                updateData.lastStatusTime = new Date();
-                            }
 
                             return prisma.order.upsert({
                                 where: { trackingNumber: order.trackingNumber },
@@ -202,7 +192,62 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            // 5. Calculate sync diff
+            // 5. Fetch delivery dates from track-order API for delivered orders missing lastStatusTime
+            const deliveredWithoutDate = await prisma.order.findMany({
+                where: {
+                    brandId,
+                    courier: "PostEx",
+                    lastStatusTime: null,
+                    OR: [
+                        { transactionStatus: { contains: "Deliver", mode: "insensitive" } },
+                        { orderStatus: { contains: "Deliver", mode: "insensitive" } },
+                        { lastStatus: { contains: "Deliver", mode: "insensitive" } },
+                    ],
+                },
+                select: { trackingNumber: true },
+            });
+
+            if (deliveredWithoutDate.length > 0) {
+                console.log(`Fetching delivery dates for ${deliveredWithoutDate.length} PostEx orders via track-order API...`);
+                const batchSize = 10;
+                for (let i = 0; i < deliveredWithoutDate.length; i += batchSize) {
+                    const batch = deliveredWithoutDate.slice(i, i + batchSize);
+                    await Promise.allSettled(
+                        batch.map(async (order) => {
+                            try {
+                                const trackUrl = `https://api.postex.pk/services/integration/api/order/v1/track-order/${order.trackingNumber}`;
+                                const trackFetchOptions: RequestInit & { agent?: any } = {
+                                    method: "GET",
+                                    headers: { token: token },
+                                };
+                                if (proxyUrl) {
+                                    trackFetchOptions.agent = new HttpsProxyAgent(proxyUrl);
+                                }
+                                const trackRes = await fetch(trackUrl, trackFetchOptions);
+                                if (trackRes.ok) {
+                                    const trackData = await trackRes.json();
+                                    const orderData = trackData.dist || trackData.data || trackData;
+                                    const deliveryDateStr = orderData.orderDeliveryDate;
+                                    if (deliveryDateStr) {
+                                        const deliveryDate = new Date(deliveryDateStr);
+                                        if (!isNaN(deliveryDate.getTime())) {
+                                            await prisma.order.update({
+                                                where: { trackingNumber: order.trackingNumber },
+                                                data: { lastStatusTime: deliveryDate },
+                                            });
+                                        }
+                                    }
+                                }
+                            } catch (trackErr) {
+                                console.warn(`Track-order failed for ${order.trackingNumber}:`, trackErr instanceof Error ? trackErr.message : trackErr);
+                            }
+                        })
+                    );
+                }
+                console.log(`Finished fetching delivery dates for PostEx orders.`);
+            }
+
+            // 6. Calculate sync diff
             let newOrders = 0;
             let newDelivered = 0;
             let newReturned = 0;

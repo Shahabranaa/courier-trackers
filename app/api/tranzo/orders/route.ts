@@ -135,12 +135,6 @@ export async function GET(req: NextRequest) {
                         let withholding = 0;
                         const net = amount - (fee + tax + other) - withholding;
 
-                        const oldStatus = existingOrdersMap[order.tracking_number] || "";
-                        const wasDelivered = oldStatus.includes("deliver");
-                        const isNowDelivered = statusVal.includes("deliver");
-                        const isNowReturned = statusVal.includes("return");
-                        const deliveryTransition = (!wasDelivered && isNowDelivered) || (!oldStatus.includes("return") && isNowReturned);
-
                         const updateData: any = {
                             brandId: brandId,
                             courier: "Tranzo",
@@ -165,10 +159,6 @@ export async function GET(req: NextRequest) {
                             netAmount: net,
                             lastFetchedAt: new Date()
                         };
-
-                        if (deliveryTransition) {
-                            updateData.lastStatusTime = new Date();
-                        }
 
                         return prisma.order.upsert({
                             where: { trackingNumber: order.tracking_number },

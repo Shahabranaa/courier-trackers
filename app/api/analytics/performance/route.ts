@@ -39,7 +39,6 @@ export async function GET(req: NextRequest) {
         transactionStatus: true,
         lastStatus: true,
         lastStatusTime: true,
-        lastFetchedAt: true,
         transactionDate: true,
         cityName: true,
         invoicePayment: true,
@@ -82,36 +81,18 @@ export async function GET(req: NextRequest) {
         courierStats[courier].inTransit++;
       }
 
-      if (isDelivered && order.orderDate) {
+      if (isDelivered && order.orderDate && order.lastStatusTime) {
         const orderTime = new Date(order.orderDate).getTime();
-        if (!isNaN(orderTime)) {
-          let deliverTimestamp: number | null = null;
-
-          if (order.lastStatusTime) {
-            const t = new Date(order.lastStatusTime).getTime();
-            if (!isNaN(t) && t > orderTime) deliverTimestamp = t;
-          }
-
-          if (!deliverTimestamp && order.transactionDate) {
-            const t = new Date(order.transactionDate).getTime();
-            if (!isNaN(t) && t > orderTime) deliverTimestamp = t;
-          }
-
-          if (!deliverTimestamp && order.lastFetchedAt) {
-            const t = new Date(order.lastFetchedAt).getTime();
-            if (!isNaN(t) && t > orderTime) deliverTimestamp = t;
-          }
-
-          if (deliverTimestamp) {
-            const daysDiff = Math.round((deliverTimestamp - orderTime) / (1000 * 60 * 60 * 24) * 10) / 10;
-            if (daysDiff > 0 && daysDiff < 60) {
-              const key = `${city}__${courier}`;
-              if (!deliveryTimeByCityCourier[key]) {
-                deliveryTimeByCityCourier[key] = { totalDays: 0, count: 0, courier, city: cityDisplay };
-              }
-              deliveryTimeByCityCourier[key].totalDays += daysDiff;
-              deliveryTimeByCityCourier[key].count++;
+        const deliverTime = new Date(order.lastStatusTime).getTime();
+        if (!isNaN(orderTime) && !isNaN(deliverTime) && deliverTime > orderTime) {
+          const daysDiff = Math.round((deliverTime - orderTime) / (1000 * 60 * 60 * 24) * 10) / 10;
+          if (daysDiff > 0 && daysDiff < 60) {
+            const key = `${city}__${courier}`;
+            if (!deliveryTimeByCityCourier[key]) {
+              deliveryTimeByCityCourier[key] = { totalDays: 0, count: 0, courier, city: cityDisplay };
             }
+            deliveryTimeByCityCourier[key].totalDays += daysDiff;
+            deliveryTimeByCityCourier[key].count++;
           }
         }
       }
