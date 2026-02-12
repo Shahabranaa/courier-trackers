@@ -874,7 +874,7 @@ export default function AnalyticsPage() {
                         <Clock className="w-4 h-4 text-gray-500" />
                         Avg Delivery Days by City
                       </h3>
-                      <p className="text-xs text-gray-500">Dispatch to delivery (Most Orders First)</p>
+                      <p className="text-xs text-gray-500">Dispatch to delivery (Most Orders First) &middot; Sync data for accurate times</p>
                     </div>
                     {perfData.deliveryByCourier.length > 0 && (
                       <div className="flex gap-4 px-4 py-2 border-b border-gray-100 bg-gray-50/30">

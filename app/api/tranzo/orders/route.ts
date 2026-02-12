@@ -135,32 +135,44 @@ export async function GET(req: NextRequest) {
                         let withholding = 0;
                         const net = amount - (fee + tax + other) - withholding;
 
+                        const oldStatus = existingOrdersMap[order.tracking_number] || "";
+                        const wasDelivered = oldStatus.includes("deliver");
+                        const isNowDelivered = statusVal.includes("deliver");
+                        const isNowReturned = statusVal.includes("return");
+                        const deliveryTransition = (!wasDelivered && isNowDelivered) || (!oldStatus.includes("return") && isNowReturned);
+
+                        const updateData: any = {
+                            brandId: brandId,
+                            courier: "Tranzo",
+                            orderRefNumber: order.reference_number || "",
+                            invoicePayment: amount,
+                            customerName: order.customer_name || "N/A",
+                            customerPhone: order.customer_phone || "",
+                            deliveryAddress: order.delivery_address || "",
+                            cityName: order.destination_city_name || order.city_name || null,
+                            transactionDate: safeOrderDate,
+                            orderDetail: order.order_details || "",
+                            orderType: "COD",
+                            orderDate: safeOrderDate,
+                            orderAmount: amount,
+                            orderStatus: order.order_status || "Unknown",
+                            transactionStatus: order.order_status || "Unknown",
+                            actualWeight: parseFloat(order.actual_weight || "0"),
+                            transactionTax: tax,
+                            transactionFee: fee + other,
+                            upfrontPayment: 0,
+                            salesWithholdingTax: withholding,
+                            netAmount: net,
+                            lastFetchedAt: new Date()
+                        };
+
+                        if (deliveryTransition) {
+                            updateData.lastStatusTime = new Date();
+                        }
+
                         return prisma.order.upsert({
                             where: { trackingNumber: order.tracking_number },
-                            update: {
-                                brandId: brandId,
-                                courier: "Tranzo",
-                                orderRefNumber: order.reference_number || "",
-                                invoicePayment: amount,
-                                customerName: order.customer_name || "N/A",
-                                customerPhone: order.customer_phone || "",
-                                deliveryAddress: order.delivery_address || "",
-                                cityName: order.destination_city_name || order.city_name || null,
-                                transactionDate: safeOrderDate,
-                                orderDetail: order.order_details || "",
-                                orderType: "COD",
-                                orderDate: safeOrderDate,
-                                orderAmount: amount,
-                                orderStatus: order.order_status || "Unknown",
-                                transactionStatus: order.order_status || "Unknown",
-                                actualWeight: parseFloat(order.actual_weight || "0"),
-                                transactionTax: tax,
-                                transactionFee: fee + other,
-                                upfrontPayment: 0,
-                                salesWithholdingTax: withholding,
-                                netAmount: net,
-                                lastFetchedAt: new Date()
-                            },
+                            update: updateData,
                             create: {
                                 trackingNumber: order.tracking_number,
                                 brandId: brandId,

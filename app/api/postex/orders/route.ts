@@ -130,39 +130,48 @@ export async function GET(req: NextRequest) {
                             const safeOrderType = order.orderType || "COD";
                             const safeOrderStatus = order.orderStatus || order.transactionStatus || "Unknown";
 
-                            // Simplified Date Parsing (Direct from API)
-                            // CRITICAL FIX: If orderDate is missing, use transactionDate (NOT new Date())
-                            // This ensures we preserve the actual order date, not the sync date.
                             const safeTransactionDate = order.transactionDate ? new Date(order.transactionDate).toISOString() : new Date().toISOString();
                             const safeOrderDate = order.orderDate ? new Date(order.orderDate).toISOString() : safeTransactionDate;
 
+                            const oldStatus = existingOrdersMap[order.trackingNumber] || "";
+                            const wasDelivered = oldStatus.includes("deliver");
+                            const isNowDelivered = status.includes("deliver");
+                            const isNowReturned = status.includes("return");
+                            const deliveryTransition = (!wasDelivered && isNowDelivered) || (!oldStatus.includes("return") && isNowReturned);
+
+                            const updateData: any = {
+                                brandId: brandId,
+                                courier: "PostEx",
+                                orderRefNumber: order.orderRefNumber,
+                                invoicePayment: pay,
+                                customerName: order.customerName,
+                                customerPhone: order.customerPhone,
+                                deliveryAddress: order.deliveryAddress,
+                                cityName: order.cityName,
+                                transactionDate: safeTransactionDate,
+                                orderDetail: order.orderDetail,
+                                orderType: safeOrderType,
+                                orderDate: safeOrderDate,
+                                orderAmount: Number(order.orderAmount) || 0,
+                                orderStatus: safeOrderStatus,
+                                transactionStatus: order.transactionStatus,
+
+                                transactionTax: taxVal,
+                                transactionFee: feeVal,
+                                upfrontPayment: Number(order.upfrontPayment) || 0,
+                                salesWithholdingTax: salesWithholdingTax,
+                                netAmount: netAmount,
+
+                                lastFetchedAt: new Date()
+                            };
+
+                            if (deliveryTransition) {
+                                updateData.lastStatusTime = new Date();
+                            }
+
                             return prisma.order.upsert({
                                 where: { trackingNumber: order.trackingNumber },
-                                update: {
-                                    brandId: brandId,
-                                    courier: "PostEx",
-                                    orderRefNumber: order.orderRefNumber,
-                                    invoicePayment: pay,
-                                    customerName: order.customerName,
-                                    customerPhone: order.customerPhone,
-                                    deliveryAddress: order.deliveryAddress,
-                                    cityName: order.cityName,
-                                    transactionDate: safeTransactionDate,
-                                    orderDetail: order.orderDetail,
-                                    orderType: safeOrderType,
-                                    orderDate: safeOrderDate,
-                                    orderAmount: Number(order.orderAmount) || 0,
-                                    orderStatus: safeOrderStatus,
-                                    transactionStatus: order.transactionStatus,
-
-                                    transactionTax: taxVal,
-                                    transactionFee: feeVal,
-                                    upfrontPayment: Number(order.upfrontPayment) || 0,
-                                    salesWithholdingTax: salesWithholdingTax,
-                                    netAmount: netAmount,
-
-                                    lastFetchedAt: new Date()
-                                },
+                                update: updateData,
                                 create: {
                                     trackingNumber: order.trackingNumber,
                                     brandId: brandId,

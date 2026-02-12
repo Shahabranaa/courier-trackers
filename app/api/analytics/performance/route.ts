@@ -83,14 +83,26 @@ export async function GET(req: NextRequest) {
       }
 
       if (isDelivered && order.orderDate) {
-        const deliverTimestamp = order.lastStatusTime
-          ? new Date(order.lastStatusTime).getTime()
-          : order.transactionDate
-            ? new Date(order.transactionDate).getTime()
-            : null;
-        if (deliverTimestamp) {
-          const orderTime = new Date(order.orderDate).getTime();
-          if (deliverTimestamp > orderTime) {
+        const orderTime = new Date(order.orderDate).getTime();
+        if (!isNaN(orderTime)) {
+          let deliverTimestamp: number | null = null;
+
+          if (order.lastStatusTime) {
+            const t = new Date(order.lastStatusTime).getTime();
+            if (!isNaN(t) && t > orderTime) deliverTimestamp = t;
+          }
+
+          if (!deliverTimestamp && order.transactionDate) {
+            const t = new Date(order.transactionDate).getTime();
+            if (!isNaN(t) && t > orderTime) deliverTimestamp = t;
+          }
+
+          if (!deliverTimestamp && order.lastFetchedAt) {
+            const t = new Date(order.lastFetchedAt).getTime();
+            if (!isNaN(t) && t > orderTime) deliverTimestamp = t;
+          }
+
+          if (deliverTimestamp) {
             const daysDiff = Math.round((deliverTimestamp - orderTime) / (1000 * 60 * 60 * 24) * 10) / 10;
             if (daysDiff > 0 && daysDiff < 60) {
               const key = `${city}__${courier}`;
