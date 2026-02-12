@@ -192,26 +192,39 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            // 5. Fetch delivery dates from track-order API for delivered orders missing lastStatusTime
-            const deliveredWithoutDate = await prisma.order.findMany({
+            // 5. Fetch delivery dates from track-order API for delivered orders needing real delivery dates
+            // This covers: orders with null lastStatusTime, AND orders where lastStatusTime was
+            // incorrectly set by old sync logic (lastStatusTime ≈ lastFetchedAt, within 2 minutes)
+            const deliveredOrders = await prisma.order.findMany({
                 where: {
                     brandId,
                     courier: "PostEx",
-                    lastStatusTime: null,
                     OR: [
                         { transactionStatus: { contains: "Deliver", mode: "insensitive" } },
                         { orderStatus: { contains: "Deliver", mode: "insensitive" } },
                         { lastStatus: { contains: "Deliver", mode: "insensitive" } },
                     ],
                 },
-                select: { trackingNumber: true },
+                select: { trackingNumber: true, lastStatusTime: true, lastFetchedAt: true },
             });
 
-            if (deliveredWithoutDate.length > 0) {
-                console.log(`Fetching delivery dates for ${deliveredWithoutDate.length} PostEx orders via track-order API...`);
+            const needsDeliveryDate = deliveredOrders.filter((order) => {
+                if (!order.lastStatusTime) return true;
+                if (order.lastFetchedAt) {
+                    const statusTime = new Date(order.lastStatusTime).getTime();
+                    const fetchTime = new Date(order.lastFetchedAt).getTime();
+                    if (!isNaN(statusTime) && !isNaN(fetchTime) && Math.abs(statusTime - fetchTime) < 2 * 60 * 1000) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+
+            if (needsDeliveryDate.length > 0) {
+                console.log(`Fetching delivery dates for ${needsDeliveryDate.length} PostEx orders via track-order API (${deliveredOrders.length} delivered total)...`);
                 const batchSize = 10;
-                for (let i = 0; i < deliveredWithoutDate.length; i += batchSize) {
-                    const batch = deliveredWithoutDate.slice(i, i + batchSize);
+                for (let i = 0; i < needsDeliveryDate.length; i += batchSize) {
+                    const batch = needsDeliveryDate.slice(i, i + batchSize);
                     await Promise.allSettled(
                         batch.map(async (order) => {
                             try {
