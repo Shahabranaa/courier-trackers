@@ -1,0 +1,49 @@
+This API is to get all orders with specific status or within date range. The required header and values are men9oned.
+URL: hJps://api-integra9on.tranzo.pk/api/custom/v1/get-order-logs/ Request Headers: -
+Header Key: api-token
+Header Value: 09f4924c715a474385938f7fef946e04
+Query Params: - {
+"tracking_numbers": ["T0000139737418097", "T0000190748971295"] Or
+“order_status_code”: 1002 Or
+“date_from”: 2025-05-12 “date_to”: 2025-05-15
+}
+Sample Response: -
+{
+"reference_number": "ORD001", "tracking_number": "0002192035078376", "booking_amount": 50.0,
+"order_details": "Sample order details", "total_items": 1,
+"booking_weight": 1.5,
+"actual_weight": 0.0,
+ 
+"customer_name": "John Doe", "customer_phone": "03001234567", "customer_email": "john@example.com", "pickup_loca'on": "LOC123", "return_loca'on": "LOC123", "des'na'on_city": "Lahore", "delivery_address": "123 Main Street, Gulberg", "special_instruc'ons": "Handle with care", "ds_shipment_type": "Regular", "merchant_store": "new new abc", "order_status": "Cancelled",
+"delivery_fee": 0.0, "delivery_tax": 0.0, "delivery_fuel_fee": 0.0, "cash_handling_fee": 0.0, "return_ini'ated": 0, "advice_ini'ated": 0
+},
+Pending Merchant Advice Orders (Get API)
+This API is to get all orders which require merchant advice within date range. The required header and values are men9oned.
+URL: hJps://api-integra9on.tranzo.pk/api/custom/v1/pending-merchant-advice/ Request Headers: -
+Header Key: api-token
+Header Value: 09f4924c715a474385938f7fef946e04
+Query Params: - {
+“date_from”: 2025-05-12 “date_to”: 2025-05-15
+
+}
+Sample Response: -
+{
+"tracking_number": "T0000120394564166", "reference_number": "ORD100284", "advice_required_since": "2025-12-23 23:45:00"
+},
+Shipper Advice (Put API)
+This API is to post advice on the shipper advice orders. order_status “R” is to mark Request for Return and “A” is to mark Request for ReAJempt.
+URL: hJps://api-integra9on.tranzo.pk/api/custom/v1/create-merchant-advice/ Request Headers: -
+Header Key: api-token
+Header Value: 09f4924c715a474385938f7fef946e04
+Body: - {
+"orders": [
+ // // // // //
+{
+"tracking_number": "",
+"order_status": "R",
+"remarks": "Customer requested return"
+},
+{
+"tracking_number": "T0002119302037627",
+"order_status": "A", / / Pass “R” to Request for Return and “A” for Request to Reahempt. "remarks": "Customer not available, need re-ahempt"
+} ]
