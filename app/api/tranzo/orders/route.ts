@@ -101,11 +101,11 @@ export async function GET(req: NextRequest) {
         }
 
         if (results.length > 0) {
-            const chunkSize = 50;
+            const chunkSize = 10;
             for (let i = 0; i < results.length; i += chunkSize) {
                 const chunk = results.slice(i, i + chunkSize);
 
-                await prisma.$transaction(
+                await Promise.allSettled(
                     chunk.map((order: any) => {
                         const amount = parseFloat(order.cod_amount || "0");
                         const statusVal = (order.order_status || "Unknown").toLowerCase();

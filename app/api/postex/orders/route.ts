@@ -101,13 +101,13 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            // 4. Save/Update to DB with Brand ID
+            // 4. Save/Update to DB with Brand ID (small batches to avoid 10s timeout)
             if (Array.isArray(orders) && orders.length > 0) {
                 console.log(`Caching ${orders.length} orders to DB for brand ${brandId}...`);
-                const chunkSize = 50;
+                const chunkSize = 10;
                 for (let i = 0; i < orders.length; i += chunkSize) {
                     const chunk = orders.slice(i, i + chunkSize);
-                    await prisma.$transaction(
+                    await Promise.allSettled(
                         chunk.map((order: any) => {
                             const status = (order.transactionStatus || order.orderStatus || "").toLowerCase();
                             const isReturn = status.includes("return");
