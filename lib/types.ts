@@ -48,6 +48,7 @@ export interface Brand {
   name: string;
   apiToken: string;
   tranzoToken?: string;
+  tranzoApiToken?: string;
   proxyUrl?: string;
   shopifyStore?: string;
   shopifyAccessToken?: string;

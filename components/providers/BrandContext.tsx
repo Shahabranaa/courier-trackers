@@ -50,6 +50,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
                                     name: old.name,
                                     apiToken: old.apiToken || "",
                                     tranzoToken: old.tranzoToken || "",
+                                    tranzoApiToken: old.tranzoApiToken || "",
                                     proxyUrl: old.proxyUrl || ""
                                 })
                             });

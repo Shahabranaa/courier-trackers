@@ -101,12 +101,12 @@ export default function ShopifyOrdersPage() {
                     }).then(async r => r.ok ? r.json() : { dist: [] })
                 );
             }
-            if (selectedBrand.tranzoToken) {
+            if (selectedBrand.tranzoApiToken) {
                 const tranzoUrl = `/api/tranzo/orders?startDate=${startDate}&endDate=${endDate}`;
                 courierPromises.push(
                     fetch(tranzoUrl, {
                         headers: {
-                            "Authorization": `Bearer ${sanitizeHeader(selectedBrand.tranzoToken)}`,
+                            "api-token": sanitizeHeader(selectedBrand.tranzoApiToken),
                             "brand-id": sanitizeHeader(selectedBrand.id)
                         }
                     }).then(async r => r.ok ? r.json() : { results: [] })

@@ -52,6 +52,7 @@ model Brand {
   name                 String
   apiToken             String  @default("")
   tranzoToken          String  @default("")
+  tranzoApiToken       String  @default("")
   proxyUrl             String  @default("")
   shopifyStore          String  @default("")
   shopifyAccessToken    String  @default("")

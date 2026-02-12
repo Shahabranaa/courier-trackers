@@ -58,7 +58,7 @@ export default function UnifiedDashboard() {
       }
 
       const postexToken = selectedBrand.apiToken;
-      const tranzoToken = selectedBrand.tranzoToken;
+      const tranzoToken = selectedBrand.tranzoApiToken;
       const postexBrandId = selectedBrand.id;
 
       if (!postexToken && !tranzoToken) {
@@ -97,7 +97,7 @@ export default function UnifiedDashboard() {
         promises.push(
           fetch(tranzoUrl, {
             headers: {
-              "Authorization": `Bearer ${sanitizeHeader(tranzoToken)}`,
+              "api-token": sanitizeHeader(tranzoToken),
               "brand-id": sanitizeHeader(selectedBrand.id)
             }
           }).then(async r => {

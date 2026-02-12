@@ -15,7 +15,7 @@ export default function SettingsPage() {
     const [formData, setFormData] = useState({
         name: "",
         apiToken: "",
-        tranzoToken: "",
+        tranzoApiToken: "",
         proxyUrl: "",
         shopifyStore: "",
         shopifyAccessToken: "",
@@ -24,7 +24,7 @@ export default function SettingsPage() {
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", tranzoToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
+        setFormData({ name: "", apiToken: "", tranzoApiToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -53,7 +53,7 @@ export default function SettingsPage() {
         setFormData({
             name: brand.name,
             apiToken: brand.apiToken,
-            tranzoToken: brand.tranzoToken || "",
+            tranzoApiToken: brand.tranzoApiToken || "",
             proxyUrl: brand.proxyUrl || "",
             shopifyStore: brand.shopifyStore || "",
             shopifyAccessToken: brand.shopifyAccessToken || "",
@@ -123,13 +123,13 @@ export default function SettingsPage() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-purple-500"></span> Tranzo Bearer Token
+                                    <span className="w-2 h-2 rounded-full bg-purple-500"></span> Tranzo API Token
                                 </label>
                                 <input
                                     type="password"
-                                    value={formData.tranzoToken}
-                                    onChange={e => setFormData({ ...formData, tranzoToken: e.target.value })}
-                                    placeholder="Enter Tranzo Token"
+                                    value={formData.tranzoApiToken}
+                                    onChange={e => setFormData({ ...formData, tranzoApiToken: e.target.value })}
+                                    placeholder="Enter Tranzo API Token"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm"
                                 />
                             </div>
@@ -278,7 +278,7 @@ export default function SettingsPage() {
                                         </div>
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Tranzo</span>
-                                            {brand.tranzoToken ? (
+                                            {brand.tranzoApiToken ? (
                                                 <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
                                             ) : (
                                                 <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-    const token = req.headers.get("authorization");
+    const token = req.headers.get("api-token");
     const brandId = req.headers.get("brand-id") || "default";
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("startDate");
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const forceSync = searchParams.get("sync") === "true";
 
     if (!token) {
-        return NextResponse.json({ error: "Missing Authorization header" }, { status: 401 });
+        return NextResponse.json({ error: "Missing api-token header" }, { status: 401 });
     }
 
     if (!forceSync) {
@@ -45,11 +45,18 @@ export async function GET(req: NextRequest) {
     try {
         console.log(`Syncing Tranzo orders from API for Brand: ${brandId}...`);
 
-        let targetUrl = "https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/";
-        let response = await fetch(targetUrl, {
+        const now = new Date();
+        const dateFrom = startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const dateTo = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`;
+
+        const targetUrl = `https://api-integration.tranzo.pk/api/custom/v1/get-order-logs/?date_from=${dateFrom}&date_to=${dateTo}`;
+        console.log(`Calling Tranzo API: ${targetUrl}`);
+
+        const response = await fetch(targetUrl, {
             method: "GET",
             headers: {
-                "Authorization": token,
+                "api-token": token,
                 "Content-Type": "application/json"
             }
         });
@@ -58,32 +65,11 @@ export async function GET(req: NextRequest) {
             throw new Error(`Tranzo API Error: ${response.status} ${await response.text()}`);
         }
 
-        let data = await response.json();
-
-        const totalCount = data.count || 0;
-        const currentCount = Array.isArray(data) ? data.length : (data.results?.length || 0);
-
-        if (totalCount > currentCount) {
-            console.log(`Detected Pagination. Total: ${totalCount}, Fetched: ${currentCount}. Re-fetching ALL with limit=${totalCount}...`);
-            targetUrl = `https://api-merchant.tranzo.pk/merchant/api/v1/status-orders-list/?page=1&limit=${totalCount}`;
-            const fullResp = await fetch(targetUrl, {
-                method: "GET",
-                headers: {
-                    "Authorization": token,
-                    "Content-Type": "application/json"
-                }
-            });
-
-            if (fullResp.ok) {
-                data = await fullResp.json();
-            }
-        }
-
-        const results = Array.isArray(data) ? data : (data.results || data.data || []);
+        const data = await response.json();
+        const results = Array.isArray(data) ? data : (data.results || data.data || data.orders || []);
 
         console.log(`Fetched ${results.length} live orders. Storing to DB...`);
 
-        // Snapshot existing orders for diff comparison
         const incomingTrackingNumbers = (results as any[]).map((o: any) => o.tracking_number).filter(Boolean);
         const existingOrdersMap: Record<string, string> = {};
         if (incomingTrackingNumbers.length > 0) {
@@ -107,56 +93,38 @@ export async function GET(req: NextRequest) {
 
                 await Promise.allSettled(
                     chunk.map((order: any) => {
-                        const amount = parseFloat(order.cod_amount || "0");
-                        const statusVal = (order.order_status || "Unknown").toLowerCase();
-                        const cityVal = (order.destination_city_name || order.city_name || "").toLowerCase();
-                        const safeOrderDate = order.created_at ? new Date(order.created_at).toISOString() : new Date().toISOString();
+                        const bookingAmount = parseFloat(order.booking_amount || "0");
+                        const deliveryFee = parseFloat(order.delivery_fee || "0");
+                        const deliveryTax = parseFloat(order.delivery_tax || "0");
+                        const deliveryFuelFee = parseFloat(order.delivery_fuel_fee || "0");
+                        const cashHandlingFee = parseFloat(order.cash_handling_fee || "0");
 
-                        let fee = 0;
-                        let tax = 0;
-                        let other = 0;
+                        const transactionFee = deliveryFee + deliveryFuelFee + cashHandlingFee;
+                        const transactionTax = deliveryTax;
+                        const netAmount = bookingAmount - deliveryFee - deliveryTax - deliveryFuelFee - cashHandlingFee;
 
-                        if (!statusVal.includes("cancel")) {
-                            if (cityVal.includes("lahore")) {
-                                fee = 90;
-                                tax = 13.44;
-                                other = 4;
-                            } else if (cityVal.includes("karachi")) {
-                                fee = 140;
-                                tax = 21.84;
-                                other = 6.5;
-                            } else {
-                                fee = 130;
-                                tax = 20.16;
-                                other = 0;
-                            }
-                        }
-
-                        let withholding = 0;
-                        const net = amount - (fee + tax + other) - withholding;
+                        const fallbackDate = new Date().toISOString();
 
                         const updateData: any = {
                             brandId: brandId,
                             courier: "Tranzo",
                             orderRefNumber: order.reference_number || "",
-                            invoicePayment: amount,
+                            invoicePayment: bookingAmount,
                             customerName: order.customer_name || "N/A",
                             customerPhone: order.customer_phone || "",
                             deliveryAddress: order.delivery_address || "",
-                            cityName: order.destination_city_name || order.city_name || null,
-                            transactionDate: safeOrderDate,
+                            cityName: order.destination_city || null,
                             orderDetail: order.order_details || "",
                             orderType: "COD",
-                            orderDate: safeOrderDate,
-                            orderAmount: amount,
+                            orderAmount: bookingAmount,
                             orderStatus: order.order_status || "Unknown",
                             transactionStatus: order.order_status || "Unknown",
                             actualWeight: parseFloat(order.actual_weight || "0"),
-                            transactionTax: tax,
-                            transactionFee: fee + other,
+                            transactionTax: transactionTax,
+                            transactionFee: transactionFee,
                             upfrontPayment: 0,
-                            salesWithholdingTax: withholding,
-                            netAmount: net,
+                            salesWithholdingTax: 0,
+                            netAmount: netAmount,
                             lastFetchedAt: new Date()
                         };
 
@@ -165,27 +133,9 @@ export async function GET(req: NextRequest) {
                             update: updateData,
                             create: {
                                 trackingNumber: order.tracking_number,
-                                brandId: brandId,
-                                courier: "Tranzo",
-                                orderRefNumber: order.reference_number || "",
-                                invoicePayment: amount,
-                                customerName: order.customer_name || "N/A",
-                                customerPhone: order.customer_phone || "",
-                                deliveryAddress: order.delivery_address || "",
-                                cityName: order.destination_city_name || order.city_name || null,
-                                transactionDate: safeOrderDate,
-                                orderDetail: order.order_details || "",
-                                orderType: "COD",
-                                orderDate: safeOrderDate,
-                                orderAmount: amount,
-                                orderStatus: order.order_status || "Unknown",
-                                transactionStatus: order.order_status || "Unknown",
-                                actualWeight: parseFloat(order.actual_weight || "0"),
-                                transactionTax: tax,
-                                transactionFee: fee + other,
-                                upfrontPayment: 0,
-                                salesWithholdingTax: withholding,
-                                netAmount: net
+                                ...updateData,
+                                orderDate: fallbackDate,
+                                transactionDate: fallbackDate,
                             }
                         });
                     })
@@ -193,7 +143,6 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // Calculate sync diff
         let newOrders = 0;
         let newDelivered = 0;
         let newReturned = 0;

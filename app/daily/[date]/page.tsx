@@ -60,11 +60,11 @@ export default function DailyDetailPage() {
             }
 
             // 2. Tranzo Fetch
-            if (selectedBrand.tranzoToken) {
+            if (selectedBrand.tranzoApiToken) {
                 promises.push(
                     fetch("/api/tranzo/orders", {
                         headers: {
-                            "Authorization": `Bearer ${selectedBrand.tranzoToken}`,
+                            "api-token": selectedBrand.tranzoApiToken,
                             "brand-id": selectedBrand.id
                         }
                     }).then(async r => {
