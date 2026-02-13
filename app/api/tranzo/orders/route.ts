@@ -77,6 +77,36 @@ export async function GET(req: NextRequest) {
 
         console.log(`Fetched ${results.length} live orders. Storing to DB...`);
 
+        let detectedDateField = "";
+        if (results.length > 0) {
+            const sample = results[0] as any;
+            const keys = Object.keys(sample);
+            console.log(`[TRANZO DEBUG] Sample order keys: ${keys.join(", ")}`);
+
+            const dateFieldCandidates = keys.filter(k => {
+                const val = sample[k];
+                if (typeof val !== "string" || !val) return false;
+                return /^\d{4}-\d{2}-\d{2}/.test(val) || /^\d{2}\/\d{2}\/\d{4}/.test(val) || /^\d{2}-\d{2}-\d{4}/.test(val);
+            });
+            console.log(`[TRANZO DEBUG] Fields with date-like values: ${dateFieldCandidates.map(k => `${k}="${sample[k]}"`).join(", ")}`);
+
+            const preferredFields = ["created_at", "booking_date", "order_date", "booked_at", "created_date", "date", "createdAt"];
+            for (const pf of preferredFields) {
+                if (dateFieldCandidates.includes(pf)) {
+                    detectedDateField = pf;
+                    break;
+                }
+            }
+            if (!detectedDateField && dateFieldCandidates.length > 0) {
+                detectedDateField = dateFieldCandidates[0];
+            }
+            if (detectedDateField) {
+                console.log(`[TRANZO DEBUG] Using detected date field: "${detectedDateField}" = "${sample[detectedDateField]}"`);
+            } else {
+                console.warn(`[TRANZO DEBUG] No date field detected! Will use current timestamp as fallback.`);
+            }
+        }
+
         const incomingTrackingNumbers = (results as any[]).map((o: any) => o.tracking_number).filter(Boolean);
         const existingOrdersMap: Record<string, string> = {};
         if (incomingTrackingNumbers.length > 0) {
@@ -93,12 +123,16 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        let savedCount = 0;
+        let failedCount = 0;
+        let firstError = "";
+
         if (results.length > 0) {
             const chunkSize = 10;
             for (let i = 0; i < results.length; i += chunkSize) {
                 const chunk = results.slice(i, i + chunkSize);
 
-                await Promise.allSettled(
+                const settled = await Promise.allSettled(
                     chunk.map((order: any) => {
                         const bookingAmount = parseFloat(order.booking_amount || "0");
                         const deliveryFee = parseFloat(order.delivery_fee || "0");
@@ -110,7 +144,7 @@ export async function GET(req: NextRequest) {
                         const transactionTax = deliveryTax;
                         const netAmount = bookingAmount - deliveryFee - deliveryTax - deliveryFuelFee - cashHandlingFee;
 
-                        const orderDate = order.created_at || order.booking_date || new Date().toISOString();
+                        const orderDate = (detectedDateField ? order[detectedDateField] : null) || order.created_at || order.booking_date || new Date().toISOString();
 
                         const updateData: any = {
                             brandId: brandId,
@@ -147,7 +181,23 @@ export async function GET(req: NextRequest) {
                         });
                     })
                 );
+
+                for (const result of settled) {
+                    if (result.status === "fulfilled") {
+                        savedCount++;
+                    } else {
+                        failedCount++;
+                        if (!firstError) {
+                            firstError = result.reason?.message || String(result.reason);
+                        }
+                    }
+                }
             }
+        }
+
+        console.log(`[TRANZO DEBUG] DB save results: ${savedCount} saved, ${failedCount} failed`);
+        if (firstError) {
+            console.error(`[TRANZO DEBUG] First upsert error: ${firstError}`);
         }
 
         let newOrders = 0;
@@ -174,12 +224,29 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        const sampleKeys = results.length > 0 ? Object.keys(results[0] as any) : [];
+        const sampleDateValues: Record<string, string> = {};
+        if (results.length > 0) {
+            const s = results[0] as any;
+            for (const k of sampleKeys) {
+                if (typeof s[k] === "string" && s[k] && (/date|time|created|updated|booking/i.test(k) || /^\d{4}-\d{2}/.test(s[k]))) {
+                    sampleDateValues[k] = s[k];
+                }
+            }
+        }
+
         const syncSummary = {
             totalFetched: results.length,
             newOrders,
             newDelivered,
             newReturned,
             statusChanged,
+            savedToDb: savedCount,
+            failedToSave: failedCount,
+            dateFieldUsed: detectedDateField || "fallback(now)",
+            dbError: firstError || null,
+            apiSampleKeys: sampleKeys.join(", "),
+            apiDateFields: sampleDateValues,
         };
 
         const whereClause: any = {

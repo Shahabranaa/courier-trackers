@@ -182,6 +182,9 @@ export default function TranzoDashboard() {
 
     const processOrderResponse = (data: any) => {
         console.log("Tranzo Response:", data);
+        if (data.syncSummary) {
+            console.log("[TRANZO DEBUG] Sync Summary:", JSON.stringify(data.syncSummary, null, 2));
+        }
 
         if (data.source === "local" && data.error) {
             setError(`Sync Failed: ${data.error} (Showing saved data)`);
