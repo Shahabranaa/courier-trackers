@@ -10,57 +10,23 @@ import { Package, RefreshCw, Calendar, Download, WifiOff, AlertCircle, Filter, T
 import { useBrand } from "@/components/providers/BrandContext";
 import { Order, TrackingStatus } from "@/lib/types";
 
-// Helper to normalize Tranzo API/DB data to strict Order interface
 const normalizeTranzoOrder = (o: any): Order => {
-    const amount = parseFloat(o.cod_amount || o.invoicePayment || o.netAmount || "0");
-    const status = (o.order_status || o.transactionStatus || o.orderStatus || "Unknown");
+    const amount = parseFloat(o.invoicePayment || o.orderAmount || o.booking_amount || "0");
+    const status = (o.transactionStatus || o.orderStatus || o.order_status || "Unknown");
+    const date = o.orderDate || o.transactionDate || o.created_at || o.booking_date || new Date().toISOString();
 
-    // Try to parse date
-    let date = o.created_at || o.booking_date || o.transactionDate || o.orderDate || new Date().toISOString();
-
-    // --- Fee Calculation Logic (Mirroring Backend) ---
-    const cityVal = (o.destination_city_name || o.city_name || o.cityName || "Unknown").toLowerCase();
-    const statusVal = status.toLowerCase();
-
-    let fee = 0;
-    let tax = 0;
-    let other = 0;
-
-    // Use DB values if available (Offline/Local Source)
-    if (o.transactionFee !== undefined && o.transactionTax !== undefined) {
-        fee = parseFloat(o.transactionFee || "0");
-        tax = parseFloat(o.transactionTax || "0");
-        // transactionFee in DB includes 'other', so we don't double add
-    } else {
-        // Calculate Live for API Source
-        if (!statusVal.includes("cancel")) {
-            if (cityVal.includes("lahore")) {
-                fee = 90;
-                tax = 13.44;
-                other = 4;
-            } else if (cityVal.includes("karachi")) {
-                fee = 140;
-                tax = 21.84;
-                other = 6.5;
-            } else {
-                fee = 130;
-                tax = 20.16;
-                other = 0;
-            }
-        }
-        fee += other; // Combine for display
-    }
-
-    const net = amount - (fee + tax);
+    const fee = parseFloat(o.transactionFee || "0");
+    const tax = parseFloat(o.transactionTax || "0");
+    const net = o.netAmount != null ? parseFloat(o.netAmount || "0") : amount - (fee + tax);
 
     return {
-        id: o.consignment_id || o.trackingNumber || o.id || Math.random().toString(),
-        trackingNumber: o.consignment_id || o.trackingNumber || o.orderRefNumber || "",
-        orderRefNumber: o.reference_number || o.orderRefNumber || "",
-        customerName: o.consignee_name || o.customerName || "N/A",
-        customerPhone: o.consignee_phone || o.customerPhone || "",
-        deliveryAddress: o.delivery_address || o.deliveryAddress || "",
-        cityName: o.destination_city_name || o.city_name || o.cityName || "Unknown",
+        id: o.trackingNumber || o.tracking_number || o.id || Math.random().toString(),
+        trackingNumber: o.trackingNumber || o.tracking_number || "",
+        orderRefNumber: o.orderRefNumber || o.reference_number || "",
+        customerName: o.customerName || o.customer_name || "N/A",
+        customerPhone: o.customerPhone || o.customer_phone || "",
+        deliveryAddress: o.deliveryAddress || o.delivery_address || "",
+        cityName: o.cityName || o.destination_city || "Unknown",
 
         transactionDate: date,
         orderDate: date,
@@ -73,10 +39,10 @@ const normalizeTranzoOrder = (o: any): Order => {
         orderStatus: status,
 
         courier: "Tranzo",
-        orderType: "COD",
-        actualWeight: parseFloat(o.actual_weight || o.actualWeight || "0.5") as number | undefined,
+        orderType: o.orderType || "COD",
+        actualWeight: parseFloat(o.actualWeight || o.actual_weight || "0.5") as number | undefined,
 
-        orderDetail: o.order_details || o.orderDetail || "Items",
+        orderDetail: o.orderDetail || o.order_details || "Items",
 
         transactionTax: tax,
         transactionFee: fee,
@@ -111,6 +77,14 @@ export default function TranzoDashboard() {
         }
     }, [selectedBrand, selectedMonth]);
 
+    const getMonthDateRange = () => {
+        const [year, month] = selectedMonth.split("-").map(Number);
+        const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
+        return { startDate, endDate };
+    };
+
     const loadOrdersFromDB = async () => {
         if (!selectedBrand?.tranzoApiToken) return;
 
@@ -119,8 +93,9 @@ export default function TranzoDashboard() {
 
         try {
             const cleanToken = sanitizeHeader(selectedBrand.tranzoApiToken || "");
+            const { startDate, endDate } = getMonthDateRange();
 
-            const res = await fetch("/api/tranzo/orders", {
+            const res = await fetch(`/api/tranzo/orders?startDate=${startDate}&endDate=${endDate}`, {
                 headers: {
                     "api-token": cleanToken,
                     "brand-id": sanitizeHeader(selectedBrand.id)
@@ -150,8 +125,9 @@ export default function TranzoDashboard() {
 
         try {
             const cleanToken = sanitizeHeader(selectedBrand.tranzoApiToken || "");
+            const { startDate, endDate } = getMonthDateRange();
 
-            const res = await fetch("/api/tranzo/orders?sync=true", {
+            const res = await fetch(`/api/tranzo/orders?sync=true&startDate=${startDate}&endDate=${endDate}`, {
                 headers: {
                     "api-token": cleanToken,
                     "brand-id": sanitizeHeader(selectedBrand.id)
@@ -186,16 +162,12 @@ export default function TranzoDashboard() {
 
         const normalized = (list as any[]).map(normalizeTranzoOrder);
 
-        const filteredByMonth = normalized.filter((o: Order) =>
-            (o.orderDate || "").startsWith(selectedMonth)
-        );
-
-        setOrders(filteredByMonth);
+        setOrders(normalized);
 
         const statuses: Record<string, TrackingStatus | null> = {};
         const payments: Record<string, any> = {};
 
-        filteredByMonth.forEach(o => {
+        normalized.forEach(o => {
             if (o.trackingNumber) {
                 const st = (o.transactionStatus || "").toLowerCase();
                 statuses[o.trackingNumber] = {

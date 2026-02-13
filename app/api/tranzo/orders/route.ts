@@ -13,20 +13,20 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Missing api-token header" }, { status: 401 });
     }
 
+    const buildWhereClause = () => {
+        const where: any = { courier: "Tranzo", brandId };
+        if (startDate || endDate) {
+            where.AND = [];
+            if (startDate) where.AND.push({ orderDate: { gte: startDate + "T00:00:00.000Z" } });
+            if (endDate) where.AND.push({ orderDate: { lte: endDate + "T23:59:59.999Z" } });
+        }
+        return where;
+    };
+
     if (!forceSync) {
         try {
-            const whereClause: any = {
-                courier: "Tranzo",
-                brandId: brandId
-            };
-            if (startDate || endDate) {
-                whereClause.AND = [];
-                if (startDate) whereClause.AND.push({ orderDate: { gte: startDate + "T00:00:00.000Z" } });
-                if (endDate) whereClause.AND.push({ orderDate: { lte: endDate + "T23:59:59.999Z" } });
-            }
-
             const localOrders = await prisma.order.findMany({
-                where: whereClause,
+                where: buildWhereClause(),
                 orderBy: { transactionDate: 'desc' }
             });
 
@@ -45,10 +45,15 @@ export async function GET(req: NextRequest) {
     try {
         console.log(`Syncing Tranzo orders from API for Brand: ${brandId}...`);
 
-        const now = new Date();
-        const dateFrom = startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const dateTo = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`;
+        const dateFrom = startDate || (() => {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+        })();
+        const dateTo = endDate || (() => {
+            const now = new Date();
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`;
+        })();
 
         const targetUrl = `https://api-integration.tranzo.pk/api/custom/v1/get-order-logs/?date_from=${dateFrom}&date_to=${dateTo}`;
         console.log(`Calling Tranzo API: ${targetUrl}`);
@@ -69,6 +74,16 @@ export async function GET(req: NextRequest) {
         const results = Array.isArray(data) ? data : (data.results || data.data || data.orders || []);
 
         console.log(`Fetched ${results.length} live orders. Storing to DB...`);
+
+        if (results.length > 0) {
+            console.log("Sample Tranzo API order keys:", Object.keys(results[0]));
+            console.log("Sample date fields:", {
+                created_at: results[0].created_at,
+                booking_date: results[0].booking_date,
+                order_date: results[0].order_date,
+                createDatetime: results[0].createDatetime,
+            });
+        }
 
         const incomingTrackingNumbers = (results as any[]).map((o: any) => o.tracking_number).filter(Boolean);
         const existingOrdersMap: Record<string, string> = {};
@@ -103,9 +118,20 @@ export async function GET(req: NextRequest) {
                         const transactionTax = deliveryTax;
                         const netAmount = bookingAmount - deliveryFee - deliveryTax - deliveryFuelFee - cashHandlingFee;
 
-                        const fallbackDate = new Date().toISOString();
+                        const rawDate = order.created_at || order.booking_date || order.order_date || order.createDatetime || order.create_datetime || order.booked_date || null;
+                        let orderDateStr: string;
+                        if (rawDate) {
+                            try {
+                                const parsed = new Date(rawDate);
+                                orderDateStr = isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+                            } catch {
+                                orderDateStr = new Date().toISOString();
+                            }
+                        } else {
+                            orderDateStr = `${dateFrom}T00:00:00.000Z`;
+                        }
 
-                        const updateData: any = {
+                        const orderData: any = {
                             brandId: brandId,
                             courier: "Tranzo",
                             orderRefNumber: order.reference_number || "",
@@ -115,7 +141,7 @@ export async function GET(req: NextRequest) {
                             deliveryAddress: order.delivery_address || "",
                             cityName: order.destination_city || null,
                             orderDetail: order.order_details || "",
-                            orderType: "COD",
+                            orderType: order.ds_shipment_type || "COD",
                             orderAmount: bookingAmount,
                             orderStatus: order.order_status || "Unknown",
                             transactionStatus: order.order_status || "Unknown",
@@ -125,17 +151,17 @@ export async function GET(req: NextRequest) {
                             upfrontPayment: 0,
                             salesWithholdingTax: 0,
                             netAmount: netAmount,
+                            orderDate: orderDateStr,
+                            transactionDate: orderDateStr,
                             lastFetchedAt: new Date()
                         };
 
                         return prisma.order.upsert({
                             where: { trackingNumber: order.tracking_number },
-                            update: updateData,
+                            update: orderData,
                             create: {
                                 trackingNumber: order.tracking_number,
-                                ...updateData,
-                                orderDate: fallbackDate,
-                                transactionDate: fallbackDate,
+                                ...orderData,
                             }
                         });
                     })
@@ -175,18 +201,8 @@ export async function GET(req: NextRequest) {
             statusChanged,
         };
 
-        const whereClause: any = {
-            courier: "Tranzo",
-            brandId: brandId
-        };
-        if (startDate || endDate) {
-            whereClause.AND = [];
-            if (startDate) whereClause.AND.push({ orderDate: { gte: startDate + "T00:00:00.000Z" } });
-            if (endDate) whereClause.AND.push({ orderDate: { lte: endDate + "T23:59:59.999Z" } });
-        }
-
         const freshOrders = await prisma.order.findMany({
-            where: whereClause,
+            where: buildWhereClause(),
             orderBy: { transactionDate: 'desc' }
         });
 
@@ -201,18 +217,8 @@ export async function GET(req: NextRequest) {
         console.warn("Tranzo API Sync Failed:", error.message);
 
         try {
-            const whereClause: any = {
-                courier: "Tranzo",
-                brandId: brandId
-            };
-            if (startDate || endDate) {
-                whereClause.AND = [];
-                if (startDate) whereClause.AND.push({ orderDate: { gte: startDate + "T00:00:00.000Z" } });
-                if (endDate) whereClause.AND.push({ orderDate: { lte: endDate + "T23:59:59.999Z" } });
-            }
-
             const localOrders = await prisma.order.findMany({
-                where: whereClause,
+                where: buildWhereClause(),
                 orderBy: { transactionDate: 'desc' }
             });
 
