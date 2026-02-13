@@ -55,68 +55,38 @@ export async function GET(req: NextRequest) {
 
         console.log("Fetching freshly from PostEx API...");
         if (proxyUrl) {
-            console.log(`Using proxy: ${proxyUrl.replace(/:[^:@]+@/, ':***@')}`);
+            console.log(`Using proxy: ${proxyUrl.replace(/:[^:@]+@/, ':***@')}`); // Log proxy (hide password)
         }
 
+        // 2. Fetch from PostEx API
+        const msgUrl = new URL("https://api.postex.pk/services/integration/api/order/v1/get-all-order");
+        msgUrl.searchParams.append("startDate", startDate);
+        if (endDate) msgUrl.searchParams.append("endDate", endDate);
+        msgUrl.searchParams.append("orderStatusId", "0");
+
         try {
-            const CHUNK_DAYS = 5;
-            const rangeStart = new Date(startDate);
-            const rangeEnd = new Date(endDate || startDate);
-            const chunks: { from: string; to: string }[] = [];
-            let cursor = new Date(rangeStart);
+            // Create fetch options with optional proxy
+            const fetchOptions: RequestInit & { agent?: any } = {
+                method: "GET",
+                headers: {
+                    token: token,
+                },
+            };
 
-            while (cursor <= rangeEnd) {
-                const chunkEnd = new Date(cursor);
-                chunkEnd.setDate(chunkEnd.getDate() + CHUNK_DAYS - 1);
-                if (chunkEnd > rangeEnd) chunkEnd.setTime(rangeEnd.getTime());
-
-                const fromStr = cursor.toISOString().slice(0, 10);
-                const toStr = chunkEnd.toISOString().slice(0, 10);
-                chunks.push({ from: fromStr, to: toStr });
-
-                cursor = new Date(chunkEnd);
-                cursor.setDate(cursor.getDate() + 1);
+            // Add proxy agent if configured
+            if (proxyUrl) {
+                fetchOptions.agent = new HttpsProxyAgent(proxyUrl);
             }
 
-            console.log(`Splitting ${startDate} → ${endDate} into ${chunks.length} chunks of ~${CHUNK_DAYS} days`);
+            const response = await fetch(msgUrl.toString(), fetchOptions);
 
-            const allOrdersMap = new Map<string, any>();
-
-            for (const chunk of chunks) {
-                const msgUrl = new URL("https://api.postex.pk/services/integration/api/order/v1/get-all-order");
-                msgUrl.searchParams.append("startDate", chunk.from);
-                msgUrl.searchParams.append("endDate", chunk.to);
-                msgUrl.searchParams.append("orderStatusId", "0");
-
-                const fetchOptions: RequestInit & { agent?: any } = {
-                    method: "GET",
-                    headers: { token: token },
-                };
-                if (proxyUrl) {
-                    fetchOptions.agent = new HttpsProxyAgent(proxyUrl);
-                }
-
-                const response = await fetch(msgUrl.toString(), fetchOptions);
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error(`PostEx API chunk ${chunk.from}→${chunk.to} failed: ${response.status} ${errorText}`);
-                    continue;
-                }
-
-                const data = await response.json();
-                const chunkOrders = data.dist || [];
-                console.log(`  Chunk ${chunk.from} → ${chunk.to}: ${chunkOrders.length} orders`);
-
-                for (const order of chunkOrders) {
-                    if (order.trackingNumber) {
-                        allOrdersMap.set(order.trackingNumber, order);
-                    }
-                }
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`PostEx API Error: ${response.status} ${errorText}`);
             }
 
-            const orders = Array.from(allOrdersMap.values());
-            console.log(`Total unique orders fetched: ${orders.length} (from ${chunks.length} chunks)`);
+            const data = await response.json();
+            const orders = data.dist || [];
 
             // 3. Snapshot existing orders for diff comparison
             const incomingTrackingNumbers = (orders as any[]).map((o: any) => o.trackingNumber).filter(Boolean);
