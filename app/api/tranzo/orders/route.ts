@@ -46,9 +46,16 @@ export async function GET(req: NextRequest) {
         console.log(`Syncing Tranzo orders from API for Brand: ${brandId}...`);
 
         const now = new Date();
-        const dateFrom = startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const dateTo = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`;
+        let dateFrom = startDate;
+        let dateTo = endDate;
+        if (!dateFrom) {
+            const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            dateFrom = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`;
+        }
+        if (!dateTo) {
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            dateTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`;
+        }
 
         const targetUrl = `https://api-integration.tranzo.pk/api/custom/v1/get-order-logs/?date_from=${dateFrom}&date_to=${dateTo}`;
         console.log(`Calling Tranzo API: ${targetUrl}`);
