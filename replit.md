@@ -60,9 +60,7 @@ public/           - Static assets
 ```
 
 ### Key Environment Variables
-- `PRISMA_DATABASE_URL` - PostgreSQL connection string (connection pool)
-- `POSTGRES_URL` - Direct PostgreSQL connection (for migrations)
-- `DATABASE_URL` - Replit-provided PostgreSQL URL
+- `DATABASE_URL` - Replit-provided PostgreSQL URL (used by Prisma)
 
 ### Development
 - Dev server: `npm run dev` (runs on port 5000)
