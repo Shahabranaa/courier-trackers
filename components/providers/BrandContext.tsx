@@ -30,7 +30,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-            const res = await fetch("/api/brands", { credentials: "include" });
+            const res = await fetch("/api/brands");
             if (!res.ok) throw new Error("Failed to load brands");
             const data = await res.json();
 
