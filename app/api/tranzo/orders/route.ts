@@ -96,15 +96,28 @@ export async function GET(req: NextRequest) {
             sampleOrder = results[0];
         }
 
+        let noTrackingCount = 0;
+        let duplicateCount = 0;
         const uniqueOrders = new Map<string, any>();
-        for (const order of results) {
-            const tn = order.tracking_number;
-            if (!tn) continue;
-            if (!uniqueOrders.has(tn)) {
+        for (let idx = 0; idx < results.length; idx++) {
+            const order = results[idx];
+            let tn = order.tracking_number;
+            if (!tn || tn.trim() === "") {
+                noTrackingCount++;
+                const ref = order.reference_number || "";
+                const phone = order.customer_phone || "";
+                const amount = order.booking_amount || "0";
+                tn = `TRANZO-NOID-${brandId}-${ref}-${phone}-${amount}-${idx}`;
+                order.tracking_number = tn;
+            }
+            if (uniqueOrders.has(tn)) {
+                duplicateCount++;
+            } else {
                 uniqueOrders.set(tn, order);
             }
         }
         const dedupedOrders = Array.from(uniqueOrders.values());
+        console.log(`Tranzo sync: ${results.length} total, ${noTrackingCount} had no tracking number (assigned IDs), ${duplicateCount} duplicates removed, ${dedupedOrders.length} unique to save`);
 
         const incomingTrackingNumbers = dedupedOrders.map((o: any) => o.tracking_number).filter(Boolean);
         const existingOrdersMap: Record<string, string> = {};
@@ -122,12 +135,16 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        let savedCount = 0;
+        let failedCount = 0;
+        const failedOrders: { trackingNumber: string; error: string }[] = [];
+
         if (dedupedOrders.length > 0) {
             const chunkSize = 10;
             for (let i = 0; i < dedupedOrders.length; i += chunkSize) {
                 const chunk = dedupedOrders.slice(i, i + chunkSize);
 
-                await Promise.allSettled(
+                const results2 = await Promise.allSettled(
                     chunk.map((order: any) => {
                         const bookingAmount = parseFloat(order.booking_amount || "0");
                         const deliveryFee = parseFloat(order.delivery_fee || "0");
@@ -176,8 +193,22 @@ export async function GET(req: NextRequest) {
                         });
                     })
                 );
+
+                for (let j = 0; j < results2.length; j++) {
+                    const r = results2[j];
+                    if (r.status === "fulfilled") {
+                        savedCount++;
+                    } else {
+                        failedCount++;
+                        const tn = chunk[j]?.tracking_number || "unknown";
+                        const errMsg = r.reason?.message || String(r.reason);
+                        failedOrders.push({ trackingNumber: tn, error: errMsg });
+                        console.error(`Failed to save Tranzo order ${tn}:`, errMsg);
+                    }
+                }
             }
         }
+        console.log(`Tranzo sync DB results: ${savedCount} saved, ${failedCount} failed`);
 
         let newOrders = 0;
         let newDelivered = 0;
@@ -186,7 +217,6 @@ export async function GET(req: NextRequest) {
 
         for (const order of dedupedOrders) {
             const tn = order.tracking_number;
-            if (!tn) continue;
             const newStatus = (order.order_status || "Unknown").toLowerCase();
             const oldStatus = existingOrdersMap[tn];
 
@@ -205,12 +235,20 @@ export async function GET(req: NextRequest) {
 
         const syncSummary: any = {
             totalFetched: results.length,
+            noTrackingNumber: noTrackingCount,
+            duplicatesRemoved: duplicateCount,
             uniqueOrders: dedupedOrders.length,
+            savedToDb: savedCount,
+            failedToSave: failedCount,
             newOrders,
             newDelivered,
             newReturned,
             statusChanged,
         };
+
+        if (failedOrders.length > 0) {
+            syncSummary.failedOrderDetails = failedOrders.slice(0, 10);
+        }
 
         if (sampleApiKeys.length > 0) {
             syncSummary.apiFieldNames = sampleApiKeys;
