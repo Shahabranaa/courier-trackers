@@ -90,6 +90,23 @@ model ShopifyOrder {
   @@index([brandId, createdAt])
 }
 
+model PostexCpr {
+  cprId             Int      @id
+  brandId           String
+  merchantId        String   @default("")
+  merchantName      String   @default("")
+  cprNumber         String   @default("")
+  statusId          Int      @default(0)
+  status            String   @default("")
+  netAmount         Float    @default(0)
+  createDatetime    String   @default("")
+  approveDate       String   @default("")
+  lastFetchedAt     DateTime @default(now())
+
+  @@index([brandId])
+  @@index([brandId, createDatetime])
+}
+
 model TrackingStatus {
   trackingNumber String @id
   data           String // JSON string

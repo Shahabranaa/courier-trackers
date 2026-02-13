@@ -56,6 +56,7 @@ interface CPRReceipt {
     netAmount: string;
     cashPaymentReceiptStatus: string;
     cashPaymentReceiptStatusId: number;
+    createDatetime: string;
 }
 
 interface TranzoInvoice {
@@ -75,7 +76,6 @@ export default function FinancePage() {
     const [tranzoData, setTranzoData] = useState<CourierData | null>(null);
     const [shopifyData, setShopifyData] = useState<{ totalRevenue: number; totalOrders: number; monthly: any[] } | null>(null);
 
-    const [postexPaymentsReceived, setPostexPaymentsReceived] = useState(0);
     const [tranzoPaymentsReceived, setTranzoPaymentsReceived] = useState(0);
     const [postexReceiptsLoading, setPostexReceiptsLoading] = useState(false);
     const [tranzoReceiptsLoading, setTranzoReceiptsLoading] = useState(false);
@@ -109,19 +109,18 @@ export default function FinancePage() {
         }
     };
 
+    const [allCprReceipts, setAllCprReceipts] = useState<CPRReceipt[]>([]);
+
     const fetchPostexReceipts = async () => {
         if (!selectedBrand) return;
         setPostexReceiptsLoading(true);
         try {
-            const res = await fetch("/api/postex/cpr?size=500", {
+            const res = await fetch("/api/postex/cpr", {
                 headers: { "brand-id": sanitizeHeader(selectedBrand.id) }
             });
             const data = await res.json();
             if (res.ok && data.receipts) {
-                const total = data.receipts
-                    .filter((r: CPRReceipt) => [2, 3, 4].includes(r.cashPaymentReceiptStatusId))
-                    .reduce((sum: number, r: CPRReceipt) => sum + parseFloat(r.netAmount || "0"), 0);
-                setPostexPaymentsReceived(total);
+                setAllCprReceipts(data.receipts);
             }
         } catch (err) {
             console.error("Failed to fetch PostEx receipts:", err);
@@ -185,15 +184,28 @@ export default function FinancePage() {
     const postexSum = sumMonthly(postexFiltered);
     const tranzoSum = sumMonthly(tranzoFiltered);
 
+    const filteredCprTotal = useMemo(() => {
+        const validStatuses = [2, 3, 4];
+        let filtered = allCprReceipts.filter((r: CPRReceipt) => validStatuses.includes(r.cashPaymentReceiptStatusId));
+
+        if (timePeriod === "current") {
+            filtered = filtered.filter((r: CPRReceipt) => (r.createDatetime || "").startsWith(currentMonthKey));
+        } else if (timePeriod === "previous") {
+            filtered = filtered.filter((r: CPRReceipt) => (r.createDatetime || "").startsWith(prevMonthKey));
+        }
+
+        return filtered.reduce((sum: number, r: CPRReceipt) => sum + parseFloat(r.netAmount || "0"), 0);
+    }, [allCprReceipts, timePeriod, currentMonthKey, prevMonthKey]);
+
+    const postexPaymentsReceived = filteredCprTotal;
+
     const postexOwed = useMemo(() => {
-        if (!postexData) return 0;
-        return postexData.totals.netAmount - postexPaymentsReceived;
-    }, [postexData, postexPaymentsReceived]);
+        return postexSum.netAmount - postexPaymentsReceived;
+    }, [postexSum, postexPaymentsReceived]);
 
     const tranzoOwed = useMemo(() => {
-        if (!tranzoData) return 0;
-        return tranzoData.totals.netAmount - tranzoPaymentsReceived;
-    }, [tranzoData, tranzoPaymentsReceived]);
+        return tranzoSum.netAmount - tranzoPaymentsReceived;
+    }, [tranzoSum, tranzoPaymentsReceived]);
 
     const shopifyRevenue = shopifyData?.totalRevenue || 0;
 

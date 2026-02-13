@@ -28,8 +28,10 @@ export default function PostExCPRPage() {
     const { selectedBrand } = useBrand();
     const [receipts, setReceipts] = useState<CPRReceipt[]>([]);
     const [loading, setLoading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [merchantId, setMerchantId] = useState<string>("");
+    const [syncResult, setSyncResult] = useState<{ totalFetched: number; newReceipts: number; updatedReceipts: number } | null>(null);
 
     const today = new Date();
     const defaultFrom = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -39,8 +41,8 @@ export default function PostExCPRPage() {
 
     const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
 
-    const fetchCPR = async () => {
-        if (!selectedBrand?.postexMerchantToken) return;
+    const loadFromDB = async () => {
+        if (!selectedBrand) return;
         setLoading(true);
         setError(null);
 
@@ -49,18 +51,13 @@ export default function PostExCPRPage() {
             if (fromDate) params.set("fromDate", fromDate);
             if (toDate) params.set("toDate", toDate);
             if (statusFilter !== "all") params.set("statusId", statusFilter);
-            params.set("size", "200");
 
-            const headers: Record<string, string> = {
-                "brand-id": sanitizeHeader(selectedBrand.id),
-            };
-
-            const res = await fetch(`/api/postex/cpr?${params.toString()}`, { headers });
+            const res = await fetch(`/api/postex/cpr?${params.toString()}`, {
+                headers: { "brand-id": sanitizeHeader(selectedBrand.id) }
+            });
             const data = await res.json();
 
-            if (!res.ok) {
-                throw new Error(data.error || "Failed to fetch CPR data");
-            }
+            if (!res.ok) throw new Error(data.error || "Failed to load CPR data");
 
             setReceipts(data.receipts || []);
             if (data.merchantId) setMerchantId(data.merchantId);
@@ -72,14 +69,45 @@ export default function PostExCPRPage() {
         }
     };
 
+    const syncFromAPI = async () => {
+        if (!selectedBrand) return;
+        setSyncing(true);
+        setError(null);
+        setSyncResult(null);
+
+        try {
+            const res = await fetch("/api/postex/cpr", {
+                method: "POST",
+                headers: { "brand-id": sanitizeHeader(selectedBrand.id) }
+            });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || "Failed to sync CPR data");
+
+            setSyncResult({
+                totalFetched: data.totalFetched || 0,
+                newReceipts: data.newReceipts || 0,
+                updatedReceipts: data.updatedReceipts || 0
+            });
+
+            if (data.merchantId) setMerchantId(data.merchantId);
+
+            await loadFromDB();
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     useEffect(() => {
-        if (selectedBrand?.postexMerchantToken) {
-            fetchCPR();
+        if (selectedBrand) {
+            loadFromDB();
         }
     }, [selectedBrand]);
 
     const handleApplyFilters = () => {
-        fetchCPR();
+        loadFromDB();
     };
 
     const filteredReceipts = useMemo(() => {
@@ -167,11 +195,27 @@ export default function PostExCPRPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <button onClick={syncFromAPI} disabled={syncing || !selectedBrand?.postexMerchantToken} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-sm font-semibold hover:from-orange-600 hover:to-red-600 disabled:opacity-50 shadow-md transition-all">
+                            <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+                            {syncing ? "Syncing..." : "Sync Live Data"}
+                        </button>
                         <button onClick={exportCSV} disabled={filteredReceipts.length === 0} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">
                             <Download size={16} /> Export CSV
                         </button>
                     </div>
                 </div>
+
+                {syncResult && (
+                    <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+                        <CheckCircle size={20} className="text-green-500 shrink-0" />
+                        <p className="text-sm text-green-700">
+                            Synced {syncResult.totalFetched} receipts from PostEx.
+                            {syncResult.newReceipts > 0 && <span className="font-semibold"> {syncResult.newReceipts} new.</span>}
+                            {syncResult.updatedReceipts > 0 && <span className="font-semibold"> {syncResult.updatedReceipts} updated.</span>}
+                            {syncResult.newReceipts === 0 && syncResult.updatedReceipts === 0 && <span> Everything up to date.</span>}
+                        </p>
+                    </div>
+                )}
 
                 <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-wrap items-end gap-4">
                     <div>
@@ -201,9 +245,9 @@ export default function PostExCPRPage() {
                             </select>
                         </div>
                     </div>
-                    <button onClick={handleApplyFilters} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-sm font-semibold hover:from-orange-600 hover:to-red-600 disabled:opacity-50 shadow-md transition-all">
-                        <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-                        {loading ? "Loading..." : "Fetch Receipts"}
+                    <button onClick={handleApplyFilters} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 disabled:opacity-50 transition-all">
+                        <Filter size={16} />
+                        {loading ? "Loading..." : "Apply Filters"}
                     </button>
                 </div>
 
@@ -252,7 +296,7 @@ export default function PostExCPRPage() {
                         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                             <Receipt size={48} className="mb-3 text-gray-200" />
                             <p className="font-medium">No receipts found</p>
-                            <p className="text-sm">Try adjusting your date range or filters</p>
+                            <p className="text-sm">Click &quot;Sync Live Data&quot; to fetch receipts from PostEx, or adjust filters</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
