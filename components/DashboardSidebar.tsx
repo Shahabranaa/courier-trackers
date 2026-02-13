@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt } from "lucide-react";
+import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt, Wallet } from "lucide-react";
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
 
@@ -36,6 +36,7 @@ export default function DashboardSidebar() {
         },
         { name: "Zoom Portal", href: "/zoom", icon: Zap },
         { name: "Shopify Orders", href: "/shopify", icon: ShoppingBag },
+        { name: "Finance", href: "/finance", icon: Wallet },
         { name: "Analytics", href: "/analytics", icon: TrendingUp },
         { name: "Return Discrepancies", href: "/discrepancies", icon: GitCompare },
         { name: "Smart Alerts", href: "/alerts", icon: Bell },
