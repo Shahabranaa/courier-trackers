@@ -34,6 +34,9 @@ export async function GET(req: NextRequest) {
                 totalPrice: true,
                 createdAt: true,
                 financialStatus: true,
+                fulfillmentStatus: true,
+                courierPartner: true,
+                fulfillments: true,
             }
         });
 
@@ -167,7 +170,40 @@ export async function GET(req: NextRequest) {
         const shopifyRevenue = shopifyOrders.reduce((s, o) => s + (o.totalPrice || 0), 0);
         const shopifyOrderCount = shopifyOrders.length;
 
-        const shopifyMonthly: Record<string, { month: string; revenue: number; orders: number }> = {};
+        const isCourier = (o: any, name: string) => {
+            const cp = (o.courierPartner || "").toLowerCase();
+            if (cp.includes(name.toLowerCase())) return true;
+            try {
+                const fulfs = JSON.parse(o.fulfillments || "[]");
+                return fulfs.some((f: any) => (f.tracking_company || "").toLowerCase().includes(name.toLowerCase()));
+            } catch { return false; }
+        };
+
+        const isCancelledOrPending = (o: any) => {
+            const fs = (o.financialStatus || "").toLowerCase();
+            const ffs = (o.fulfillmentStatus || "").toLowerCase();
+            return fs.includes("refunded") || fs.includes("voided") || ffs === "unfulfilled" || ffs === "" || ffs === "null";
+        };
+
+        const classifyOrder = (o: any): "postex" | "tranzo" | "zoom" | "cancelledPending" => {
+            if (isCancelledOrPending(o)) return "cancelledPending";
+            if (isCourier(o, "postex")) return "postex";
+            if (isCourier(o, "tranzo")) return "tranzo";
+            if (isCourier(o, "zoom")) return "zoom";
+            return "cancelledPending";
+        };
+
+        let postexShopifyRev = 0, tranzoShopifyRev = 0, zoomShopifyRev = 0, cancelledPendingRev = 0;
+        for (const o of shopifyOrders) {
+            const price = o.totalPrice || 0;
+            const cat = classifyOrder(o);
+            if (cat === "postex") postexShopifyRev += price;
+            else if (cat === "tranzo") tranzoShopifyRev += price;
+            else if (cat === "zoom") zoomShopifyRev += price;
+            else cancelledPendingRev += price;
+        }
+
+        const shopifyMonthly: Record<string, { month: string; revenue: number; orders: number; postexRev: number; tranzoRev: number; zoomRev: number; cancelledPendingRev: number }> = {};
         for (const o of shopifyOrders) {
             let monthKey = "Unknown";
             try {
@@ -177,10 +213,16 @@ export async function GET(req: NextRequest) {
                 }
             } catch {}
             if (!shopifyMonthly[monthKey]) {
-                shopifyMonthly[monthKey] = { month: monthKey, revenue: 0, orders: 0 };
+                shopifyMonthly[monthKey] = { month: monthKey, revenue: 0, orders: 0, postexRev: 0, tranzoRev: 0, zoomRev: 0, cancelledPendingRev: 0 };
             }
-            shopifyMonthly[monthKey].revenue += o.totalPrice || 0;
+            const price = o.totalPrice || 0;
+            shopifyMonthly[monthKey].revenue += price;
             shopifyMonthly[monthKey].orders++;
+            const cat = classifyOrder(o);
+            if (cat === "postex") shopifyMonthly[monthKey].postexRev += price;
+            else if (cat === "tranzo") shopifyMonthly[monthKey].tranzoRev += price;
+            else if (cat === "zoom") shopifyMonthly[monthKey].zoomRev += price;
+            else shopifyMonthly[monthKey].cancelledPendingRev += price;
         }
 
         return NextResponse.json({
@@ -195,6 +237,12 @@ export async function GET(req: NextRequest) {
             shopify: {
                 totalRevenue: shopifyRevenue,
                 totalOrders: shopifyOrderCount,
+                courierBreakdown: {
+                    postex: postexShopifyRev,
+                    tranzo: tranzoShopifyRev,
+                    zoom: zoomShopifyRev,
+                    cancelledPending: cancelledPendingRev,
+                },
                 monthly: Object.values(shopifyMonthly).sort((a: any, b: any) => b.month.localeCompare(a.month)),
             }
         });
