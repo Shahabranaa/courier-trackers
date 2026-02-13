@@ -3,12 +3,29 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signToken } from "@/lib/auth";
 
+async function ensureDefaultAdmin() {
+  const userCount = await prisma.user.count();
+  if (userCount === 0) {
+    const hash = await bcrypt.hash("admin123", 10);
+    await prisma.user.create({
+      data: {
+        email: "admin@hublogistic.com",
+        passwordHash: hash,
+        name: "Admin",
+        role: "ADMIN"
+      }
+    });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
+
+    await ensureDefaultAdmin();
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
