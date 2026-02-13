@@ -46,8 +46,10 @@ export default function TranzoInvoicesPage() {
 
     const hasToken = selectedBrand?.tranzoMerchantToken && selectedBrand.tranzoMerchantToken !== "";
 
-    const fetchInvoices = async () => {
-        if (!hasToken) return;
+    const [syncing, setSyncing] = useState(false);
+
+    const loadInvoicesFromDB = async () => {
+        if (!selectedBrand) return;
         setLoading(true);
         setError(null);
 
@@ -60,7 +62,7 @@ export default function TranzoInvoicesPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error || "Failed to fetch invoice data");
+                throw new Error(data.error || "Failed to load invoices");
             }
 
             setInvoices(data.results || []);
@@ -72,9 +74,34 @@ export default function TranzoInvoicesPage() {
         }
     };
 
+    const syncLiveData = async () => {
+        if (!hasToken) return;
+        setSyncing(true);
+        setError(null);
+
+        try {
+            const headers: Record<string, string> = {
+                "brand-id": sanitizeHeader(selectedBrand!.id),
+            };
+
+            const res = await fetch(`/api/tranzo/invoices`, { method: "POST", headers });
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to sync invoices");
+            }
+
+            setInvoices(data.results || []);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     useEffect(() => {
-        if (hasToken) {
-            fetchInvoices();
+        if (selectedBrand) {
+            loadInvoicesFromDB();
         }
     }, [selectedBrand]);
 
@@ -177,9 +204,9 @@ export default function TranzoInvoicesPage() {
                         <button onClick={exportCSV} disabled={filteredInvoices.length === 0} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors">
                             <Download size={16} /> Export CSV
                         </button>
-                        <button onClick={fetchInvoices} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-xl text-sm font-semibold hover:from-purple-600 hover:to-violet-700 disabled:opacity-50 shadow-md transition-all">
-                            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-                            {loading ? "Loading..." : "Fetch Invoices"}
+                        <button onClick={syncLiveData} disabled={syncing || !hasToken} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-xl text-sm font-semibold hover:from-purple-600 hover:to-violet-700 disabled:opacity-50 shadow-md transition-all">
+                            <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+                            {syncing ? "Syncing..." : "Sync Live Data"}
                         </button>
                     </div>
                 </div>

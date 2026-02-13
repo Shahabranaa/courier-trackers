@@ -62,6 +62,7 @@ interface CPRReceipt {
 interface TranzoInvoice {
     net_amount: string;
     invoice_status: string;
+    created_at: string;
 }
 
 type TimePeriod = "current" | "previous" | "all";
@@ -76,7 +77,6 @@ export default function FinancePage() {
     const [tranzoData, setTranzoData] = useState<CourierData | null>(null);
     const [shopifyData, setShopifyData] = useState<{ totalRevenue: number; totalOrders: number; monthly: any[] } | null>(null);
 
-    const [tranzoPaymentsReceived, setTranzoPaymentsReceived] = useState(0);
     const [postexReceiptsLoading, setPostexReceiptsLoading] = useState(false);
     const [tranzoReceiptsLoading, setTranzoReceiptsLoading] = useState(false);
 
@@ -129,6 +129,8 @@ export default function FinancePage() {
         }
     };
 
+    const [allTranzoInvoices, setAllTranzoInvoices] = useState<TranzoInvoice[]>([]);
+
     const fetchTranzoReceipts = async () => {
         if (!selectedBrand) return;
         setTranzoReceiptsLoading(true);
@@ -138,10 +140,7 @@ export default function FinancePage() {
             });
             const data = await res.json();
             if (res.ok && data.results) {
-                const total = data.results
-                    .filter((inv: TranzoInvoice) => ["Approved", "Settled"].includes(inv.invoice_status))
-                    .reduce((sum: number, inv: TranzoInvoice) => sum + parseFloat(inv.net_amount || "0"), 0);
-                setTranzoPaymentsReceived(total);
+                setAllTranzoInvoices(data.results);
             }
         } catch (err) {
             console.error("Failed to fetch Tranzo invoices:", err);
@@ -198,6 +197,20 @@ export default function FinancePage() {
     }, [allCprReceipts, timePeriod, currentMonthKey, prevMonthKey]);
 
     const postexPaymentsReceived = filteredCprTotal;
+
+    const filteredTranzoTotal = useMemo(() => {
+        let filtered = allTranzoInvoices.filter((inv: TranzoInvoice) => ["Approved", "Settled"].includes(inv.invoice_status));
+
+        if (timePeriod === "current") {
+            filtered = filtered.filter((inv: TranzoInvoice) => (inv.created_at || "").startsWith(currentMonthKey));
+        } else if (timePeriod === "previous") {
+            filtered = filtered.filter((inv: TranzoInvoice) => (inv.created_at || "").startsWith(prevMonthKey));
+        }
+
+        return filtered.reduce((sum: number, inv: TranzoInvoice) => sum + parseFloat(inv.net_amount || "0"), 0);
+    }, [allTranzoInvoices, timePeriod, currentMonthKey, prevMonthKey]);
+
+    const tranzoPaymentsReceived = filteredTranzoTotal;
 
     const postexOwed = useMemo(() => {
         return postexSum.netAmount - postexPaymentsReceived;

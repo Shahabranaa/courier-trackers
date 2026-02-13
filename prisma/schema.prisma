@@ -107,6 +107,34 @@ model PostexCpr {
   @@index([brandId, createDatetime])
 }
 
+model TranzoInvoice {
+  id                Int      @id @default(autoincrement())
+  invoiceId         Int
+  brandId           String
+  invoiceNumber     String   @default("")
+  invoiceType       String   @default("")
+  merchant          String   @default("")
+  merchantStore     String?
+  totalOrders       Int      @default(0)
+  netAmount         Float    @default(0)
+  invoiceStatus     String   @default("")
+  createdAt         String   @default("")
+  createdBy         String   @default("")
+  approvedAt        String?
+  approvedBy        String?
+  holdAt            String?
+  holdBy            String?
+  settledAt         String?
+  settledBy         String?
+  disputedAt        String?
+  disputedBy        String?
+  lastFetchedAt     DateTime @default(now())
+
+  @@unique([brandId, invoiceId])
+  @@index([brandId])
+  @@index([brandId, createdAt])
+}
+
 model TrackingStatus {
   trackingNumber String @id
   data           String // JSON string
