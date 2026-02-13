@@ -120,7 +120,12 @@ export default function TranzoDashboard() {
         try {
             const cleanToken = sanitizeHeader(selectedBrand.tranzoApiToken || "");
 
-            const res = await fetch("/api/tranzo/orders", {
+            const [year, month] = selectedMonth.split("-").map(Number);
+            const lastDay = new Date(year, month, 0).getDate();
+            const startDate = `${selectedMonth}-01`;
+            const endDate = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
+
+            const res = await fetch(`/api/tranzo/orders?startDate=${startDate}&endDate=${endDate}`, {
                 headers: {
                     "api-token": cleanToken,
                     "brand-id": sanitizeHeader(selectedBrand.id)

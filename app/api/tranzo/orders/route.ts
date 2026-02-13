@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
                         const transactionTax = deliveryTax;
                         const netAmount = bookingAmount - deliveryFee - deliveryTax - deliveryFuelFee - cashHandlingFee;
 
-                        const fallbackDate = new Date().toISOString();
+                        const orderDate = order.created_at || order.booking_date || new Date().toISOString();
 
                         const updateData: any = {
                             brandId: brandId,
@@ -132,6 +132,8 @@ export async function GET(req: NextRequest) {
                             upfrontPayment: 0,
                             salesWithholdingTax: 0,
                             netAmount: netAmount,
+                            orderDate: orderDate,
+                            transactionDate: orderDate,
                             lastFetchedAt: new Date()
                         };
 
@@ -141,8 +143,6 @@ export async function GET(req: NextRequest) {
                             create: {
                                 trackingNumber: order.tracking_number,
                                 ...updateData,
-                                orderDate: fallbackDate,
-                                transactionDate: fallbackDate,
                             }
                         });
                     })
