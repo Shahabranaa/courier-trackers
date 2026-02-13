@@ -15,6 +15,7 @@ export default function SettingsPage() {
     const [formData, setFormData] = useState({
         name: "",
         apiToken: "",
+        postexMerchantId: "",
         tranzoApiToken: "",
         proxyUrl: "",
         shopifyStore: "",
@@ -24,7 +25,7 @@ export default function SettingsPage() {
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", tranzoApiToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
+        setFormData({ name: "", apiToken: "", postexMerchantId: "", tranzoApiToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -53,6 +54,7 @@ export default function SettingsPage() {
         setFormData({
             name: brand.name,
             apiToken: brand.apiToken,
+            postexMerchantId: brand.postexMerchantId || "",
             tranzoApiToken: brand.tranzoApiToken || "",
             proxyUrl: brand.proxyUrl || "",
             shopifyStore: brand.shopifyStore || "",
@@ -119,6 +121,20 @@ export default function SettingsPage() {
                                     placeholder="Enter PostEx Token"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition-all font-mono text-sm"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-orange-400"></span> PostEx Merchant ID
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.postexMerchantId}
+                                    onChange={e => setFormData({ ...formData, postexMerchantId: e.target.value })}
+                                    placeholder="e.g. 53117 (auto-detected from token if empty)"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition-all font-mono text-sm"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Optional — auto-extracted from your PostEx JWT token</p>
                             </div>
 
                             <div>

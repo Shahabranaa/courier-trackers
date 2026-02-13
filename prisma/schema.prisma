@@ -58,6 +58,7 @@ model Brand {
   shopifyAccessToken    String  @default("")
   shopifyClientId       String  @default("")
   shopifyClientSecret   String  @default("")
+  postexMerchantId     String  @default("")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }

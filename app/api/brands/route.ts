@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
                 shopifyStore: shopifyStore || "",
                 shopifyAccessToken: shopifyAccessToken || "",
                 shopifyClientId: shopifyClientId || "",
-                shopifyClientSecret: shopifyClientSecret || ""
+                shopifyClientSecret: shopifyClientSecret || "",
+                postexMerchantId: postexMerchantId || ""
             }
         });
 

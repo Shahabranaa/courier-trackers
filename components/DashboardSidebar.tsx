@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare } from "lucide-react";
+import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt } from "lucide-react";
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
 
@@ -22,6 +22,7 @@ export default function DashboardSidebar() {
             children: [
                 { name: "All Orders", href: "/postex" },
                 { name: "Critical Orders", href: "/postex/critical" },
+                { name: "Payment Receipts", href: "/postex/cpr" },
             ]
         },
         { name: "Tranzo Portal", href: "/tranzo", icon: Package },
