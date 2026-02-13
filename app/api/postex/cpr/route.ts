@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 function decodeJwtPayload(token: string): any {
     try {
         const cleanToken = token.replace(/^Bearer\s+/i, "").trim();
         const parts = cleanToken.split(".");
         if (parts.length !== 3) return null;
-        const payload = Buffer.from(parts[1], "base64url").toString("utf8");
+        let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        while (base64.length % 4) base64 += "=";
+        const payload = Buffer.from(base64, "base64").toString("utf8");
         return JSON.parse(payload);
-    } catch {
+    } catch (e) {
+        console.error("JWT decode error:", e);
         return null;
     }
 }
@@ -29,8 +33,21 @@ export async function GET(req: NextRequest) {
     }
 
     let merchantId = merchantIdHeader;
+
+    if (!merchantId && brandId !== "default") {
+        try {
+            const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { postexMerchantId: true } });
+            if (brand?.postexMerchantId) {
+                merchantId = brand.postexMerchantId;
+            }
+        } catch (e) {
+            console.error("Failed to lookup brand merchantId:", e);
+        }
+    }
+
     if (!merchantId) {
         const decoded = decodeJwtPayload(token);
+        console.log("JWT decoded payload:", JSON.stringify(decoded));
         if (decoded?.userDetails?.merchantId) {
             merchantId = String(decoded.userDetails.merchantId);
         }
@@ -38,6 +55,15 @@ export async function GET(req: NextRequest) {
 
     if (!merchantId) {
         return NextResponse.json({ error: "Could not determine merchant ID. Please set it in brand settings." }, { status: 400 });
+    }
+
+    if (!merchantIdHeader && brandId !== "default") {
+        try {
+            await prisma.brand.update({ where: { id: brandId }, data: { postexMerchantId: merchantId } });
+            console.log(`Auto-saved merchantId ${merchantId} to brand ${brandId}`);
+        } catch (e) {
+            console.error("Failed to auto-save merchantId:", e);
+        }
     }
 
     try {
