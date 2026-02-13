@@ -75,7 +75,7 @@ export default function FinancePage() {
 
     const [postexData, setPostexData] = useState<CourierData | null>(null);
     const [tranzoData, setTranzoData] = useState<CourierData | null>(null);
-    const [shopifyData, setShopifyData] = useState<{ totalRevenue: number; totalOrders: number; courierBreakdown?: { postex: number; tranzo: number; zoom: number; cancelledPending: number }; monthly: any[] } | null>(null);
+    const [shopifyData, setShopifyData] = useState<{ totalRevenue: number; totalOrders: number; monthly: any[] } | null>(null);
 
     const [postexReceiptsLoading, setPostexReceiptsLoading] = useState(false);
     const [tranzoReceiptsLoading, setTranzoReceiptsLoading] = useState(false);
@@ -323,32 +323,17 @@ export default function FinancePage() {
     }, [postexData, tranzoData, currentMonthKey, prevMonthKey]);
 
     const revenueSplitData = useMemo(() => {
-        if (!shopifyData) return [];
-        let postexRev = 0, tranzoRev = 0, zoomRev = 0, cancelledPendingRev = 0;
-        if (timePeriod === "all" && shopifyData.courierBreakdown) {
-            postexRev = shopifyData.courierBreakdown.postex || 0;
-            tranzoRev = shopifyData.courierBreakdown.tranzo || 0;
-            zoomRev = shopifyData.courierBreakdown.zoom || 0;
-            cancelledPendingRev = shopifyData.courierBreakdown.cancelledPending || 0;
-        } else if (shopifyData.monthly) {
-            const targetMonth = timePeriod === "current" ? currentMonthKey : prevMonthKey;
-            const m = shopifyData.monthly.find((m: any) => m.month === targetMonth);
-            if (m) {
-                postexRev = m.postexRev || 0;
-                tranzoRev = m.tranzoRev || 0;
-                zoomRev = m.zoomRev || 0;
-                cancelledPendingRev = m.cancelledPendingRev || 0;
-            }
-        }
-        const total = postexRev + tranzoRev + zoomRev + cancelledPendingRev;
+        const postexNet = postexSum.netAmount;
+        const tranzoNet = tranzoSum.netAmount;
+        const shopifyRev = shopifyRevenue;
+        const total = postexNet + tranzoNet + shopifyRev;
         if (total === 0) return [];
         return [
-            { name: "PostEx", value: Math.round(postexRev), color: "#f97316" },
-            { name: "Tranzo", value: Math.round(tranzoRev), color: "#8b5cf6" },
-            { name: "Zoom", value: Math.round(zoomRev), color: "#3b82f6" },
-            { name: "Cancelled/Pending", value: Math.round(cancelledPendingRev), color: "#94a3b8" },
+            { name: "PostEx", value: Math.round(postexNet), color: "#f97316" },
+            { name: "Tranzo", value: Math.round(tranzoNet), color: "#8b5cf6" },
+            { name: "Shopify", value: Math.round(shopifyRev), color: "#10b981" },
         ].filter(d => d.value > 0);
-    }, [shopifyData, timePeriod, currentMonthKey, prevMonthKey]);
+    }, [postexSum, tranzoSum, shopifyRevenue]);
 
     const courierComparison = useMemo(() => {
         const pe = postexSum;
@@ -601,7 +586,7 @@ export default function FinancePage() {
                                         <div className="p-2 bg-indigo-100 rounded-lg">
                                             <BarChart3 size={18} className="text-indigo-600" />
                                         </div>
-                                        <h3 className="font-bold text-gray-900">Shopify Revenue Breakdown</h3>
+                                        <h3 className="font-bold text-gray-900">Revenue Split</h3>
                                     </div>
                                     <div className="h-64">
                                         <ResponsiveContainer width="100%" height="100%">
