@@ -51,8 +51,10 @@ export default function PostExDashboard() {
         return headers;
     };
 
-    const getDateRange = () => {
+    const getDateRange = (): { startDate: string; endDate: string } | null => {
+        if (!selectedMonth || !selectedMonth.includes("-")) return null;
         const [year, month] = selectedMonth.split("-").map(Number);
+        if (!year || !month) return null;
         const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
         const lastDay = new Date(year, month, 0).getDate();
         const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
@@ -66,8 +68,13 @@ export default function PostExDashboard() {
         setError(null);
 
         try {
-            const { startDate, endDate } = getDateRange();
-            const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}`;
+            const dateRange = getDateRange();
+            const params = new URLSearchParams();
+            if (dateRange) {
+                params.set("startDate", dateRange.startDate);
+                params.set("endDate", dateRange.endDate);
+            }
+            const url = `/api/postex/orders?${params.toString()}`;
             const res = await fetch(url, { headers: buildHeaders() });
 
             if (!res.ok) throw new Error("Failed to load orders");
@@ -90,8 +97,14 @@ export default function PostExDashboard() {
         setSyncSummary(null);
 
         try {
-            const { startDate, endDate } = getDateRange();
-            const url = `/api/postex/orders?startDate=${startDate}&endDate=${endDate}&force=true`;
+            const dateRange = getDateRange();
+            const params = new URLSearchParams();
+            if (dateRange) {
+                params.set("startDate", dateRange.startDate);
+                params.set("endDate", dateRange.endDate);
+            }
+            params.set("force", "true");
+            const url = `/api/postex/orders?${params.toString()}`;
             const res = await fetch(url, { headers: buildHeaders() });
 
             if (!res.ok) throw new Error("Failed to sync orders");

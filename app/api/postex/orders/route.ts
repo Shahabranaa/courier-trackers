@@ -17,24 +17,24 @@ export async function GET(req: NextRequest) {
         const endDate = searchParams.get("endDate");
         const forceRefresh = searchParams.get("force") === "true";
 
-        if (!startDate) {
-            return NextResponse.json({ error: "Missing startDate" }, { status: 400 });
-        }
-
-        const startQuery = startDate + "T00:00:00.000Z";
-        const endQuery = (endDate || startDate) + "T23:59:59.999Z";
-
+        const hasDateFilter = !!startDate;
+        const startQuery = startDate ? startDate + "T00:00:00.000Z" : undefined;
+        const endQuery = startDate ? ((endDate || startDate) + "T23:59:59.999Z") : undefined;
 
         if (!forceRefresh) {
+            const where: any = {
+                brandId: brandId,
+                courier: "PostEx",
+            };
+            if (hasDateFilter) {
+                where.AND = [
+                    { orderDate: { gte: startQuery } },
+                    { orderDate: { lte: endQuery } }
+                ];
+            }
+
             const cachedOrders = await prisma.order.findMany({
-                where: {
-                    brandId: brandId,
-                    courier: "PostEx",
-                    AND: [
-                        { orderDate: { gte: startQuery } },
-                        { orderDate: { lte: endQuery } }
-                    ]
-                },
+                where,
                 include: {
                     trackingStatus: true,
                     paymentStatus: true
@@ -47,6 +47,10 @@ export async function GET(req: NextRequest) {
                 source: "local",
                 count: cachedOrders.length
             });
+        }
+
+        if (!startDate) {
+            return NextResponse.json({ error: "Date range is required for syncing live data. Please select a month." }, { status: 400 });
         }
 
         console.log("Fetching freshly from PostEx API...");
