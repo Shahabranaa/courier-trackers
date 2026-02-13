@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useAuth } from "@/components/providers/AuthContext";
 
 interface UserEntry {
   id: string;
@@ -15,9 +16,9 @@ interface UserEntry {
 
 export default function AdminPage() {
   const router = useRouter();
+  const { user, loading: authLoading, isAdmin } = useAuth();
   const [users, setUsers] = useState<UserEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
 
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -26,31 +27,21 @@ export default function AdminPage() {
   const [createSuccess, setCreateSuccess] = useState("");
 
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const res = await fetch("/api/auth/me");
-      if (!res.ok) {
-        router.push("/login");
-        return;
-      }
-      const data = await res.json();
-      if (data.user.role !== "admin") {
-        router.push("/");
-        return;
-      }
-      setAuthorized(true);
-      loadUsers();
-    } catch {
+    if (authLoading) return;
+    if (!user) {
       router.push("/login");
+      return;
     }
-  };
+    if (!isAdmin) {
+      router.push("/");
+      return;
+    }
+    loadUsers();
+  }, [user, authLoading, isAdmin, router]);
 
   const loadUsers = async () => {
     try {
-      const res = await fetch("/api/admin/users");
+      const res = await fetch("/api/admin/users", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
@@ -73,6 +64,7 @@ export default function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: newUsername, password: newPassword }),
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -93,7 +85,7 @@ export default function AdminPage() {
     }
   };
 
-  if (!authorized) {
+  if (authLoading || !isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
