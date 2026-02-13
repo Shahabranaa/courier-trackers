@@ -63,7 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: data.error || "Login failed" };
       }
       setUser(data.user);
-      router.push("/");
+      if (data.user.email === "admin@hublogistic.com") {
+        router.push("/admin/users");
+      } else {
+        router.push("/");
+      }
       return {};
     } catch {
       return { error: "Login failed" };
