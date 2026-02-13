@@ -1,75 +1,40 @@
 # PostEx Dashboard (HubLogistic)
 
 ## Overview
-A unified logistics dashboard for managing orders from PostEx, Tranzo, and Shopify. Built with Next.js 16, React 19, Prisma ORM, and PostgreSQL.
-
-## Recent Changes
-- **2026-02-13**: Enhanced Finance page with comprehensive stats. Added KPI cards row (total orders, avg order value, delivery rate, return rate, fee rate, collection efficiency). Month-over-month growth indicators (orders, revenue, net amount % change). Revenue split donut chart (PostEx vs Tranzo vs Shopify). Courier cost comparison table (fee rate, tax rate, withholding, cost per order, net margin). Payment collection timeline stacked bar chart (CPR and invoice payments by month). All Shopify revenue stats now filter by selected time period. All computations handle division by zero and missing data.
-- **2026-02-13**: Migrated Tranzo Invoices to DB-first architecture. Added TranzoInvoice model to Prisma schema. Invoices page now loads from database on open, with "Sync Live Data" button to fetch from Tranzo merchant API and upsert to DB. Finance page now reads Tranzo invoice totals from DB and filters them by selected time period (This Month/Last Month/All Time), matching PostEx CPR pattern.
-- **2026-02-13**: Migrated PostEx CPR to DB-first architecture. Added PostexCpr model to Prisma schema. CPR page now loads from database on open, with "Sync Live Data" button to fetch from PostEx API and upsert to DB. Finance page now reads CPR totals from DB and filters them by selected time period (This Month/Last Month/All Time). Both PostEx and Tranzo owed calculations now use time-period-filtered net amounts instead of all-time totals.
-- **2026-02-13**: Changed PostEx Owes formula on Finance page from (Net − Upfront − CPR) to (Net − CPR). Removed upfront payment deduction from calculation, overview card breakdown, and settlement panel.
-- **2026-02-13**: Added Finance page at /finance. Comprehensive payment tracking showing what each courier owes. Overview cards (PostEx owed, Tranzo owed, Shopify revenue, total balance). Side-by-side courier settlement panels showing gross COD, fees, taxes, withholding tax, net amount, CPR/invoice payments received, and balance owed. Monthly revenue comparison chart (PostEx vs Tranzo vs Shopify). Monthly breakdown tables with expandable daily rows showing orders, gross, fees, net per day. Time period toggle (This Month, Last Month, All Time). Fetches payment receipt data live from PostEx CPR and Tranzo invoice APIs. New API route at /api/finance aggregates order financials from DB. Added Finance (wallet icon) to sidebar.
-- **2026-02-13**: Added Tranzo Payment Receipts page at /tranzo/invoices. Fetches invoice logs via Tranzo merchant API (api-merchant.tranzo.pk) with separate merchant token (from portal.tranzo.pk). Summary cards (total/approved/settled/hold/disputed amounts + total orders), status filter, invoices table with invoice number/type/status/orders/net amount/created/approved/settled details and CSV export. Added tranzoMerchantToken field to Brand model. New API route at /api/tranzo/invoices with server-side token fetching. Tranzo Portal sidebar now has sub-menu (All Orders + Payment Receipts). Brand cards show Tranzo Invoices connection status.
-- **2026-02-13**: Added PostEx CPR (Cash Payment Receipts) page at /postex/cpr. Fetches payment receipts via PostEx merchant API with merchant ID auto-extracted from JWT token. Summary cards (total, approved, closed, paid amounts), date range filter, status filter, receipts table with CPR number/status/amount/dates, CSV export. Added postexMerchantId field to Brand model (optional, auto-detected from token). New API route at /api/postex/cpr. Added to sidebar under PostEx Portal.
-- **2026-02-12**: Migrated Tranzo integration to new API endpoint (`https://api-integration.tranzo.pk/api/custom/v1/get-order-logs/`) with `api-token` header replacing bearer token auth. Added `tranzoApiToken` field to Brand model. Fee calculation now uses real API values (delivery_fee, delivery_tax, delivery_fuel_fee, cash_handling_fee) instead of hardcoded city-based fees. Updated all pages (Settings, Overview, Tranzo, Daily, Shopify) to use new token field.
-- **2026-02-12**: Fixed delivery time calculation: PostEx sync now fetches real delivery dates via track-order API (orderDeliveryDate) instead of using sync timestamps. Removed `lastStatusTime = new Date()` transition logic from both PostEx and Tranzo syncs (was setting delivery date to sync time, not actual delivery). Performance API only uses lastStatusTime (real delivery date) — no fallbacks to transactionDate or lastFetchedAt. Expanded delivered order filter to check transactionStatus, orderStatus, and lastStatus. Added logging for track-order failures. Track-order backfill now also corrects orders where lastStatusTime was set by old sync logic (detected when lastStatusTime ≈ lastFetchedAt within 2 minutes).
-- **2026-02-11**: Restyled avg delivery days by city in Analytics to match PostEx/Tranzo CityStats widget.
-- **2026-02-11**: Restyled avg delivery days by city in Analytics to match PostEx/Tranzo CityStats widget. Replaced grouped bar chart with scrollable table listing every city with exact PostEx avg, Tranzo avg, and Combined avg days as color-coded badges (green ≤3d, amber ≤5d, red >5d). Includes city search, overall courier average strip, delivered count per city.
-- **2026-02-11**: Added Return Discrepancies page at /discrepancies. Cross-references courier orders (PostEx/Tranzo) marked as "returned" against Shopify orders to find parcels courier claims returned but not cancelled/refunded in Shopify. Matches via orderRefNumber->orderNumber/orderName with tracking number fallback. Summary cards (total mismatches, PostEx/Tranzo counts, amount at risk), filterable/sortable table, date range filter, courier filter, search, CSV export. API route at /api/discrepancies. Added to sidebar navigation.
-- **2026-02-11**: Fixed analytics double-counting: Analytics and Customer Insights now use ShopifyOrder as single source of truth (removed Order table counting which duplicated Shopify orders). Courier breakdown (PostEx/Tranzo/Zoom/Unfulfilled) derived from courierPartner and fulfillments data. Chart updated with Zoom (blue) and Unfulfilled (gray) series replacing old "Shopify" series.
-- **2026-02-11**: Added Zoom orders to Shopify Orders page: Zoom bar in daily comparison chart (blue, stacked with PostEx/Tranzo), Zoom count in Dispatch Summary sidebar, Zoom column in Daily Breakdown table. Detection uses courierPartner or fulfillments tracking_company containing "zoom".
-- **2026-02-11**: Added Zoom tracking numbers: API extracts tracking numbers specifically from Zoom fulfillments (tracking_company containing "Zoom"). Tracking # column in orders table replaces Tags column. CSV export includes tracking numbers. Supports both tracking_numbers array and tracking_number singular fields.
-- **2026-02-11**: Updated Zoom Courier Portal to filter by fulfillment courier (courierPartner/tracking_company containing "Zoom") instead of by tags. API fetches all brand orders for date range then filters by courier partner field and fulfillments JSON. UI updated with correct messaging.
-- **2026-02-11**: Added Zoom Courier Portal page at /zoom. PostEx-style UI with blue theme: monthly snapshot (total orders, revenue, fulfilled, pending, fulfillment rate), city filter dropdown, fulfillment rates by city sidebar with search, orders table with tags display, CSV export. API route at /api/zoom/orders queries ShopifyOrder table. Added to sidebar navigation.
-- **2026-02-11**: Added tags field to ShopifyOrder model. Shopify sync now fetches and stores order tags. Tags displayed as pills in Shopify Recent Orders table.
-- **2026-02-11**: Added city search bar to PostEx delivery rates by city widget.
-- **2026-02-11**: Fixed analytics date filtering: Tranzo dates normalized to ISO format, standardized query boundaries across all routes, added DB indexes on (brandId, orderDate) and (brandId, courier).
-- **2026-02-11**: Added sync notification toasts for PostEx and Tranzo. After clicking "Sync Live Data", a toast notification shows: total orders fetched, new orders added, newly delivered, new returns, and status changes. API routes snapshot existing order statuses before upsert and compute diff summary. SyncToast component auto-dismisses after 8 seconds. Brand-scoped diff queries for multi-tenant safety.
-- **2026-02-09**: Added Smart Alerts & Notifications page at /alerts. Separate page from Analytics. Three alert types: stuck-in-transit orders (configurable day threshold, critical/warning severity), return rate spikes by city (flagged when exceeding threshold %), courier performance drops (delivery rate below threshold). Expandable alert cards with detailed tables/charts. Configurable thresholds via settings panel. Filter by type and severity. Summary stat cards. API route at /api/alerts. Bell icon in sidebar.
-- **2026-02-09**: Added Customer Insights to Analytics page: repeat customer identification (phone-based matching across Order + ShopifyOrder), customer lifetime value tracking (top 20 by revenue with progress bars), problem customer flagging (frequent returns/cancellations with visual order history). New API route at /api/analytics/customers. Tabbed interface with summary stats cards. Customer data is aggregated across all time (not filtered by month).
-- **2026-02-09**: Added Delivery Performance Insights to Analytics page: average delivery time by city (horizontal bar chart, color-coded by speed), return rate analysis by city and product (ranked lists with rate bars), courier comparison (PostEx vs Tranzo side-by-side with delivery/return/in-transit/cancelled breakdown + stacked progress bars + comparison bar chart). New API route at /api/analytics/performance. Overall stats cards show avg delivery days, delivered count, returned count, total orders.
-- **2026-02-09**: Added Analytics page with order trends (daily/weekly/monthly toggle with growth %), peak order days (day-of-week chart + top dates), and Pakistan city heatmap (SVG map with 44 cities, heat-colored circles sized by order volume). API route at /api/analytics aggregates from both Order and ShopifyOrder tables. Added Analytics link to sidebar.
-- **2026-02-09**: Added phone, shippingAddress, shippingCity fields to ShopifyOrder model. Pending orders modal now shows address, city, and phone number for each order.
-- **2026-02-09**: Added upfront payment total to PostEx dashboard monthly snapshot widget.
-- **2026-02-09**: Added pending order remarks feature on Shopify page. Clicking pending count in daily breakdown opens a modal listing unfulfilled orders for that date. Each order has an editable remark field that auto-saves to DB via debounce. ShopifyOrder model has pendingRemark field. API route at /api/shopify/orders/[id]/remark with brand authorization.
-- **2026-02-09**: Shopify auth now supports BOTH methods: Direct Admin API Access Token (for Custom Apps) AND Client Credentials Grant (for Dev Dashboard apps). Brand model has shopifyAccessToken, shopifyClientId, shopifyClientSecret fields. Server auto-detects which method to use. Improved error handling with specific messages for DNS failures, 403/401 errors, and missing credentials. Settings UI shows both options with clear separator.
-- **2026-02-09**: Added Shopify Orders page. Fetches orders via Shopify Admin API, compares daily Shopify orders vs dispatched orders by courier partner (PostEx/Tranzo). Includes DB-first architecture, daily comparison chart, fulfillment tracking, and revenue summary.
-- **2026-02-09**: Refactored ALL pages to DB-first architecture. PostEx, Tranzo, Overview, and Critical Orders all load from database on page open. External courier APIs only called when user clicks "Sync Live Data". Removed auto-sync and cache TTL logic.
-- **2026-02-09**: Migrated brand settings from localStorage to PostgreSQL. Brands now persist across deployments/devices. Auto-migrates existing localStorage brands on first load.
-- **2026-02-09**: Fixed 9 bugs + 5 performance improvements (bulk tracking, cache TTL, server-side filtering, memoized cities, conditional logging).
-- **2026-02-09**: Migrated from Vercel to Replit environment. Configured port 5000, PostgreSQL database, Prisma schema sync.
-
-## Project Architecture
-- **Framework**: Next.js 16 (App Router with Turbopack)
-- **Database**: PostgreSQL via Prisma ORM
-- **Styling**: Tailwind CSS v4
-- **Charts**: Recharts
-- **Package Manager**: npm
-
-### Directory Structure
-```
-app/              - Next.js App Router pages and API routes
-  api/            - Backend API routes (postex, tranzo, shopify, zoom)
-  postex/         - PostEx portal pages
-  tranzo/         - Tranzo portal pages
-  shopify/        - Shopify orders comparison page
-  zoom/           - Zoom Courier portal (Shopify orders tagged "Zoom Courier Service")
-  settings/       - Settings page
-  daily/          - Daily reports page
-components/       - React UI components (Dashboard, Charts, Tables)
-lib/              - Shared utilities (Prisma client, types)
-prisma/           - Database schema
-scripts/          - Diagnostic and maintenance scripts
-public/           - Static assets
-```
-
-### Key Environment Variables
-- `DATABASE_URL` - Replit-provided PostgreSQL URL (used by Prisma)
-
-### Development
-- Dev server: `npm run dev` (runs on port 5000)
-- Build: `npm run build` (generates Prisma client, pushes schema, builds Next.js)
-- Start: `npm run start` (production server on port 5000)
+The PostEx Dashboard (HubLogistic) is a unified logistics management platform designed to streamline order handling from various sources including PostEx, Tranzo, and Shopify. It aims to provide comprehensive insights into order statuses, financial settlements, and delivery performance. The project focuses on improving operational efficiency, reducing discrepancies, and enhancing decision-making for businesses managing multiple courier services.
 
 ## User Preferences
 - No specific preferences recorded yet.
+
+## System Architecture
+The application is built using Next.js 16 with the App Router and Turbopack for performance. Data persistence is handled by PostgreSQL through Prisma ORM. Styling is managed with Tailwind CSS v4, and data visualization is achieved using Recharts.
+
+**Core Architectural Decisions:**
+- **DB-first Architecture:** All major pages (PostEx, Tranzo, Overview, Critical Orders, Shopify Orders, Finance, CPR, Invoices) load data from the PostgreSQL database first. External courier APIs are only invoked when a "Sync Live Data" action is triggered by the user, ensuring data consistency and reducing reliance on real-time API availability.
+- **Unified Order Management:** Integrates orders from PostEx, Tranzo, and Shopify into a single view, with features for tracking, fulfillment, and discrepancy detection.
+- **Financial Tracking:** Dedicated Finance page with comprehensive payment tracking, including courier settlements, revenue breakdowns, and month-over-month growth indicators. Supports DB-first architecture for PostEx CPR and Tranzo Invoices.
+- **Performance & Analytics:** Includes advanced analytics for order trends, delivery performance (average delivery time by city, return rate analysis), customer insights (repeat customers, LTV), and smart alerts for critical issues like stuck-in-transit orders or performance drops.
+- **UI/UX:**
+    - Consistent dashboard layout with a sidebar for navigation.
+    - Data visualizations using Recharts for trends, comparisons, and breakdowns (e.g., revenue split donut charts, stacked bar charts, horizontal bar charts for delivery times, city heatmaps).
+    - Tabbed interfaces for detailed insights (e.g., Customer Insights, Delivery Performance Insights).
+    - Interactive tables with filtering, sorting, and CSV export capabilities.
+    - Theming: PostEx-style UI with a blue theme for Zoom Courier Portal.
+- **Modularity:** Organized directory structure separating pages, API routes, components, and utilities.
+
+**Key Features:**
+- **Order Synchronization & Normalization:** Fetches and normalizes order data from PostEx, Tranzo, and Shopify, storing real order dates and fee values.
+- **Discrepancy Management:** Identifies return discrepancies between courier claims and Shopify order statuses.
+- **Smart Alerts:** Notifies users about stuck-in-transit orders, return rate spikes, and courier performance drops with configurable thresholds.
+- **Customer Insights:** Identifies repeat customers, tracks Customer Lifetime Value (CLTV), and flags problem customers.
+- **Multi-tenancy:** Brand settings are persisted in PostgreSQL, supporting multiple brands.
+- **Shopify Integration:** Supports both Direct Admin API Access Token (Custom Apps) and Client Credentials Grant (Dev Dashboard apps) for Shopify authentication. Tracks Shopify order tags, phone numbers, and shipping addresses.
+- **Zoom Integration:** Integrates Zoom orders by filtering Shopify orders based on fulfillment courier, providing a dedicated portal.
+
+## External Dependencies
+- **PostgreSQL:** Primary database for all application data, accessed via Prisma ORM.
+- **PostEx Merchant API:** For fetching PostEx order details, tracking information, and Cash Payment Receipts (CPR).
+- **Tranzo Merchant API (`api-merchant.tranzo.pk`, `api-integration.tranzo.pk`):** For fetching Tranzo order logs and invoice details.
+- **Shopify Admin API:** For fetching Shopify order data, including fulfillments, tags, and customer information.
+- **Recharts:** JavaScript charting library for data visualization.
+- **Tailwind CSS v4:** Utility-first CSS framework for styling.
