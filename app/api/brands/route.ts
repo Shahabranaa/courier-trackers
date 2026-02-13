@@ -9,9 +9,21 @@ export async function GET() {
             return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
         }
 
-        const brands = authUser.role === "ADMIN"
-            ? await prisma.brand.findMany({ orderBy: { createdAt: 'asc' } })
-            : await prisma.brand.findMany({ where: { userId: authUser.id }, orderBy: { createdAt: 'asc' } });
+        let brands;
+        if (authUser.role === "ADMIN") {
+            brands = await prisma.brand.findMany({ orderBy: { createdAt: 'asc' } });
+        } else {
+            const ownBrands = await prisma.brand.findMany({ where: { userId: authUser.id }, orderBy: { createdAt: 'asc' } });
+            const assignedAccess = await prisma.userBrand.findMany({
+                where: { userId: authUser.id },
+                include: { brand: true }
+            });
+            const assignedBrands = assignedAccess.map(ub => ub.brand);
+            const brandMap = new Map<string, typeof ownBrands[0]>();
+            for (const b of ownBrands) brandMap.set(b.id, b);
+            for (const b of assignedBrands) if (!brandMap.has(b.id)) brandMap.set(b.id, b);
+            brands = Array.from(brandMap.values());
+        }
         const safeBrands = brands.map(b => ({
             ...b,
             shopifyAccessToken: b.shopifyAccessToken ? "••••••••" : "",

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/components/providers/AuthContext";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Users, Plus, Trash2, Edit3, Shield, User, X } from "lucide-react";
+import { Users, Plus, Trash2, Edit3, Shield, User, X, Building2, Link2 } from "lucide-react";
 
 interface UserRecord {
   id: string;
@@ -13,6 +13,18 @@ interface UserRecord {
   role: "ADMIN" | "USER";
   createdAt: string;
   _count: { brands: number };
+}
+
+interface BrandOption {
+  id: string;
+  name: string;
+  userId: string | null;
+}
+
+interface BrandAssignment {
+  id: string;
+  brandId: string;
+  brandName: string;
 }
 
 export default function AdminUsersPage() {
@@ -25,6 +37,11 @@ export default function AdminUsersPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "USER" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const [brandUser, setBrandUser] = useState<UserRecord | null>(null);
+  const [allBrands, setAllBrands] = useState<BrandOption[]>([]);
+  const [assignedBrands, setAssignedBrands] = useState<BrandAssignment[]>([]);
+  const [brandLoading, setBrandLoading] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -117,6 +134,53 @@ export default function AdminUsersPage() {
     setForm({ name: u.name, email: u.email, password: "", role: u.role });
     setError("");
   };
+
+  const openBrandAssignment = async (u: UserRecord) => {
+    setBrandUser(u);
+    setBrandLoading(true);
+    try {
+      const [brandsRes, assignedRes] = await Promise.all([
+        fetch("/api/admin/user-brands"),
+        fetch(`/api/admin/user-brands?userId=${u.id}`)
+      ]);
+      if (brandsRes.ok) setAllBrands(await brandsRes.json());
+      if (assignedRes.ok) setAssignedBrands(await assignedRes.json());
+    } catch (e) {
+      console.error("Failed to load brands:", e);
+    }
+    setBrandLoading(false);
+  };
+
+  const assignBrand = async (brandId: string) => {
+    if (!brandUser) return;
+    try {
+      const res = await fetch("/api/admin/user-brands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: brandUser.id, brandId })
+      });
+      if (res.ok) {
+        const newAssignment = await res.json();
+        setAssignedBrands(prev => [...prev, newAssignment]);
+      }
+    } catch (e) {
+      console.error("Failed to assign brand:", e);
+    }
+  };
+
+  const unassignBrand = async (brandId: string) => {
+    if (!brandUser) return;
+    try {
+      const res = await fetch(`/api/admin/user-brands?userId=${brandUser.id}&brandId=${brandId}`, { method: "DELETE" });
+      if (res.ok) {
+        setAssignedBrands(prev => prev.filter(a => a.brandId !== brandId));
+      }
+    } catch (e) {
+      console.error("Failed to unassign brand:", e);
+    }
+  };
+
+  const availableBrands = allBrands.filter(b => !assignedBrands.some(a => a.brandId === b.id) && b.userId !== brandUser?.id);
 
   if (authLoading || loading) {
     return (
@@ -218,6 +282,77 @@ export default function AdminUsersPage() {
           </div>
         )}
 
+        {brandUser && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 relative">
+              <button onClick={() => { setBrandUser(null); setAssignedBrands([]); setAllBrands([]); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+              <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
+                <Building2 size={20} className="text-indigo-600" />
+                Brand Access for {brandUser.name}
+              </h2>
+              <p className="text-sm text-gray-500 mb-5">Manage which brands this user can access</p>
+
+              {brandLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin h-6 w-6 border-3 border-indigo-600 border-t-transparent rounded-full"></div>
+                </div>
+              ) : (
+                <>
+                  {assignedBrands.length > 0 && (
+                    <div className="mb-5">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Assigned Brands</h3>
+                      <div className="space-y-2">
+                        {assignedBrands.map(a => (
+                          <div key={a.brandId} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-xl">
+                            <div className="flex items-center gap-2">
+                              <Link2 size={14} className="text-green-600" />
+                              <span className="text-sm font-medium text-gray-900">{a.brandName}</span>
+                            </div>
+                            <button
+                              onClick={() => unassignBrand(a.brandId)}
+                              className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {availableBrands.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Available Brands</h3>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {availableBrands.map(b => (
+                          <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                            <div className="flex items-center gap-2">
+                              <Building2 size={14} className="text-gray-400" />
+                              <span className="text-sm text-gray-700">{b.name}</span>
+                            </div>
+                            <button
+                              onClick={() => assignBrand(b.id)}
+                              className="text-xs px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 font-medium transition-colors"
+                            >
+                              Assign
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {assignedBrands.length === 0 && availableBrands.length === 0 && (
+                    <div className="text-center py-8 text-gray-400 text-sm">No brands available to assign</div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full">
             <thead>
@@ -254,11 +389,14 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openEdit(u)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-indigo-600 transition-colors">
+                      <button onClick={() => openBrandAssignment(u)} className="p-2 hover:bg-green-50 rounded-lg text-gray-500 hover:text-green-600 transition-colors" title="Manage brand access">
+                        <Building2 size={16} />
+                      </button>
+                      <button onClick={() => openEdit(u)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-indigo-600 transition-colors" title="Edit user">
                         <Edit3 size={16} />
                       </button>
                       {u.id !== authUser?.id && (
-                        <button onClick={() => handleDelete(u.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-500 hover:text-red-600 transition-colors">
+                        <button onClick={() => handleDelete(u.id)} className="p-2 hover:bg-red-50 rounded-lg text-gray-500 hover:text-red-600 transition-colors" title="Delete user">
                           <Trash2 size={16} />
                         </button>
                       )}

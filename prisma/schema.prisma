@@ -52,14 +52,28 @@ enum UserRole {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String       @id @default(cuid())
+  email         String       @unique
   passwordHash  String
   name          String
-  role          UserRole @default(USER)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  role          UserRole     @default(USER)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   brands        Brand[]
+  brandAccess   UserBrand[]
+}
+
+model UserBrand {
+  id        String   @id @default(cuid())
+  userId    String
+  brandId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, brandId])
+  @@index([userId])
+  @@index([brandId])
 }
 
 model Brand {
@@ -80,6 +94,7 @@ model Brand {
   tranzoMerchantToken  String  @default("")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+  userAccess           UserBrand[]
 
   @@index([userId])
 }
