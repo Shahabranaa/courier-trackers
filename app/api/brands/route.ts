@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth";
 
 export async function GET() {
     try {
-        const brands = await prisma.brand.findMany({
-            orderBy: { createdAt: 'asc' }
-        });
+        const authUser = await getAuthUser();
+        if (!authUser) {
+            return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+        }
+
+        const brands = authUser.role === "ADMIN"
+            ? await prisma.brand.findMany({ orderBy: { createdAt: 'asc' } })
+            : await prisma.brand.findMany({ where: { userId: authUser.id }, orderBy: { createdAt: 'asc' } });
         const safeBrands = brands.map(b => ({
             ...b,
             shopifyAccessToken: b.shopifyAccessToken ? "••••••••" : "",
@@ -22,6 +28,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
     try {
+        const authUser = await getAuthUser();
+        if (!authUser) {
+            return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+        }
+
         const body = await req.json();
         const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken } = body;
 
@@ -32,6 +43,7 @@ export async function POST(req: NextRequest) {
         const brand = await prisma.brand.create({
             data: {
                 name,
+                userId: authUser.id,
                 apiToken: apiToken || "",
                 tranzoToken: tranzoToken || "",
                 tranzoApiToken: tranzoApiToken || "",

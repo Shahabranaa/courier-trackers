@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Brand } from "@/lib/types";
+import { useAuth } from "./AuthContext";
 
 interface BrandContextType {
     brands: Brand[];
@@ -19,8 +20,15 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     const [brands, setBrands] = useState<Brand[]>([]);
     const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
     const [loading, setLoading] = useState(true);
+    const { user: authUser, loading: authLoading } = useAuth();
 
     const loadBrands = useCallback(async () => {
+        if (!authUser) {
+            setBrands([]);
+            setSelectedBrand(null);
+            setLoading(false);
+            return;
+        }
         try {
             const res = await fetch("/api/brands");
             if (!res.ok) throw new Error("Failed to load brands");
@@ -74,11 +82,11 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [authUser]);
 
     useEffect(() => {
-        loadBrands();
-    }, [loadBrands]);
+        if (!authLoading) loadBrands();
+    }, [authLoading, loadBrands]);
 
     useEffect(() => {
         if (selectedBrand) {
