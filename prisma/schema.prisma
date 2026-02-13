@@ -46,9 +46,27 @@ model Order {
   @@index([brandId, courier])
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          UserRole @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  brands        Brand[]
+}
+
 model Brand {
   id                   String  @id @default(cuid())
   name                 String
+  userId               String?
+  user                 User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
   apiToken             String  @default("")
   tranzoToken          String  @default("")
   tranzoApiToken       String  @default("")
@@ -62,6 +80,8 @@ model Brand {
   tranzoMerchantToken  String  @default("")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model ShopifyOrder {
