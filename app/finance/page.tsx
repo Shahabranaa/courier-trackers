@@ -150,11 +150,6 @@ export default function FinancePage() {
     };
 
     useEffect(() => {
-        setPostexData(null);
-        setTranzoData(null);
-        setShopifyData(null);
-        setAllCprReceipts([]);
-        setAllTranzoInvoices([]);
         if (selectedBrand) {
             fetchFinanceData();
             fetchPostexReceipts();

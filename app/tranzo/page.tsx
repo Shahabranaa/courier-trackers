@@ -120,12 +120,7 @@ export default function TranzoDashboard() {
         try {
             const cleanToken = sanitizeHeader(selectedBrand.tranzoApiToken || "");
 
-            const [year, month] = selectedMonth.split("-").map(Number);
-            const lastDay = new Date(year, month, 0).getDate();
-            const startDate = `${selectedMonth}-01`;
-            const endDate = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
-
-            const res = await fetch(`/api/tranzo/orders?startDate=${startDate}&endDate=${endDate}`, {
+            const res = await fetch("/api/tranzo/orders", {
                 headers: {
                     "api-token": cleanToken,
                     "brand-id": sanitizeHeader(selectedBrand.id)
@@ -182,9 +177,6 @@ export default function TranzoDashboard() {
 
     const processOrderResponse = (data: any) => {
         console.log("Tranzo Response:", data);
-        if (data.syncSummary) {
-            console.log("[TRANZO DEBUG] Sync Summary:", JSON.stringify(data.syncSummary, null, 2));
-        }
 
         if (data.source === "local" && data.error) {
             setError(`Sync Failed: ${data.error} (Showing saved data)`);
