@@ -8,7 +8,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-JWT_SECRET = "5c7d5292c87c036110427d2b3b4efbae0ea0f4b9ee59f619191c8590be95b2b2"
 
 [workflows]
 runButton = "Project"

@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt, Wallet, Shield, User } from "lucide-react";
+import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt, Wallet } from "lucide-react";
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
-import { useAuth } from "./providers/AuthContext";
 
 export default function DashboardSidebar() {
     const pathname = usePathname();
@@ -13,7 +12,6 @@ export default function DashboardSidebar() {
     const [brandMenuOpen, setBrandMenuOpen] = useState(false);
 
     const { brands, selectedBrand, selectBrand } = useBrand();
-    const { user, logout, isAdmin } = useAuth();
 
     const navItems = [
         { name: "Overview", href: "/", icon: LayoutDashboard },
@@ -199,21 +197,8 @@ export default function DashboardSidebar() {
                 })}
             </nav>
 
-            {/* Footer */}
-            <div className="p-3 border-t border-gray-100 space-y-1">
-                {isAdmin && (
-                    <Link href="/admin" className="flex items-center gap-3 w-full p-2 hover:bg-gray-50 rounded-xl transition-colors group">
-                        <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200 group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
-                            <Shield size={18} />
-                        </div>
-                        {!collapsed && (
-                            <div className="text-left overflow-hidden">
-                                <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-700">Admin Panel</p>
-                                <p className="text-xs text-gray-500 truncate">Manage users</p>
-                            </div>
-                        )}
-                    </Link>
-                )}
+            {/* Footer / User Profile */}
+            <div className="p-3 border-t border-gray-100">
                 <Link href="/settings" className="flex items-center gap-3 w-full p-2 hover:bg-gray-50 rounded-xl transition-colors group">
                     <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200 group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
                         <Settings size={18} />
@@ -225,17 +210,6 @@ export default function DashboardSidebar() {
                         </div>
                     )}
                 </Link>
-                <button onClick={logout} className="flex items-center gap-3 w-full p-2 hover:bg-red-50 rounded-xl transition-colors group">
-                    <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 border border-gray-200 group-hover:border-red-200 group-hover:text-red-600 transition-colors">
-                        <LogOut size={18} />
-                    </div>
-                    {!collapsed && (
-                        <div className="text-left overflow-hidden">
-                            <p className="text-sm font-medium text-gray-900 group-hover:text-red-700">{user?.username || "Logout"}</p>
-                            <p className="text-xs text-gray-500 truncate">Sign out</p>
-                        </div>
-                    )}
-                </button>
             </div>
 
             {/* Collapse Toggle */}
