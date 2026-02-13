@@ -3,6 +3,11 @@
 ## Overview
 The PostEx Dashboard (HubLogistic) is a unified logistics management platform designed to streamline order handling from various sources including PostEx, Tranzo, and Shopify. It aims to provide comprehensive insights into order statuses, financial settlements, and delivery performance. The project focuses on improving operational efficiency, reducing discrepancies, and enhancing decision-making for businesses managing multiple courier services.
 
+## Recent Changes
+- **2026-02-13**: Added simple Admin Panel at /admin. System overview with total orders, PostEx/Tranzo counts, brand count, order status breakdown, orders per brand, recently synced orders, and registered brands list.
+- **2026-02-13**: Fixed Tranzo order sync to fetch day-by-day for accurate order dates. Deduplicates by tracking number. Returns raw API field names in sync summary.
+- **2026-02-13**: Enhanced Finance page with KPI cards, MoM growth indicators, revenue split donut chart, courier cost comparison, payment collection timeline.
+
 ## User Preferences
 - No specific preferences recorded yet.
 
