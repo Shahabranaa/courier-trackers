@@ -1,6 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+async function fetchOrdersForDateRange(token: string, dateFrom: string, dateTo: string) {
+    const targetUrl = `https://api-integration.tranzo.pk/api/custom/v1/get-order-logs/?date_from=${dateFrom}&date_to=${dateTo}`;
+    const response = await fetch(targetUrl, {
+        method: "GET",
+        headers: {
+            "api-token": token,
+            "Content-Type": "application/json"
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Tranzo API Error: ${response.status} ${await response.text()}`);
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data.results || data.data || data.orders || []);
+}
+
+function getDaysInRange(startDate: string, endDate: string): string[] {
+    const days: string[] = [];
+    const start = new Date(startDate + "T00:00:00.000Z");
+    const end = new Date(endDate + "T00:00:00.000Z");
+    const current = new Date(start);
+    while (current <= end) {
+        days.push(current.toISOString().slice(0, 10));
+        current.setUTCDate(current.getUTCDate() + 1);
+    }
+    return days;
+}
+
+function extractOrderDate(order: any, fallbackDate: string): string {
+    const dateFields = [
+        "created_at", "booking_date", "order_date", "createDatetime",
+        "create_datetime", "booked_date", "booked_packet_date",
+        "created_date", "order_created_at", "packet_date"
+    ];
+
+    for (const field of dateFields) {
+        if (order[field]) {
+            try {
+                const parsed = new Date(order[field]);
+                if (!isNaN(parsed.getTime())) {
+                    return parsed.toISOString();
+                }
+            } catch {}
+        }
+    }
+
+    return `${fallbackDate}T12:00:00.000Z`;
+}
+
 export async function GET(req: NextRequest) {
     const token = req.headers.get("api-token");
     const brandId = req.headers.get("brand-id") || "default";
@@ -30,8 +81,6 @@ export async function GET(req: NextRequest) {
                 orderBy: { transactionDate: 'desc' }
             });
 
-            console.log(`Served ${localOrders.length} Tranzo orders from DB for brand ${brandId}`);
-
             return NextResponse.json({
                 source: "local",
                 count: localOrders.length,
@@ -43,8 +92,6 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        console.log(`Syncing Tranzo orders from API for Brand: ${brandId}...`);
-
         const dateFrom = startDate || (() => {
             const now = new Date();
             return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -55,37 +102,37 @@ export async function GET(req: NextRequest) {
             return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`;
         })();
 
-        const targetUrl = `https://api-integration.tranzo.pk/api/custom/v1/get-order-logs/?date_from=${dateFrom}&date_to=${dateTo}`;
-        console.log(`Calling Tranzo API: ${targetUrl}`);
+        const days = getDaysInRange(dateFrom, dateTo);
 
-        const response = await fetch(targetUrl, {
-            method: "GET",
-            headers: {
-                "api-token": token,
-                "Content-Type": "application/json"
+        const seenTracking = new Map<string, { order: any; date: string }>();
+        let sampleApiKeys: string[] = [];
+        let sampleOrder: any = null;
+
+        for (const day of days) {
+            try {
+                const dayOrders = await fetchOrdersForDateRange(token, day, day);
+
+                if (dayOrders.length > 0 && sampleApiKeys.length === 0) {
+                    sampleApiKeys = Object.keys(dayOrders[0]);
+                    sampleOrder = dayOrders[0];
+                }
+
+                for (const order of dayOrders) {
+                    const tn = order.tracking_number;
+                    if (!tn) continue;
+                    if (!seenTracking.has(tn)) {
+                        seenTracking.set(tn, { order, date: day });
+                    }
+                }
+            } catch (dayErr: any) {
+                console.warn(`Failed to fetch orders for ${day}:`, dayErr.message);
             }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Tranzo API Error: ${response.status} ${await response.text()}`);
         }
 
-        const data = await response.json();
-        const results = Array.isArray(data) ? data : (data.results || data.data || data.orders || []);
+        const allResults = Array.from(seenTracking.values());
+        const results = allResults.map(r => r.order);
 
-        console.log(`Fetched ${results.length} live orders. Storing to DB...`);
-
-        if (results.length > 0) {
-            console.log("Sample Tranzo API order keys:", Object.keys(results[0]));
-            console.log("Sample date fields:", {
-                created_at: results[0].created_at,
-                booking_date: results[0].booking_date,
-                order_date: results[0].order_date,
-                createDatetime: results[0].createDatetime,
-            });
-        }
-
-        const incomingTrackingNumbers = (results as any[]).map((o: any) => o.tracking_number).filter(Boolean);
+        const incomingTrackingNumbers = allResults.map(r => r.order.tracking_number).filter(Boolean);
         const existingOrdersMap: Record<string, string> = {};
         if (incomingTrackingNumbers.length > 0) {
             const batchSize = 200;
@@ -101,13 +148,13 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        if (results.length > 0) {
+        if (allResults.length > 0) {
             const chunkSize = 10;
-            for (let i = 0; i < results.length; i += chunkSize) {
-                const chunk = results.slice(i, i + chunkSize);
+            for (let i = 0; i < allResults.length; i += chunkSize) {
+                const chunk = allResults.slice(i, i + chunkSize);
 
                 await Promise.allSettled(
-                    chunk.map((order: any) => {
+                    chunk.map(({ order, date }) => {
                         const bookingAmount = parseFloat(order.booking_amount || "0");
                         const deliveryFee = parseFloat(order.delivery_fee || "0");
                         const deliveryTax = parseFloat(order.delivery_tax || "0");
@@ -118,18 +165,7 @@ export async function GET(req: NextRequest) {
                         const transactionTax = deliveryTax;
                         const netAmount = bookingAmount - deliveryFee - deliveryTax - deliveryFuelFee - cashHandlingFee;
 
-                        const rawDate = order.created_at || order.booking_date || order.order_date || order.createDatetime || order.create_datetime || order.booked_date || null;
-                        let orderDateStr: string;
-                        if (rawDate) {
-                            try {
-                                const parsed = new Date(rawDate);
-                                orderDateStr = isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
-                            } catch {
-                                orderDateStr = new Date().toISOString();
-                            }
-                        } else {
-                            orderDateStr = `${dateFrom}T00:00:00.000Z`;
-                        }
+                        const orderDateStr = extractOrderDate(order, date);
 
                         const orderData: any = {
                             brandId: brandId,
@@ -174,7 +210,7 @@ export async function GET(req: NextRequest) {
         let newReturned = 0;
         let statusChanged = 0;
 
-        for (const order of results as any[]) {
+        for (const { order } of allResults) {
             const tn = order.tracking_number;
             if (!tn) continue;
             const newStatus = (order.order_status || "Unknown").toLowerCase();
@@ -193,13 +229,19 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        const syncSummary = {
-            totalFetched: results.length,
+        const syncSummary: any = {
+            totalFetched: allResults.length,
+            daysScanned: days.length,
             newOrders,
             newDelivered,
             newReturned,
             statusChanged,
         };
+
+        if (sampleApiKeys.length > 0) {
+            syncSummary.apiFieldNames = sampleApiKeys;
+            syncSummary.sampleOrderRaw = sampleOrder;
+        }
 
         const freshOrders = await prisma.order.findMany({
             where: buildWhereClause(),
@@ -221,8 +263,6 @@ export async function GET(req: NextRequest) {
                 where: buildWhereClause(),
                 orderBy: { transactionDate: 'desc' }
             });
-
-            console.log(`Sync failed, served ${localOrders.length} orders from DB for brand ${brandId}.`);
 
             return NextResponse.json({
                 source: "local",
