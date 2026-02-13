@@ -27,7 +27,7 @@ The application is built using Next.js 16 with the App Router and Turbopack for 
 - **Discrepancy Management:** Identifies return discrepancies between courier claims and Shopify order statuses.
 - **Smart Alerts:** Notifies users about stuck-in-transit orders, return rate spikes, and courier performance drops with configurable thresholds.
 - **Customer Insights:** Identifies repeat customers, tracks Customer Lifetime Value (CLTV), and flags problem customers.
-- **Multi-tenancy:** Brand settings are persisted in PostgreSQL, supporting multiple brands.
+- **Multi-tenancy & SaaS Auth:** Full multi-tenant SaaS with JWT-based email/password authentication. Users are created by admins via the Admin Panel (`/admin/users`). Each user manages their own brands; admins see all brands. Authentication uses HTTP-only cookies with bcryptjs password hashing and JWT tokens (7-day expiry). Default admin: `admin@hublogistic.com` / `admin123`.
 - **Shopify Integration:** Supports both Direct Admin API Access Token (Custom Apps) and Client Credentials Grant (Dev Dashboard apps) for Shopify authentication. Tracks Shopify order tags, phone numbers, and shipping addresses.
 - **Zoom Integration:** Integrates Zoom orders by filtering Shopify orders based on fulfillment courier, providing a dedicated portal.
 
