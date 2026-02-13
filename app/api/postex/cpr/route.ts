@@ -5,7 +5,10 @@ function decodeJwtPayload(token: string): any {
     try {
         const cleanToken = token.replace(/^Bearer\s+/i, "").trim();
         const parts = cleanToken.split(".");
-        if (parts.length !== 3) return null;
+        if (parts.length !== 3) {
+            console.log(`Token is not JWT format (${parts.length} parts). First 20 chars: ${cleanToken.substring(0, 20)}...`);
+            return null;
+        }
         let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
         while (base64.length % 4) base64 += "=";
         const payload = Buffer.from(base64, "base64").toString("utf8");
@@ -32,16 +35,19 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Missing PostEx API token" }, { status: 401 });
     }
 
+    console.log(`CPR request - brandId: ${brandId}, merchantIdHeader: "${merchantIdHeader}", token length: ${token.length}, token starts with: ${token.substring(0, 30)}...`);
+
     let merchantId = merchantIdHeader;
 
     if (!merchantId && brandId !== "default") {
         try {
             const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { postexMerchantId: true } });
+            console.log(`DB lookup result for brand ${brandId}: postexMerchantId = "${brand?.postexMerchantId}"`);
             if (brand?.postexMerchantId) {
                 merchantId = brand.postexMerchantId;
             }
-        } catch (e) {
-            console.error("Failed to lookup brand merchantId:", e);
+        } catch (e: any) {
+            console.error("Failed to lookup brand merchantId:", e.message);
         }
     }
 
@@ -50,19 +56,28 @@ export async function GET(req: NextRequest) {
         console.log("JWT decoded payload:", JSON.stringify(decoded));
         if (decoded?.userDetails?.merchantId) {
             merchantId = String(decoded.userDetails.merchantId);
+            console.log(`Extracted merchantId from JWT: ${merchantId}`);
         }
     }
 
     if (!merchantId) {
-        return NextResponse.json({ error: "Could not determine merchant ID. Please set it in brand settings." }, { status: 400 });
+        return NextResponse.json({ 
+            error: "Could not determine merchant ID. Please enter your PostEx Merchant ID in Settings (e.g. 53117).",
+            debug: {
+                tokenLength: token.length,
+                tokenPreview: token.substring(0, 20) + "...",
+                isJWT: token.split(".").length === 3,
+                brandId
+            }
+        }, { status: 400 });
     }
 
     if (!merchantIdHeader && brandId !== "default") {
         try {
             await prisma.brand.update({ where: { id: brandId }, data: { postexMerchantId: merchantId } });
             console.log(`Auto-saved merchantId ${merchantId} to brand ${brandId}`);
-        } catch (e) {
-            console.error("Failed to auto-save merchantId:", e);
+        } catch (e: any) {
+            console.error("Failed to auto-save merchantId:", e.message);
         }
     }
 
