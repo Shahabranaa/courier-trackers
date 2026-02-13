@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Brand } from "@/lib/types";
+import { useAuth } from "./AuthContext";
 
 interface BrandContextType {
     brands: Brand[];
@@ -16,57 +17,44 @@ interface BrandContextType {
 const BrandContext = createContext<BrandContextType | undefined>(undefined);
 
 export function BrandProvider({ children }: { children: React.ReactNode }) {
+    const { user, loading: authLoading } = useAuth();
     const [brands, setBrands] = useState<Brand[]>([]);
     const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
     const [loading, setLoading] = useState(true);
 
     const loadBrands = useCallback(async () => {
+        if (authLoading) return;
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+
         try {
             const res = await fetch("/api/brands");
             if (!res.ok) throw new Error("Failed to load brands");
             const data = await res.json();
-            setBrands(data);
 
-            const savedSelection = localStorage.getItem("hub_logistic_selected_brand_v1");
-            if (savedSelection) {
-                const found = data.find((b: Brand) => b.id === savedSelection);
-                if (found) setSelectedBrand(found);
-                else if (data.length > 0) setSelectedBrand(data[0]);
-            } else if (data.length > 0) {
-                setSelectedBrand(data[0]);
-            }
-
-            if (data.length === 0) {
-                const oldBrands = localStorage.getItem("hub_logistic_brands_v1");
-                if (oldBrands) {
-                    const parsed = JSON.parse(oldBrands);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        let allSucceeded = true;
-                        for (const old of parsed) {
-                            const postRes = await fetch("/api/brands", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    name: old.name,
-                                    apiToken: old.apiToken || "",
-                                    tranzoToken: old.tranzoToken || "",
-                                    tranzoApiToken: old.tranzoApiToken || "",
-                                    proxyUrl: old.proxyUrl || ""
-                                })
-                            });
-                            if (!postRes.ok) allSucceeded = false;
-                        }
-                        const refreshRes = await fetch("/api/brands");
-                        if (refreshRes.ok) {
-                            const refreshed = await refreshRes.json();
-                            setBrands(refreshed);
-                            if (refreshed.length > 0) setSelectedBrand(refreshed[0]);
-                        }
-                        if (allSucceeded) {
-                            localStorage.removeItem("hub_logistic_brands_v1");
-                            localStorage.removeItem("postex_brands_v1");
-                        }
+            if (user.role === "admin") {
+                setBrands(data);
+                const savedSelection = localStorage.getItem("hub_logistic_selected_brand_v1");
+                if (savedSelection) {
+                    const found = data.find((b: Brand) => b.id === savedSelection);
+                    if (found) setSelectedBrand(found);
+                    else if (data.length > 0) setSelectedBrand(data[0]);
+                } else if (data.length > 0) {
+                    setSelectedBrand(data[0]);
+                }
+            } else {
+                if (user.brandId) {
+                    const userBrand = data.find((b: Brand) => b.id === user.brandId);
+                    if (userBrand) {
+                        setBrands([userBrand]);
+                        setSelectedBrand(userBrand);
+                    } else {
+                        setBrands([]);
                     }
+                } else {
+                    setBrands([]);
                 }
             }
         } catch (e) {
@@ -74,7 +62,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user, authLoading]);
 
     useEffect(() => {
         loadBrands();

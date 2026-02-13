@@ -1,9 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyToken } from "@/lib/auth";
+import { cookies } from "next/headers";
 
 export async function GET() {
     try {
+        const cookieStore = await cookies();
+        const token = cookieStore.get("auth_token")?.value;
+        let userRole = "admin";
+        let userBrandId: string | null = null;
+
+        if (token) {
+            const payload = verifyToken(token);
+            if (payload) {
+                userRole = payload.role;
+                if (payload.role !== "admin") {
+                    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+                    userBrandId = user?.brandId || null;
+                }
+            }
+        }
+
+        const where = userRole !== "admin" && userBrandId ? { id: userBrandId } : {};
+
         const brands = await prisma.brand.findMany({
+            where,
             orderBy: { createdAt: 'asc' }
         });
         const safeBrands = brands.map(b => ({

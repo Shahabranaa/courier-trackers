@@ -46,6 +46,17 @@ model Order {
   @@index([brandId, courier])
 }
 
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("user")
+  brandId      String?
+  brand        Brand?   @relation(fields: [brandId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Brand {
   id                   String  @id @default(cuid())
   name                 String
@@ -62,6 +73,7 @@ model Brand {
   tranzoMerchantToken  String  @default("")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+  users                User[]
 }
 
 model ShopifyOrder {
