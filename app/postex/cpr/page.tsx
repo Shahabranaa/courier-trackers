@@ -40,7 +40,7 @@ export default function PostExCPRPage() {
     const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
 
     const fetchCPR = async () => {
-        if (!selectedBrand?.apiToken) return;
+        if (!selectedBrand?.postexMerchantToken) return;
         setLoading(true);
         setError(null);
 
@@ -52,12 +52,8 @@ export default function PostExCPRPage() {
             params.set("size", "200");
 
             const headers: Record<string, string> = {
-                token: sanitizeHeader(selectedBrand.apiToken),
                 "brand-id": sanitizeHeader(selectedBrand.id),
             };
-            if (selectedBrand.postexMerchantId) {
-                headers["merchant-id"] = sanitizeHeader(selectedBrand.postexMerchantId);
-            }
 
             const res = await fetch(`/api/postex/cpr?${params.toString()}`, { headers });
             const data = await res.json();
@@ -77,7 +73,7 @@ export default function PostExCPRPage() {
     };
 
     useEffect(() => {
-        if (selectedBrand?.apiToken) {
+        if (selectedBrand?.postexMerchantToken) {
             fetchCPR();
         }
     }, [selectedBrand]);

@@ -16,6 +16,7 @@ export default function SettingsPage() {
         name: "",
         apiToken: "",
         postexMerchantId: "",
+        postexMerchantToken: "",
         tranzoApiToken: "",
         proxyUrl: "",
         shopifyStore: "",
@@ -25,7 +26,7 @@ export default function SettingsPage() {
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", postexMerchantId: "", tranzoApiToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
+        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -55,6 +56,7 @@ export default function SettingsPage() {
             name: brand.name,
             apiToken: brand.apiToken,
             postexMerchantId: brand.postexMerchantId || "",
+            postexMerchantToken: brand.postexMerchantToken || "",
             tranzoApiToken: brand.tranzoApiToken || "",
             proxyUrl: brand.proxyUrl || "",
             shopifyStore: brand.shopifyStore || "",
@@ -134,7 +136,21 @@ export default function SettingsPage() {
                                     placeholder="e.g. 53117 (auto-detected from token if empty)"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition-all font-mono text-sm"
                                 />
-                                <p className="text-xs text-gray-400 mt-1">Optional — auto-extracted from your PostEx JWT token</p>
+                                <p className="text-xs text-gray-400 mt-1">Optional — auto-extracted from your PostEx merchant token</p>
+                            </div>
+
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-red-500"></span> PostEx Merchant Token (for CPR/Payments)
+                                </label>
+                                <input
+                                    type="password"
+                                    value={formData.postexMerchantToken}
+                                    onChange={e => setFormData({ ...formData, postexMerchantToken: e.target.value })}
+                                    placeholder="Bearer token from PostEx merchant portal login"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none transition-all font-mono text-sm"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">From merchant.postex.pk — used for Payment Receipts (CPR). Different from the API token above.</p>
                             </div>
 
                             <div>
@@ -287,6 +303,14 @@ export default function SettingsPage() {
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> PostEx</span>
                                             {brand.apiToken ? (
+                                                <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
+                                            ) : (
+                                                <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> PostEx CPR</span>
+                                            {brand.postexMerchantToken ? (
                                                 <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
                                             ) : (
                                                 <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>

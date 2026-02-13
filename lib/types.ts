@@ -55,6 +55,7 @@ export interface Brand {
   shopifyClientId?: string;
   shopifyClientSecret?: string;
   postexMerchantId?: string;
+  postexMerchantToken?: string;
 }
 
 export interface PaymentStatus {

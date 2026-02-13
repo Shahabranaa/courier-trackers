@@ -9,7 +9,8 @@ export async function GET() {
         const safeBrands = brands.map(b => ({
             ...b,
             shopifyAccessToken: b.shopifyAccessToken ? "••••••••" : "",
-            shopifyClientSecret: b.shopifyClientSecret ? "••••••••" : ""
+            shopifyClientSecret: b.shopifyClientSecret ? "••••••••" : "",
+            postexMerchantToken: b.postexMerchantToken ? "••••••••" : ""
         }));
         return NextResponse.json(safeBrands);
     } catch (error: any) {
@@ -21,7 +22,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -38,14 +39,16 @@ export async function POST(req: NextRequest) {
                 shopifyAccessToken: shopifyAccessToken || "",
                 shopifyClientId: shopifyClientId || "",
                 shopifyClientSecret: shopifyClientSecret || "",
-                postexMerchantId: postexMerchantId || ""
+                postexMerchantId: postexMerchantId || "",
+                postexMerchantToken: postexMerchantToken || ""
             }
         });
 
         return NextResponse.json({
             ...brand,
             shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : "",
-            shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : ""
+            shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : "",
+            postexMerchantToken: brand.postexMerchantToken ? "••••••••" : ""
         }, { status: 201 });
     } catch (error: any) {
         console.error("Failed to create brand:", error.message);

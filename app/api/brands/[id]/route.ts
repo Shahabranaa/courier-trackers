@@ -5,10 +5,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken } = body;
 
         const shouldUpdateAccessToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
         const shouldUpdateSecret = shopifyClientSecret !== undefined && shopifyClientSecret !== "••••••••";
+        const shouldUpdateMerchantToken = postexMerchantToken !== undefined && postexMerchantToken !== "••••••••";
 
         const brand = await prisma.brand.update({
             where: { id },
@@ -22,14 +23,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(shouldUpdateAccessToken && { shopifyAccessToken }),
                 ...(shopifyClientId !== undefined && { shopifyClientId }),
                 ...(shouldUpdateSecret && { shopifyClientSecret }),
-                ...(postexMerchantId !== undefined && { postexMerchantId })
+                ...(postexMerchantId !== undefined && { postexMerchantId }),
+                ...(shouldUpdateMerchantToken && { postexMerchantToken })
             }
         });
 
         return NextResponse.json({
             ...brand,
             shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : "",
-            shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : ""
+            shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : "",
+            postexMerchantToken: brand.postexMerchantToken ? "••••••••" : ""
         });
     } catch (error: any) {
         console.error("Failed to update brand:", error.message);

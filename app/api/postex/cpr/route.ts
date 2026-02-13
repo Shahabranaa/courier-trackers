@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 function decodeJwtPayload(token: string): any {
     try {
@@ -13,9 +14,7 @@ function decodeJwtPayload(token: string): any {
 }
 
 export async function GET(req: NextRequest) {
-    const token = req.headers.get("token") || "";
-    const brandId = req.headers.get("brand-id") || "default";
-    const merchantIdHeader = req.headers.get("merchant-id") || "";
+    const brandId = req.headers.get("brand-id") || "";
     const { searchParams } = new URL(req.url);
 
     const fromDate = searchParams.get("fromDate") || "";
@@ -24,15 +23,26 @@ export async function GET(req: NextRequest) {
     const size = searchParams.get("size") || "100";
     const page = searchParams.get("page") || "0";
 
-    if (!token) {
-        return NextResponse.json({ error: "Missing PostEx API token" }, { status: 401 });
+    if (!brandId) {
+        return NextResponse.json({ error: "Missing brand ID" }, { status: 400 });
     }
 
-    let merchantId = merchantIdHeader;
+    const brand = await prisma.brand.findUnique({ where: { id: brandId } });
+    if (!brand || !brand.postexMerchantToken) {
+        return NextResponse.json({ error: "PostEx Merchant Token not configured. Please add it in Settings." }, { status: 401 });
+    }
+
+    const cleanToken = brand.postexMerchantToken.replace(/^Bearer\s+/i, "").trim();
+
+    let merchantId = brand.postexMerchantId || "";
     if (!merchantId) {
-        const decoded = decodeJwtPayload(token);
+        const decoded = decodeJwtPayload(cleanToken);
         if (decoded?.userDetails?.merchantId) {
             merchantId = String(decoded.userDetails.merchantId);
+            await prisma.brand.update({
+                where: { id: brandId },
+                data: { postexMerchantId: merchantId }
+            });
         }
     }
 
@@ -54,7 +64,7 @@ export async function GET(req: NextRequest) {
         const response = await fetch(url, {
             method: "GET",
             headers: {
-                "Authorization": `Bearer ${token.replace(/^Bearer\s+/i, "").trim()}`,
+                "Authorization": `Bearer ${cleanToken}`,
                 "Accept": "application/json",
                 "Content-Type": "application/json"
             }
