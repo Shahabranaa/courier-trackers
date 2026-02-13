@@ -1,0 +1,68 @@
+{
+    "statusCode": "200",
+    "statusMessage": "Success",
+    "dist": [
+        {
+            "cashPaymentReceiptMasterId": 1662304,
+            "merchantId": 53117,
+            "merchantName": "Organic Tea Company",
+            "cashPaymentReceiptNumber": "CPR-IECSE494885",
+            "cashPaymentReceiptStatusId": 2,
+            "cashPaymentReceiptStatus": "APPROVED",
+            "createDatetime": "2026-02-12T07:01:57.000+0500",
+            "approveDate": "2026-02-12T16:40:46.000+0500",
+            "netAmount": "60000.20"
+        },
+        {
+            "cashPaymentReceiptMasterId": 1659046,
+            "merchantId": 53117,
+            "merchantName": "Organic Tea Company",
+            "cashPaymentReceiptNumber": "CPR-JN764673927",
+            "cashPaymentReceiptStatusId": 2,
+            "cashPaymentReceiptStatus": "APPROVED",
+            "createDatetime": "2026-02-11T06:02:30.000+0500",
+            "approveDate": "2026-02-11T16:13:14.000+0500",
+            "netAmount": "74281.12"
+        },
+        {
+            "cashPaymentReceiptMasterId": 1656380,
+            "merchantId": 53117,
+            "merchantName": "Organic Tea Company",
+            "cashPaymentReceiptNumber": "CPR-Z8G56940413",
+            "cashPaymentReceiptStatusId": 2,
+            "cashPaymentReceiptStatus": "APPROVED",
+            "createDatetime": "2026-02-10T06:12:47.000+0500",
+            "approveDate": "2026-02-10T15:50:28.000+0500",
+            "netAmount": "125151.28"
+        },
+        {
+            "cashPaymentReceiptMasterId": 1650309,
+            "merchantId": 53117,
+            "merchantName": "Organic Tea Company",
+            "cashPaymentReceiptNumber": "CPR-CP4P9598053",
+            "cashPaymentReceiptStatusId": 3,
+            "cashPaymentReceiptStatus": "CLOSED",
+            "createDatetime": "2026-02-09T06:02:13.000+0500",
+            "approveDate": "2026-02-09T18:19:24.000+0500",
+            "netAmount": "113096.44"
+        },
+        {
+            "cashPaymentReceiptMasterId": 1649970,
+            "merchantId": 53117,
+            "merchantName": "Organic Tea Company",
+            "cashPaymentReceiptNumber": "CPR-5389L472244",
+            "cashPaymentReceiptStatusId": 3,
+            "cashPaymentReceiptStatus": "CLOSED",
+            "createDatetime": "2026-02-07T06:20:18.000+0500",
+            "approveDate": "2026-02-07T16:25:47.000+0500",
+            "netAmount": "109147.60"
+        }
+    ],
+    "pagination": {
+        "page": 0,
+        "size": 25,
+        "totalElements": 5,
+        "numberOfElements": 5,
+        "totalPages": 1
+    }
+}
