@@ -10,7 +10,8 @@ export async function GET() {
             ...b,
             shopifyAccessToken: b.shopifyAccessToken ? "••••••••" : "",
             shopifyClientSecret: b.shopifyClientSecret ? "••••••••" : "",
-            postexMerchantToken: b.postexMerchantToken ? "••••••••" : ""
+            postexMerchantToken: b.postexMerchantToken ? "••••••••" : "",
+            tranzoMerchantToken: b.tranzoMerchantToken ? "••••••••" : ""
         }));
         return NextResponse.json(safeBrands);
     } catch (error: any) {
@@ -22,7 +23,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest) {
                 shopifyClientId: shopifyClientId || "",
                 shopifyClientSecret: shopifyClientSecret || "",
                 postexMerchantId: postexMerchantId || "",
-                postexMerchantToken: postexMerchantToken || ""
+                postexMerchantToken: postexMerchantToken || "",
+                tranzoMerchantToken: tranzoMerchantToken || ""
             }
         });
 
@@ -48,7 +50,8 @@ export async function POST(req: NextRequest) {
             ...brand,
             shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : "",
             shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : "",
-            postexMerchantToken: brand.postexMerchantToken ? "••••••••" : ""
+            postexMerchantToken: brand.postexMerchantToken ? "••••••••" : "",
+            tranzoMerchantToken: brand.tranzoMerchantToken ? "••••••••" : ""
         }, { status: 201 });
     } catch (error: any) {
         console.error("Failed to create brand:", error.message);

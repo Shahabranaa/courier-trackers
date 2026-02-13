@@ -18,6 +18,7 @@ export default function SettingsPage() {
         postexMerchantId: "",
         postexMerchantToken: "",
         tranzoApiToken: "",
+        tranzoMerchantToken: "",
         proxyUrl: "",
         shopifyStore: "",
         shopifyAccessToken: "",
@@ -26,7 +27,7 @@ export default function SettingsPage() {
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
+        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -58,6 +59,7 @@ export default function SettingsPage() {
             postexMerchantId: brand.postexMerchantId || "",
             postexMerchantToken: brand.postexMerchantToken || "",
             tranzoApiToken: brand.tranzoApiToken || "",
+            tranzoMerchantToken: brand.tranzoMerchantToken || "",
             proxyUrl: brand.proxyUrl || "",
             shopifyStore: brand.shopifyStore || "",
             shopifyAccessToken: brand.shopifyAccessToken || "",
@@ -164,6 +166,20 @@ export default function SettingsPage() {
                                     placeholder="Enter Tranzo API Token"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm"
                                 />
+                            </div>
+
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-violet-500"></span> Tranzo Merchant Token (for Payment Receipts)
+                                </label>
+                                <input
+                                    type="password"
+                                    value={formData.tranzoMerchantToken}
+                                    onChange={e => setFormData({ ...formData, tranzoMerchantToken: e.target.value })}
+                                    placeholder="Bearer token from Tranzo merchant portal login"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none transition-all font-mono text-sm"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">From portal.tranzo.pk — used for Invoice/Payment Receipts. Different from the API token above.</p>
                             </div>
 
                             <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
@@ -311,6 +327,14 @@ export default function SettingsPage() {
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> PostEx CPR</span>
                                             {brand.postexMerchantToken ? (
+                                                <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
+                                            ) : (
+                                                <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-violet-500"></span> Tranzo Invoices</span>
+                                            {brand.tranzoMerchantToken ? (
                                                 <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
                                             ) : (
                                                 <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>

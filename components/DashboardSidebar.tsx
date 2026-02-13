@@ -25,7 +25,15 @@ export default function DashboardSidebar() {
                 { name: "Payment Receipts", href: "/postex/cpr" },
             ]
         },
-        { name: "Tranzo Portal", href: "/tranzo", icon: Package },
+        {
+            name: "Tranzo Portal",
+            href: "/tranzo",
+            icon: Package,
+            children: [
+                { name: "All Orders", href: "/tranzo" },
+                { name: "Payment Receipts", href: "/tranzo/invoices" },
+            ]
+        },
         { name: "Zoom Portal", href: "/zoom", icon: Zap },
         { name: "Shopify Orders", href: "/shopify", icon: ShoppingBag },
         { name: "Analytics", href: "/analytics", icon: TrendingUp },
@@ -36,7 +44,8 @@ export default function DashboardSidebar() {
     // Track expanded state for menus (default PostEx open if on a sub-page? or just manual?)
     // Let's default to expanded if pathname starts with href
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-        "/postex": true // Default expanded for visibility
+        "/postex": true,
+        "/tranzo": true
     });
 
     const toggleGroup = (href: string) => {

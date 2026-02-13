@@ -5,11 +5,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken } = body;
 
         const shouldUpdateAccessToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
         const shouldUpdateSecret = shopifyClientSecret !== undefined && shopifyClientSecret !== "••••••••";
         const shouldUpdateMerchantToken = postexMerchantToken !== undefined && postexMerchantToken !== "••••••••";
+        const shouldUpdateTranzoMerchantToken = tranzoMerchantToken !== undefined && tranzoMerchantToken !== "••••••••";
 
         const brand = await prisma.brand.update({
             where: { id },
@@ -24,7 +25,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(shopifyClientId !== undefined && { shopifyClientId }),
                 ...(shouldUpdateSecret && { shopifyClientSecret }),
                 ...(postexMerchantId !== undefined && { postexMerchantId }),
-                ...(shouldUpdateMerchantToken && { postexMerchantToken })
+                ...(shouldUpdateMerchantToken && { postexMerchantToken }),
+                ...(shouldUpdateTranzoMerchantToken && { tranzoMerchantToken })
             }
         });
 
@@ -32,7 +34,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             ...brand,
             shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : "",
             shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : "",
-            postexMerchantToken: brand.postexMerchantToken ? "••••••••" : ""
+            postexMerchantToken: brand.postexMerchantToken ? "••••••••" : "",
+            tranzoMerchantToken: brand.tranzoMerchantToken ? "••••••••" : ""
         });
     } catch (error: any) {
         console.error("Failed to update brand:", error.message);
