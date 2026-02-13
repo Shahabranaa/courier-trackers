@@ -187,7 +187,7 @@ export default function FinancePage() {
 
     const postexOwed = useMemo(() => {
         if (!postexData) return 0;
-        return postexData.totals.netAmount - postexData.totals.upfrontPayments - postexPaymentsReceived;
+        return postexData.totals.netAmount - postexPaymentsReceived;
     }, [postexData, postexPaymentsReceived]);
 
     const tranzoOwed = useMemo(() => {
@@ -320,7 +320,7 @@ export default function FinancePage() {
                                 </p>
                                 <div className="flex items-center gap-1 mt-2 text-xs text-orange-600">
                                     {postexOwed >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                                    <span>Net: {formatCurrency(postexData?.totals.netAmount || 0)} - Upfront: {formatCurrency(postexData?.totals.upfrontPayments || 0)} - CPR: {formatCurrency(postexPaymentsReceived)}</span>
+                                    <span>Net: {formatCurrency(postexData?.totals.netAmount || 0)} - CPR: {formatCurrency(postexPaymentsReceived)}</span>
                                 </div>
                                 {postexReceiptsLoading && <p className="text-[10px] text-orange-400 mt-1">Fetching receipts...</p>}
                             </div>
@@ -392,10 +392,6 @@ export default function FinancePage() {
                                     <div className="flex justify-between items-center py-2 border-b border-gray-200 bg-gray-50 -mx-6 px-6">
                                         <span className="text-sm font-bold text-gray-900">Net Amount Owed</span>
                                         <span className="font-bold text-gray-900">{formatCurrencyFull(postexSum.netAmount)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                                        <span className="text-sm text-emerald-600">Upfront Payments Received</span>
-                                        <span className="font-semibold text-emerald-600">{formatCurrencyFull(postexSum.upfrontPayments)}</span>
                                     </div>
                                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
                                         <span className="text-sm text-emerald-600">CPR Payments Received</span>
