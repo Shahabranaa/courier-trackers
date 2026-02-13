@@ -6,9 +6,9 @@ import { useBrand } from "@/components/providers/BrandContext";
 import {
     DollarSign, TrendingUp, TrendingDown, Wallet, RefreshCw, ChevronDown, ChevronRight,
     AlertCircle, ArrowUpRight, ArrowDownRight, Package, Truck, ShoppingBag,
-    Calendar, BarChart3, Receipt
+    Calendar, BarChart3, Receipt, Percent, Activity, Target, PiggyBank
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
 interface MonthData {
     month: string;
@@ -220,7 +220,18 @@ export default function FinancePage() {
         return tranzoSum.netAmount - tranzoPaymentsReceived;
     }, [tranzoSum, tranzoPaymentsReceived]);
 
-    const shopifyRevenue = shopifyData?.totalRevenue || 0;
+    const shopifyRevenue = useMemo(() => {
+        if (!shopifyData?.monthly) return shopifyData?.totalRevenue || 0;
+        if (timePeriod === "current") {
+            const m = shopifyData.monthly.find((m: any) => m.month === currentMonthKey);
+            return m?.revenue || 0;
+        }
+        if (timePeriod === "previous") {
+            const m = shopifyData.monthly.find((m: any) => m.month === prevMonthKey);
+            return m?.revenue || 0;
+        }
+        return shopifyData?.totalRevenue || 0;
+    }, [shopifyData, timePeriod, currentMonthKey, prevMonthKey]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -269,6 +280,116 @@ export default function FinancePage() {
             };
         });
     }, [postexData, tranzoData, shopifyData]);
+
+    const kpiStats = useMemo(() => {
+        const totalOrders = postexSum.totalOrders + tranzoSum.totalOrders;
+        const totalGross = postexSum.grossAmount + tranzoSum.grossAmount;
+        const totalDelivered = postexSum.deliveredOrders + tranzoSum.deliveredOrders;
+        const totalReturned = postexSum.returnedOrders + tranzoSum.returnedOrders;
+        const totalFees = postexSum.fees + tranzoSum.fees;
+        const totalNet = postexSum.netAmount + tranzoSum.netAmount;
+        const totalPaymentsReceived = postexPaymentsReceived + tranzoPaymentsReceived;
+
+        return {
+            totalOrders,
+            avgOrderValue: totalOrders > 0 ? totalGross / totalOrders : 0,
+            deliveryRate: totalOrders > 0 ? (totalDelivered / totalOrders) * 100 : 0,
+            returnRate: totalOrders > 0 ? (totalReturned / totalOrders) * 100 : 0,
+            feeRate: totalGross > 0 ? (totalFees / totalGross) * 100 : 0,
+            collectionRate: totalNet > 0 ? (totalPaymentsReceived / totalNet) * 100 : 0,
+        };
+    }, [postexSum, tranzoSum, postexPaymentsReceived, tranzoPaymentsReceived]);
+
+    const growthIndicators = useMemo(() => {
+        const currentPostex = postexData?.monthly.find(m => m.month === currentMonthKey);
+        const prevPostex = postexData?.monthly.find(m => m.month === prevMonthKey);
+        const currentTranzo = tranzoData?.monthly.find(m => m.month === currentMonthKey);
+        const prevTranzo = tranzoData?.monthly.find(m => m.month === prevMonthKey);
+
+        const curOrders = (currentPostex?.totalOrders || 0) + (currentTranzo?.totalOrders || 0);
+        const prevOrders = (prevPostex?.totalOrders || 0) + (prevTranzo?.totalOrders || 0);
+        const curRevenue = (currentPostex?.grossAmount || 0) + (currentTranzo?.grossAmount || 0);
+        const prevRevenue = (prevPostex?.grossAmount || 0) + (prevTranzo?.grossAmount || 0);
+        const curNet = (currentPostex?.netAmount || 0) + (currentTranzo?.netAmount || 0);
+        const prevNet = (prevPostex?.netAmount || 0) + (prevTranzo?.netAmount || 0);
+
+        const pct = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev) * 100 : cur > 0 ? 100 : 0;
+
+        return {
+            ordersGrowth: pct(curOrders, prevOrders),
+            revenueGrowth: pct(curRevenue, prevRevenue),
+            netGrowth: pct(curNet, prevNet),
+        };
+    }, [postexData, tranzoData, currentMonthKey, prevMonthKey]);
+
+    const revenueSplitData = useMemo(() => {
+        const postexNet = postexSum.netAmount;
+        const tranzoNet = tranzoSum.netAmount;
+        const shopifyRev = shopifyRevenue;
+        const total = postexNet + tranzoNet + shopifyRev;
+        if (total === 0) return [];
+        return [
+            { name: "PostEx", value: Math.round(postexNet), color: "#f97316" },
+            { name: "Tranzo", value: Math.round(tranzoNet), color: "#8b5cf6" },
+            { name: "Shopify", value: Math.round(shopifyRev), color: "#10b981" },
+        ].filter(d => d.value > 0);
+    }, [postexSum, tranzoSum, shopifyRevenue]);
+
+    const courierComparison = useMemo(() => {
+        const pe = postexSum;
+        const tr = tranzoSum;
+        const safe = (n: number, d: number) => d > 0 ? (n / d) * 100 : 0;
+        return {
+            postex: {
+                feeRate: safe(pe.fees, pe.grossAmount),
+                taxRate: safe(pe.taxes, pe.grossAmount),
+                withholdingRate: safe(pe.withholdingTax, pe.grossAmount),
+                costPerOrder: pe.totalOrders > 0 ? pe.fees / pe.totalOrders : 0,
+                netMargin: safe(pe.netAmount, pe.grossAmount),
+            },
+            tranzo: {
+                feeRate: safe(tr.fees, tr.grossAmount),
+                taxRate: safe(tr.taxes, tr.grossAmount),
+                withholdingRate: safe(tr.withholdingTax, tr.grossAmount),
+                costPerOrder: tr.totalOrders > 0 ? tr.fees / tr.totalOrders : 0,
+                netMargin: safe(tr.netAmount, tr.grossAmount),
+            },
+        };
+    }, [postexSum, tranzoSum]);
+
+    const paymentTimelineData = useMemo(() => {
+        const monthMap: Record<string, { month: string; PostEx: number; Tranzo: number }> = {};
+
+        const validCpr = allCprReceipts.filter(r => [2, 3, 4].includes(r.cashPaymentReceiptStatusId));
+        for (const r of validCpr) {
+            const dt = r.createDatetime || "";
+            let mk = "Unknown";
+            try {
+                const d = new Date(dt);
+                if (!isNaN(d.getTime())) mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            } catch {}
+            if (mk === "Unknown") continue;
+            if (!monthMap[mk]) monthMap[mk] = { month: mk, PostEx: 0, Tranzo: 0 };
+            monthMap[mk].PostEx += parseFloat(r.netAmount || "0");
+        }
+
+        const validInv = allTranzoInvoices.filter(inv => ["Approved", "Settled"].includes(inv.invoice_status));
+        for (const inv of validInv) {
+            const dt = inv.created_at || "";
+            let mk = "Unknown";
+            try {
+                const d = new Date(dt);
+                if (!isNaN(d.getTime())) mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            } catch {}
+            if (mk === "Unknown") continue;
+            if (!monthMap[mk]) monthMap[mk] = { month: mk, PostEx: 0, Tranzo: 0 };
+            monthMap[mk].Tranzo += parseFloat(inv.net_amount || "0");
+        }
+
+        return Object.values(monthMap)
+            .sort((a, b) => a.month.localeCompare(b.month))
+            .map(d => ({ ...d, month: formatMonthLabel(d.month), PostEx: Math.round(d.PostEx), Tranzo: Math.round(d.Tranzo) }));
+    }, [allCprReceipts, allTranzoInvoices]);
 
     if (!selectedBrand) {
         return (
@@ -385,6 +506,184 @@ export default function FinancePage() {
                                 <p className="text-xs text-teal-600 mt-2">Combined courier balance</p>
                             </div>
                         </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className="mx-auto w-8 h-8 flex items-center justify-center bg-blue-100 rounded-lg mb-2">
+                                    <Package size={16} className="text-blue-600" />
+                                </div>
+                                <p className="text-lg font-bold text-gray-900">{kpiStats.totalOrders.toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Total Orders</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className="mx-auto w-8 h-8 flex items-center justify-center bg-teal-100 rounded-lg mb-2">
+                                    <DollarSign size={16} className="text-teal-600" />
+                                </div>
+                                <p className="text-lg font-bold text-gray-900">{formatCurrency(kpiStats.avgOrderValue)}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Avg Order Value</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className={`mx-auto w-8 h-8 flex items-center justify-center rounded-lg mb-2 ${kpiStats.deliveryRate >= 80 ? "bg-green-100" : kpiStats.deliveryRate >= 60 ? "bg-amber-100" : "bg-red-100"}`}>
+                                    <Target size={16} className={kpiStats.deliveryRate >= 80 ? "text-green-600" : kpiStats.deliveryRate >= 60 ? "text-amber-600" : "text-red-600"} />
+                                </div>
+                                <p className={`text-lg font-bold ${kpiStats.deliveryRate >= 80 ? "text-green-700" : kpiStats.deliveryRate >= 60 ? "text-amber-700" : "text-red-700"}`}>{kpiStats.deliveryRate.toFixed(1)}%</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Delivery Rate</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className={`mx-auto w-8 h-8 flex items-center justify-center rounded-lg mb-2 ${kpiStats.returnRate > 10 ? "bg-red-100" : "bg-gray-100"}`}>
+                                    <TrendingDown size={16} className={kpiStats.returnRate > 10 ? "text-red-600" : "text-gray-600"} />
+                                </div>
+                                <p className={`text-lg font-bold ${kpiStats.returnRate > 10 ? "text-red-700" : "text-gray-900"}`}>{kpiStats.returnRate.toFixed(1)}%</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Return Rate</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className="mx-auto w-8 h-8 flex items-center justify-center bg-amber-100 rounded-lg mb-2">
+                                    <Percent size={16} className="text-amber-600" />
+                                </div>
+                                <p className="text-lg font-bold text-gray-900">{kpiStats.feeRate.toFixed(1)}%</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Fee Rate</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className="mx-auto w-8 h-8 flex items-center justify-center bg-emerald-100 rounded-lg mb-2">
+                                    <PiggyBank size={16} className="text-emerald-600" />
+                                </div>
+                                <p className="text-lg font-bold text-emerald-700">{kpiStats.collectionRate.toFixed(1)}%</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Collection Rate</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Activity size={16} className="text-gray-600" />
+                                <h3 className="font-semibold text-gray-900 text-sm">Month-over-Month Growth</h3>
+                                <span className="text-xs text-gray-400 ml-1">(current vs previous month)</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                {[
+                                    { label: "Orders", value: growthIndicators.ordersGrowth },
+                                    { label: "Revenue", value: growthIndicators.revenueGrowth },
+                                    { label: "Net Amount", value: growthIndicators.netGrowth },
+                                ].map(item => (
+                                    <div key={item.label} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                                        <div className={`p-1.5 rounded-lg ${item.value >= 0 ? "bg-green-100" : "bg-red-100"}`}>
+                                            {item.value >= 0 ? <ArrowUpRight size={16} className="text-green-600" /> : <ArrowDownRight size={16} className="text-red-600" />}
+                                        </div>
+                                        <div>
+                                            <p className={`text-sm font-bold ${item.value >= 0 ? "text-green-700" : "text-red-700"}`}>
+                                                {item.value >= 0 ? "+" : ""}{item.value.toFixed(1)}%
+                                            </p>
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">{item.label}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {revenueSplitData.length > 0 && (
+                                <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 bg-indigo-100 rounded-lg">
+                                            <BarChart3 size={18} className="text-indigo-600" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900">Revenue Split</h3>
+                                    </div>
+                                    <div className="h-64">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={revenueSplitData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={90}
+                                                    innerRadius={50}
+                                                    dataKey="value"
+                                                    label={({ name, percent }: any) => `${name || ''} ${((percent || 0) * 100).toFixed(0)}%`}
+                                                    labelLine={true}
+                                                >
+                                                    {revenueSplitData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0))} />
+                                                <Legend wrapperStyle={{ fontSize: "12px" }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Activity size={18} className="text-gray-600" />
+                                    </div>
+                                    <h3 className="font-bold text-gray-900">Courier Cost Comparison</h3>
+                                </div>
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-gray-200">
+                                            <th className="text-left py-2.5 text-gray-500 font-semibold text-xs uppercase tracking-wider">Metric</th>
+                                            <th className="text-right py-2.5 text-orange-600 font-semibold text-xs uppercase tracking-wider">PostEx</th>
+                                            <th className="text-right py-2.5 text-purple-600 font-semibold text-xs uppercase tracking-wider">Tranzo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {[
+                                            { label: "Fee Rate", pe: courierComparison.postex.feeRate, tr: courierComparison.tranzo.feeRate, fmt: "pct", lower: true },
+                                            { label: "Tax Rate", pe: courierComparison.postex.taxRate, tr: courierComparison.tranzo.taxRate, fmt: "pct", lower: true },
+                                            { label: "Withholding Tax", pe: courierComparison.postex.withholdingRate, tr: courierComparison.tranzo.withholdingRate, fmt: "pct", lower: true },
+                                            { label: "Cost Per Order", pe: courierComparison.postex.costPerOrder, tr: courierComparison.tranzo.costPerOrder, fmt: "cur", lower: true },
+                                            { label: "Net Margin", pe: courierComparison.postex.netMargin, tr: courierComparison.tranzo.netMargin, fmt: "pct", lower: false },
+                                        ].map(row => {
+                                            const peBetter = row.lower ? row.pe <= row.tr : row.pe >= row.tr;
+                                            const trBetter = row.lower ? row.tr <= row.pe : row.tr >= row.pe;
+                                            const bothZero = row.pe === 0 && row.tr === 0;
+                                            return (
+                                                <tr key={row.label}>
+                                                    <td className="py-2.5 text-gray-700 font-medium">{row.label}</td>
+                                                    <td className={`py-2.5 text-right font-semibold ${!bothZero && peBetter ? "text-green-600" : "text-gray-900"}`}>
+                                                        {row.fmt === "pct" ? `${row.pe.toFixed(2)}%` : formatCurrency(row.pe)}
+                                                        {!bothZero && peBetter && <span className="ml-1 text-green-500 text-[10px]">✓</span>}
+                                                    </td>
+                                                    <td className={`py-2.5 text-right font-semibold ${!bothZero && trBetter ? "text-green-600" : "text-gray-900"}`}>
+                                                        {row.fmt === "pct" ? `${row.tr.toFixed(2)}%` : formatCurrency(row.tr)}
+                                                        {!bothZero && trBetter && <span className="ml-1 text-green-500 text-[10px]">✓</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {paymentTimelineData.length > 0 && (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-emerald-100 rounded-lg">
+                                        <Receipt size={18} className="text-emerald-600" />
+                                    </div>
+                                    <h3 className="font-bold text-gray-900">Payment Collection Timeline</h3>
+                                </div>
+                                <div className="h-72">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={paymentTimelineData} barGap={4}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                                            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+                                            <Tooltip
+                                                formatter={(value: any) => formatCurrency(Number(value || 0))}
+                                                contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                                            />
+                                            <Legend wrapperStyle={{ fontSize: "12px" }} />
+                                            <Bar dataKey="PostEx" stackId="a" fill="#f97316" radius={[0, 0, 0, 0]} />
+                                            <Bar dataKey="Tranzo" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="bg-white border border-gray-200 rounded-2xl p-6">
