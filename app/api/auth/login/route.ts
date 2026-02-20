@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
+import { hash, compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signToken } from "@/lib/auth";
 
 async function ensureDefaultAdmin() {
   const userCount = await prisma.user.count();
   if (userCount === 0) {
-    const hash = await bcrypt.hash("admin123", 10);
+    const hashed = await hash("admin123", 10);
     await prisma.user.create({
       data: {
         email: "admin@hublogistic.com",
-        passwordHash: hash,
+        passwordHash: hashed,
         name: "Admin",
         role: "ADMIN"
       }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await compare(password, user.passwordHash);
     if (!valid) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }

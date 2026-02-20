@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
+import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await hash(password, 10);
     const user = await prisma.user.create({
       data: {
         email,
@@ -102,7 +102,7 @@ export async function PUT(req: NextRequest) {
     if (email) updateData.email = email;
     if (name) updateData.name = name;
     if (role) updateData.role = role === "ADMIN" ? "ADMIN" : "USER";
-    if (password) updateData.passwordHash = await bcrypt.hash(password, 10);
+    if (password) updateData.passwordHash = await hash(password, 10);
 
     const user = await prisma.user.update({
       where: { id },
