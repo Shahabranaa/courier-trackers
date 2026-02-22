@@ -8,43 +8,68 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
+  console.log("[WhatsApp Webhook] GET verification request:", { mode, tokenProvided: !!token, challenge: challenge?.substring(0, 20) });
+
   const config = getWhatsAppConfig();
 
   if (mode === "subscribe" && token === config.webhookVerifyToken) {
-    console.log("WhatsApp webhook verified");
+    console.log("[WhatsApp Webhook] Verification SUCCESS");
     return new NextResponse(challenge, { status: 200 });
   }
 
+  console.warn("[WhatsApp Webhook] Verification FAILED - token mismatch");
   return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
 
 export async function POST(req: NextRequest) {
+  console.log("[WhatsApp Webhook] POST received");
+
   try {
     const rawBody = await req.text();
+    console.log("[WhatsApp Webhook] Raw body length:", rawBody.length);
 
     const signature = req.headers.get("x-hub-signature-256") || "";
-    if (signature) {
+    const config = getWhatsAppConfig();
+
+    if (signature && config.appSecret) {
       const isValid = verifyWebhookSignature(rawBody, signature);
       if (!isValid) {
-        console.warn("WhatsApp webhook: invalid signature");
+        console.warn("[WhatsApp Webhook] REJECTED: invalid signature");
         return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
       }
+      console.log("[WhatsApp Webhook] Signature verified OK");
+    } else if (signature && !config.appSecret) {
+      console.warn("[WhatsApp Webhook] Signature present but META_APP_SECRET not configured - skipping validation");
+    } else {
+      console.log("[WhatsApp Webhook] No signature header - processing without validation");
     }
 
     const body = JSON.parse(rawBody);
+    console.log("[WhatsApp Webhook] Parsed body - object:", body.object, "entries:", body.entry?.length || 0);
 
     if (body.object !== "whatsapp_business_account") {
+      console.warn("[WhatsApp Webhook] Ignored: object is", JSON.stringify(body.object), "- expected 'whatsapp_business_account'");
+      console.log("[WhatsApp Webhook] Top-level keys:", Object.keys(body).join(", "));
       return NextResponse.json({ status: "ignored" }, { status: 200 });
     }
 
+    let messagesProcessed = 0;
+    let statusesProcessed = 0;
+
     for (const entry of body.entry || []) {
+      console.log("[WhatsApp Webhook] Processing entry:", entry.id, "changes:", entry.changes?.length || 0);
+
       for (const change of entry.changes || []) {
+        console.log("[WhatsApp Webhook] Change field:", change.field);
         if (change.field !== "messages") continue;
 
         const value = change.value;
+        console.log("[WhatsApp Webhook] Messages count:", value.messages?.length || 0, "Statuses count:", value.statuses?.length || 0);
 
         if (value.messages) {
           for (const msg of value.messages) {
+            console.log("[WhatsApp Webhook] Processing message:", msg.id, "type:", msg.type, "from:", msg.from);
+
             const contactInfo = value.contacts?.find((c: any) => c.wa_id === msg.from);
             const profileName = contactInfo?.profile?.name || "";
 
@@ -60,11 +85,13 @@ export async function POST(req: NextRequest) {
                   profileName,
                 },
               });
+              console.log("[WhatsApp Webhook] Created new contact:", contact.id, "waId:", msg.from);
             } else if (profileName && profileName !== contact.profileName) {
               contact = await prisma.whatsAppContact.update({
                 where: { id: contact.id },
                 data: { profileName },
               });
+              console.log("[WhatsApp Webhook] Updated contact profile name:", profileName);
             }
 
             let messageBody = "";
@@ -149,6 +176,11 @@ export async function POST(req: NextRequest) {
                 where: { id: contact.id },
                 data: { lastMessageAt: new Date(parseInt(msg.timestamp) * 1000) },
               });
+
+              messagesProcessed++;
+              console.log("[WhatsApp Webhook] Saved message:", msg.id, "body:", messageBody.substring(0, 50));
+            } else {
+              console.log("[WhatsApp Webhook] Message already exists, skipped:", msg.id);
             }
           }
         }
@@ -156,10 +188,12 @@ export async function POST(req: NextRequest) {
         if (value.statuses) {
           for (const status of value.statuses) {
             try {
-              await prisma.whatsAppMessage.updateMany({
+              const result = await prisma.whatsAppMessage.updateMany({
                 where: { messageId: status.id },
                 data: { status: status.status },
               });
+              if (result.count > 0) statusesProcessed++;
+              console.log("[WhatsApp Webhook] Status update:", status.id, "->", status.status, "matched:", result.count);
             } catch {
             }
           }
@@ -167,9 +201,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    console.log("[WhatsApp Webhook] Done - messages:", messagesProcessed, "statuses:", statusesProcessed);
     return NextResponse.json({ status: "ok" }, { status: 200 });
   } catch (error: any) {
-    console.error("WhatsApp webhook error:", error.message);
+    console.error("[WhatsApp Webhook] ERROR:", error.message, error.stack?.substring(0, 200));
     return NextResponse.json({ status: "ok" }, { status: 200 });
   }
 }
