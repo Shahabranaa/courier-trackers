@@ -28,7 +28,28 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
 
 export async function sendWhatsAppMessage(to: string, text: string) {
   const config = getWhatsAppConfig();
+
+  if (!config.phoneNumberId) {
+    console.error("[WhatsApp Send] WHATSAPP_PHONE_NUMBER_ID is not configured");
+    return { error: { message: "WhatsApp Phone Number ID is not configured. Please set WHATSAPP_PHONE_NUMBER_ID in secrets." } };
+  }
+  if (!config.accessToken) {
+    console.error("[WhatsApp Send] WHATSAPP_ACCESS_TOKEN is not configured");
+    return { error: { message: "WhatsApp Access Token is not configured. Please set WHATSAPP_ACCESS_TOKEN in secrets." } };
+  }
+
   const url = `${GRAPH_API_BASE}/${config.phoneNumberId}/messages`;
+  console.log("[WhatsApp Send] URL:", url);
+  console.log("[WhatsApp Send] Phone Number ID:", config.phoneNumberId);
+  console.log("[WhatsApp Send] To:", to);
+
+  const payload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "text",
+    text: { preview_url: false, body: text },
+  };
 
   const res = await fetch(url, {
     method: "POST",
@@ -36,16 +57,19 @@ export async function sendWhatsAppMessage(to: string, text: string) {
       Authorization: `Bearer ${config.accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "text",
-      text: { preview_url: false, body: text },
-    }),
+    body: JSON.stringify(payload),
   });
 
-  return res.json();
+  const data = await res.json();
+
+  if (!res.ok || data.error) {
+    console.error("[WhatsApp Send] Meta API error:", JSON.stringify(data.error || data, null, 2));
+    console.error("[WhatsApp Send] HTTP status:", res.status);
+  } else {
+    console.log("[WhatsApp Send] Success - message ID:", data.messages?.[0]?.id);
+  }
+
+  return data;
 }
 
 export async function getPhoneNumberInfo() {
