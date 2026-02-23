@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt, Wallet, Users, Shield, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt, Wallet, Users, Shield } from "lucide-react";
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
 import { useAuth } from "./providers/AuthContext";
@@ -42,7 +42,6 @@ export default function DashboardSidebar() {
         { name: "Analytics", href: "/analytics", icon: TrendingUp },
         { name: "Return Discrepancies", href: "/discrepancies", icon: GitCompare },
         { name: "Smart Alerts", href: "/alerts", icon: Bell },
-        { name: "WhatsApp", href: "/whatsapp", icon: MessageCircle },
     ];
 
     // Track expanded state for menus (default PostEx open if on a sub-page? or just manual?)

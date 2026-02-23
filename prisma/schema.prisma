@@ -170,42 +170,6 @@ model TranzoInvoice {
   @@index([brandId, createdAt])
 }
 
-model WhatsAppContact {
-  id            String   @id @default(cuid())
-  waId          String
-  profileName   String   @default("")
-  phoneNumber   String   @default("")
-  lastMessageAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  messages      WhatsAppMessage[]
-
-  @@unique([waId])
-  @@index([phoneNumber])
-  @@index([lastMessageAt])
-}
-
-model WhatsAppMessage {
-  id            String   @id @default(cuid())
-  messageId     String   @unique
-  contactId     String
-  contact       WhatsAppContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  direction     String
-  type          String   @default("text")
-  body          String   @default("")
-  mediaUrl      String   @default("")
-  mediaType     String   @default("")
-  timestamp     DateTime
-  status        String   @default("")
-  contextMsgId  String?
-  metadata      String   @default("{}")
-  createdAt     DateTime @default(now())
-
-  @@index([contactId, timestamp])
-  @@index([direction])
-  @@index([type])
-  @@index([timestamp])
-}
-
 model TrackingStatus {
   trackingNumber String @id
   data           String // JSON string

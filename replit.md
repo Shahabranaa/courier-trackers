@@ -30,13 +30,11 @@ The application is built using Next.js 16 with the App Router and Turbopack for 
 - **Multi-tenancy & SaaS Auth:** Full multi-tenant SaaS with JWT-based email/password authentication. Users are created by admins via the Admin Panel (`/admin/users`). Each user manages their own brands; admins see all brands. Authentication uses HTTP-only cookies with bcryptjs password hashing and JWT tokens (7-day expiry). Default admin: `admin@hublogistic.com` / `admin123`.
 - **Shopify Integration:** Supports both Direct Admin API Access Token (Custom Apps) and Client Credentials Grant (Dev Dashboard apps) for Shopify authentication. Tracks Shopify order tags, phone numbers, and shipping addresses.
 - **Zoom Integration:** Integrates Zoom orders by filtering Shopify orders based on fulfillment courier, providing a dedicated portal.
-- **WhatsApp Business API Integration:** Full WhatsApp messaging via Meta Graph API v21.0. Includes webhook endpoint (`/api/whatsapp/webhook`) for real-time inbound messages, send message API, and a chat-style UI at `/whatsapp`. Supports text, image, video, audio, document, location, contacts, interactive, and template messages. Database models: `WhatsAppContact` (profile info, last message timestamp) and `WhatsAppMessage` (full message history with direction, type, media URLs, status tracking). Webhook verify token stored as `WHATSAPP_WEBHOOK_VERIFY_TOKEN` env var. Required secrets: `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_WABA_ID`.
 
 ## External Dependencies
 - **PostgreSQL:** Primary database for all application data, accessed via Prisma ORM.
 - **PostEx Merchant API:** For fetching PostEx order details, tracking information, and Cash Payment Receipts (CPR).
 - **Tranzo Merchant API (`api-merchant.tranzo.pk`, `api-integration.tranzo.pk`):** For fetching Tranzo order logs and invoice details.
 - **Shopify Admin API:** For fetching Shopify order data, including fulfillments, tags, and customer information.
-- **Meta WhatsApp Business API (Graph API v21.0):** For sending/receiving WhatsApp messages, managing templates, and webhook subscriptions.
 - **Recharts:** JavaScript charting library for data visualization.
 - **Tailwind CSS v4:** Utility-first CSS framework for styling.
