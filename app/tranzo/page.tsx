@@ -57,10 +57,7 @@ export default function TranzoDashboard() {
     const [error, setError] = useState<string | null>(null);
     const [syncSummary, setSyncSummary] = useState<any>(null);
 
-    // Filters
-    const [selectedMonth, setSelectedMonth] = useState<string>(
-        new Date().toISOString().slice(0, 7)
-    );
+    const [selectedMonth, setSelectedMonth] = useState<string>("");
     const [selectedCity, setSelectedCity] = useState<string>("");
 
     // Derived Statuses for Components
@@ -93,9 +90,14 @@ export default function TranzoDashboard() {
 
         try {
             const cleanToken = sanitizeHeader(selectedBrand.tranzoApiToken || "");
-            const { startDate, endDate } = getMonthDateRange();
+            const params = new URLSearchParams();
+            if (selectedMonth) {
+                const { startDate, endDate } = getMonthDateRange();
+                params.set("startDate", startDate);
+                params.set("endDate", endDate);
+            }
 
-            const res = await fetch(`/api/tranzo/orders?startDate=${startDate}&endDate=${endDate}`, {
+            const res = await fetch(`/api/tranzo/orders?${params.toString()}`, {
                 headers: {
                     "api-token": cleanToken,
                     "brand-id": sanitizeHeader(selectedBrand.id)
@@ -125,9 +127,14 @@ export default function TranzoDashboard() {
 
         try {
             const cleanToken = sanitizeHeader(selectedBrand.tranzoApiToken || "");
-            const { startDate, endDate } = getMonthDateRange();
+            const params = new URLSearchParams({ sync: "true" });
+            if (selectedMonth) {
+                const { startDate, endDate } = getMonthDateRange();
+                params.set("startDate", startDate);
+                params.set("endDate", endDate);
+            }
 
-            const res = await fetch(`/api/tranzo/orders?sync=true&startDate=${startDate}&endDate=${endDate}`, {
+            const res = await fetch(`/api/tranzo/orders?${params.toString()}`, {
                 headers: {
                     "api-token": cleanToken,
                     "brand-id": sanitizeHeader(selectedBrand.id)
@@ -236,7 +243,7 @@ export default function TranzoDashboard() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.setAttribute("download", `tranzo_orders_${selectedMonth}.csv`);
+        link.setAttribute("download", `tranzo_orders_${selectedMonth || "all_time"}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -303,12 +310,20 @@ export default function TranzoDashboard() {
                                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Month</label>
                                 <div className="relative">
                                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <input
-                                        type="month"
+                                    <select
                                         value={selectedMonth}
                                         onChange={(e) => setSelectedMonth(e.target.value)}
-                                        className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-                                    />
+                                        className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all appearance-none"
+                                    >
+                                        <option value="">All Time</option>
+                                        {Array.from({ length: 24 }, (_, i) => {
+                                            const d = new Date();
+                                            d.setMonth(d.getMonth() - i);
+                                            const val = d.toISOString().slice(0, 7);
+                                            const label = d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+                                            return <option key={val} value={val}>{label}</option>;
+                                        })}
+                                    </select>
                                 </div>
                             </div>
 
@@ -351,7 +366,7 @@ export default function TranzoDashboard() {
                                     <div>
                                         <h3 className="text-lg font-bold flex items-center gap-2">
                                             <Calendar className="w-5 h-5 text-purple-200" />
-                                            Monthly Snapshot: {new Date(selectedMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                            {selectedMonth ? `Monthly Snapshot: ${new Date(selectedMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}` : "All Time Overview"}
                                         </h3>
                                         <div className="mt-4 flex gap-6 text-purple-100 flex-wrap">
                                             <div>
