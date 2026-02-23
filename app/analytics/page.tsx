@@ -85,6 +85,7 @@ interface CustomerData {
 const COURIER_COLORS: Record<string, string> = {
   PostEx: "#f97316",
   Tranzo: "#8b5cf6",
+  Zoom: "#3b82f6",
 };
 
 const PAKISTAN_CITIES: Record<string, { x: number; y: number; province: string }> = {
@@ -967,6 +968,106 @@ export default function AnalyticsPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Dedicated Courier Delivery Rate Comparison */}
+                {perfData.courierComparison.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                          Courier Delivery Rate Comparison
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">Side-by-side delivery performance across all couriers</p>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {perfData.courierComparison.reduce((s, c) => s + c.total, 0).toLocaleString()} total orders
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="lg:col-span-2">
+                        <div className="h-72">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={perfData.courierComparison} barCategoryGap="25%">
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                              <XAxis dataKey="courier" tick={{ fontSize: 13, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} axisLine={false} tickLine={false} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", padding: "12px" }}
+                                formatter={(value: number | undefined, name: string | undefined) => {
+                                  const label = name === "deliveryRate" ? "Delivery Rate" : name === "returnRate" ? "Return Rate" : name;
+                                  return [`${value ?? 0}%`, label];
+                                }}
+                              />
+                              <Bar dataKey="deliveryRate" name="deliveryRate" fill="#22c55e" radius={[8, 8, 0, 0]} maxBarSize={50} />
+                              <Bar dataKey="returnRate" name="returnRate" fill="#ef4444" radius={[8, 8, 0, 0]} maxBarSize={50} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex justify-center gap-6 mt-3">
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <div className="w-3 h-3 rounded bg-green-500" />
+                            Delivery Rate
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <div className="w-3 h-3 rounded bg-red-500" />
+                            Return Rate
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {perfData.courierComparison.map((c) => {
+                          const color = COURIER_COLORS[c.courier] || "#6366f1";
+                          return (
+                            <div key={c.courier} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition-shadow">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-bold" style={{ color }}>{c.courier}</span>
+                                <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">{c.total.toLocaleString()} orders</span>
+                              </div>
+
+                              <div className="mb-3">
+                                <div className="flex items-end justify-between mb-1">
+                                  <span className="text-xs text-gray-500">Delivery Rate</span>
+                                  <span className="text-lg font-bold text-green-700">{c.deliveryRate}%</span>
+                                </div>
+                                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${c.deliveryRate}%` }} />
+                                </div>
+                              </div>
+
+                              <div className="mb-3">
+                                <div className="flex items-end justify-between mb-1">
+                                  <span className="text-xs text-gray-500">Return Rate</span>
+                                  <span className="text-sm font-bold text-red-600">{c.returnRate}%</span>
+                                </div>
+                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-red-400 rounded-full transition-all duration-500" style={{ width: `${c.returnRate}%` }} />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-1 text-center text-[10px]">
+                                <div className="bg-green-50 rounded-lg py-1.5">
+                                  <p className="font-bold text-green-700">{c.delivered}</p>
+                                  <p className="text-green-600">Delivered</p>
+                                </div>
+                                <div className="bg-amber-50 rounded-lg py-1.5">
+                                  <p className="font-bold text-amber-700">{c.inTransit}</p>
+                                  <p className="text-amber-600">Transit</p>
+                                </div>
+                                <div className="bg-red-50 rounded-lg py-1.5">
+                                  <p className="font-bold text-red-600">{c.returned}</p>
+                                  <p className="text-red-500">Returned</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Return Rate Analysis */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
