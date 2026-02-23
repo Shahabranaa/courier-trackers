@@ -48,7 +48,7 @@ interface PerformanceData {
   cityReturnRates: { city: string; total: number; returned: number; rate: number }[];
   productReturnRates: { product: string; total: number; returned: number; rate: number }[];
   courierComparison: { courier: string; total: number; delivered: number; returned: number; inTransit: number; cancelled: number; deliveryRate: number; returnRate: number }[];
-  cityDeliveryRates: { city: string; total: number; delivered: number; returned: number; deliveryRate: number; returnRate: number }[];
+  cityDeliveryRates: { city: string; total: number; delivered: number; returned: number; deliveryRate: number; returnRate: number; couriers: Record<string, { total: number; delivered: number; deliveryRate: number }> }[];
 }
 
 interface CustomerEntry {
@@ -1102,6 +1102,12 @@ export default function AnalyticsPage() {
                     </div>
 
                     {(() => {
+                      const allCouriersSet = new Set<string>();
+                      perfData.cityDeliveryRates.forEach(c => Object.keys(c.couriers).forEach(k => allCouriersSet.add(k)));
+                      const courierList = Array.from(allCouriersSet).sort();
+                      const getRateColor = (rate: number) => rate >= 70 ? "text-green-700 bg-green-50" : rate >= 50 ? "text-amber-700 bg-amber-50" : "text-red-700 bg-red-50";
+                      const getBarColor = (rate: number) => rate >= 70 ? "bg-green-500" : rate >= 50 ? "bg-amber-500" : "bg-red-500";
+
                       const filtered = cityDeliveryRateSearch
                         ? perfData.cityDeliveryRates.filter(c => c.city.toLowerCase().includes(cityDeliveryRateSearch.toLowerCase()))
                         : perfData.cityDeliveryRates;
@@ -1115,35 +1121,55 @@ export default function AnalyticsPage() {
                                   <th className="text-left py-2.5 px-3 font-semibold">#</th>
                                   <th className="text-left py-2.5 px-3 font-semibold">City</th>
                                   <th className="text-center py-2.5 px-3 font-semibold">Total</th>
-                                  <th className="text-center py-2.5 px-3 font-semibold">Delivered</th>
-                                  <th className="text-center py-2.5 px-3 font-semibold">Returned</th>
-                                  <th className="text-left py-2.5 px-3 font-semibold" style={{ minWidth: 220 }}>Delivery Rate</th>
+                                  {courierList.map(courier => (
+                                    <th key={courier} className="text-center py-2.5 px-3 font-semibold">
+                                      <span className="inline-flex items-center gap-1">
+                                        <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: COURIER_COLORS[courier] || "#6366f1" }} />
+                                        {courier}
+                                      </span>
+                                    </th>
+                                  ))}
+                                  <th className="text-left py-2.5 px-3 font-semibold" style={{ minWidth: 180 }}>Overall</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {filtered.map((city, i) => {
-                                  const rateColor = city.deliveryRate >= 70 ? "text-green-700 bg-green-50" : city.deliveryRate >= 50 ? "text-amber-700 bg-amber-50" : "text-red-700 bg-red-50";
-                                  const barColor = city.deliveryRate >= 70 ? "bg-green-500" : city.deliveryRate >= 50 ? "bg-amber-500" : "bg-red-500";
-                                  return (
-                                    <tr key={city.city} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                                      <td className="py-2.5 px-3 text-xs text-gray-400 font-bold">{i + 1}</td>
-                                      <td className="py-2.5 px-3 font-medium text-gray-800">{city.city}</td>
-                                      <td className="py-2.5 px-3 text-center text-gray-600">{city.total}</td>
-                                      <td className="py-2.5 px-3 text-center text-green-700 font-medium">{city.delivered}</td>
-                                      <td className="py-2.5 px-3 text-center text-red-600 font-medium">{city.returned}</td>
-                                      <td className="py-2.5 px-3">
-                                        <div className="flex items-center gap-3">
-                                          <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${city.deliveryRate}%` }} />
-                                          </div>
-                                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${rateColor}`} style={{ minWidth: 48, textAlign: "center" }}>
-                                            {city.deliveryRate}%
-                                          </span>
+                                {filtered.map((city, i) => (
+                                  <tr key={city.city} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                                    <td className="py-2.5 px-3 text-xs text-gray-400 font-bold">{i + 1}</td>
+                                    <td className="py-2.5 px-3">
+                                      <div className="font-medium text-gray-800">{city.city}</div>
+                                      <div className="text-[10px] text-gray-400">{city.delivered} delivered / {city.returned} returned</div>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center text-gray-600 font-medium">{city.total}</td>
+                                    {courierList.map(courier => {
+                                      const cd = city.couriers[courier];
+                                      return (
+                                        <td key={courier} className="py-2.5 px-3 text-center">
+                                          {cd && cd.total > 0 ? (
+                                            <div>
+                                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${getRateColor(cd.deliveryRate)}`}>
+                                                {cd.deliveryRate}%
+                                              </span>
+                                              <div className="text-[10px] text-gray-400 mt-0.5">{cd.delivered}/{cd.total}</div>
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-300 text-xs">-</span>
+                                          )}
+                                        </td>
+                                      );
+                                    })}
+                                    <td className="py-2.5 px-3">
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                          <div className={`h-full rounded-full transition-all duration-500 ${getBarColor(city.deliveryRate)}`} style={{ width: `${city.deliveryRate}%` }} />
                                         </div>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${getRateColor(city.deliveryRate)}`} style={{ minWidth: 48, textAlign: "center" }}>
+                                          {city.deliveryRate}%
+                                        </span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
                               </tbody>
                             </table>
                           </div>

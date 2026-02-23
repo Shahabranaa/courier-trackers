@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       Tranzo: { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
     };
 
-    const returnByCity: Record<string, { total: number; delivered: number; returned: number; city: string }> = {};
+    const returnByCity: Record<string, { total: number; delivered: number; returned: number; city: string; courierBreakdown: Record<string, { total: number; delivered: number; returned: number }> }> = {};
     const returnByProduct: Record<string, { total: number; returned: number }> = {};
 
     for (const order of orders) {
@@ -98,11 +98,17 @@ export async function GET(req: NextRequest) {
       }
 
       if (!returnByCity[city]) {
-        returnByCity[city] = { total: 0, delivered: 0, returned: 0, city: cityDisplay };
+        returnByCity[city] = { total: 0, delivered: 0, returned: 0, city: cityDisplay, courierBreakdown: {} };
       }
       returnByCity[city].total++;
       if (isDelivered) returnByCity[city].delivered++;
       if (isReturned) returnByCity[city].returned++;
+      if (!returnByCity[city].courierBreakdown[courier]) {
+        returnByCity[city].courierBreakdown[courier] = { total: 0, delivered: 0, returned: 0 };
+      }
+      returnByCity[city].courierBreakdown[courier].total++;
+      if (isDelivered) returnByCity[city].courierBreakdown[courier].delivered++;
+      if (isReturned) returnByCity[city].courierBreakdown[courier].returned++;
 
       const productName = (order.orderDetail || "Unknown Product").trim();
       const productKey = productName.length > 50 ? productName.slice(0, 50) + "..." : productName;
@@ -186,14 +192,25 @@ export async function GET(req: NextRequest) {
 
     const cityDeliveryRates = Object.values(returnByCity)
       .filter((d) => d.total >= 3)
-      .map((d) => ({
-        city: d.city,
-        total: d.total,
-        delivered: d.delivered,
-        returned: d.returned,
-        deliveryRate: Math.round((d.delivered / d.total) * 100 * 10) / 10,
-        returnRate: Math.round((d.returned / d.total) * 100 * 10) / 10,
-      }))
+      .map((d) => {
+        const couriers: Record<string, { total: number; delivered: number; deliveryRate: number }> = {};
+        for (const [courier, cd] of Object.entries(d.courierBreakdown)) {
+          couriers[courier] = {
+            total: cd.total,
+            delivered: cd.delivered,
+            deliveryRate: cd.total > 0 ? Math.round((cd.delivered / cd.total) * 100 * 10) / 10 : 0,
+          };
+        }
+        return {
+          city: d.city,
+          total: d.total,
+          delivered: d.delivered,
+          returned: d.returned,
+          deliveryRate: Math.round((d.delivered / d.total) * 100 * 10) / 10,
+          returnRate: Math.round((d.returned / d.total) * 100 * 10) / 10,
+          couriers,
+        };
+      })
       .sort((a, b) => b.deliveryRate - a.deliveryRate);
 
     const courierComparison = Object.entries(courierStats)
