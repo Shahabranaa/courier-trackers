@@ -43,7 +43,7 @@ interface AnalyticsData {
 
 interface PerformanceData {
   overallStats: { totalOrders: number; totalDelivered: number; totalReturned: number; avgDeliveryDays: number };
-  deliveryByCity: { city: string; avgDays: number; deliveredCount: number; postexAvg: number | null; postexCount: number; tranzoAvg: number | null; tranzoCount: number }[];
+  deliveryByCity: { city: string; avgDays: number; deliveredCount: number; couriers: Record<string, { avgDays: number; count: number }> }[];
   deliveryByCourier: { courier: string; avgDays: number; deliveredCount: number }[];
   cityReturnRates: { city: string; total: number; returned: number; rate: number }[];
   productReturnRates: { product: string; total: number; returned: number; rate: number }[];
@@ -880,10 +880,10 @@ export default function AnalyticsPage() {
                       <p className="text-xs text-gray-500">Dispatch to delivery (Most Orders First) &middot; Sync PostEx to populate delivery dates</p>
                     </div>
                     {perfData.deliveryByCourier.length > 0 && (
-                      <div className="flex gap-4 px-4 py-2 border-b border-gray-100 bg-gray-50/30">
+                      <div className="flex flex-wrap gap-4 px-4 py-2 border-b border-gray-100 bg-gray-50/30">
                         {perfData.deliveryByCourier.map((c) => (
                           <div key={c.courier} className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.courier === "PostEx" ? "#f97316" : "#8b5cf6" }} />
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COURIER_COLORS[c.courier] || "#6366f1" }} />
                             <span className="text-xs text-gray-600">{c.courier}: <strong>{c.avgDays}d</strong> avg ({c.deliveredCount})</span>
                           </div>
                         ))}
@@ -903,71 +903,76 @@ export default function AnalyticsPage() {
                         </p>
                       )}
                     </div>
-                    {perfData.deliveryByCity.length > 0 ? (
-                      <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
-                        <table className="w-full text-sm text-left">
-                          <thead className="bg-gray-50 text-gray-600 font-medium text-xs sticky top-0">
-                            <tr>
-                              <th className="px-4 py-2">City</th>
-                              <th className="px-4 py-2 text-right">PostEx</th>
-                              <th className="px-4 py-2 text-right">Tranzo</th>
-                              <th className="px-4 py-2 text-right">Combined</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {(() => {
-                              const filtered = deliveryCitySearch.trim()
-                                ? perfData.deliveryByCity.filter(c => c.city.toLowerCase().includes(deliveryCitySearch.toLowerCase()))
-                                : perfData.deliveryByCity;
-                              return filtered.length === 0 ? (
-                                <tr>
-                                  <td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-sm">
-                                    No cities match &ldquo;{deliveryCitySearch}&rdquo;
-                                  </td>
-                                </tr>
-                              ) : (
-                                filtered.map((c) => {
-                                  const getDayColor = (days: number) =>
-                                    days <= 3 ? "text-green-600 bg-green-50" : days <= 5 ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50";
-                                  return (
+                    {(() => {
+                      const allCouriersInData = new Set<string>();
+                      perfData.deliveryByCity.forEach(c => Object.keys(c.couriers).forEach(k => allCouriersInData.add(k)));
+                      const courierList = Array.from(allCouriersInData).sort();
+                      const getDayColor = (days: number) =>
+                        days <= 3 ? "text-green-600 bg-green-50" : days <= 5 ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50";
+
+                      return perfData.deliveryByCity.length > 0 ? (
+                        <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 text-gray-600 font-medium text-xs sticky top-0">
+                              <tr>
+                                <th className="px-4 py-2">City</th>
+                                {courierList.map(courier => (
+                                  <th key={courier} className="px-4 py-2 text-right">
+                                    <span className="inline-flex items-center gap-1">
+                                      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: COURIER_COLORS[courier] || "#6366f1" }} />
+                                      {courier}
+                                    </span>
+                                  </th>
+                                ))}
+                                <th className="px-4 py-2 text-right">Combined</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {(() => {
+                                const filtered = deliveryCitySearch.trim()
+                                  ? perfData.deliveryByCity.filter(c => c.city.toLowerCase().includes(deliveryCitySearch.toLowerCase()))
+                                  : perfData.deliveryByCity;
+                                return filtered.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={courierList.length + 2} className="px-4 py-6 text-center text-gray-400 text-sm">
+                                      No cities match &ldquo;{deliveryCitySearch}&rdquo;
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  filtered.map((c) => (
                                     <tr key={c.city} className="hover:bg-gray-50/50">
                                       <td className="px-4 py-3">
                                         <div className="font-medium text-gray-900">{c.city}</div>
                                         <div className="text-[10px] text-gray-400">{c.deliveredCount} delivered</div>
                                       </td>
-                                      <td className="px-4 py-3 text-right">
-                                        {c.postexAvg !== null ? (
-                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${getDayColor(c.postexAvg)}`}>
-                                            {c.postexAvg}d
-                                          </span>
-                                        ) : <span className="text-gray-300 text-xs">-</span>}
-                                      </td>
-                                      <td className="px-4 py-3 text-right">
-                                        {c.tranzoAvg !== null ? (
-                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${getDayColor(c.tranzoAvg)}`}>
-                                            {c.tranzoAvg}d
-                                          </span>
-                                        ) : <span className="text-gray-300 text-xs">-</span>}
-                                      </td>
+                                      {courierList.map(courier => (
+                                        <td key={courier} className="px-4 py-3 text-right">
+                                          {c.couriers[courier] ? (
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${getDayColor(c.couriers[courier].avgDays)}`}>
+                                              {c.couriers[courier].avgDays}d
+                                            </span>
+                                          ) : <span className="text-gray-300 text-xs">-</span>}
+                                        </td>
+                                      ))}
                                       <td className="px-4 py-3 text-right">
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${getDayColor(c.avgDays)}`}>
                                           {c.avgDays}d
                                         </span>
                                       </td>
                                     </tr>
-                                  );
-                                })
-                              );
-                            })()}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                        <Clock className="w-8 h-8 mb-2" />
-                        <p className="text-sm">No delivery time data available</p>
-                      </div>
-                    )}
+                                  ))
+                                );
+                              })()}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                          <Clock className="w-8 h-8 mb-2" />
+                          <p className="text-sm">No delivery time data available</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
