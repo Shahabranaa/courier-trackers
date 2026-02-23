@@ -48,6 +48,7 @@ interface PerformanceData {
   cityReturnRates: { city: string; total: number; returned: number; rate: number }[];
   productReturnRates: { product: string; total: number; returned: number; rate: number }[];
   courierComparison: { courier: string; total: number; delivered: number; returned: number; inTransit: number; cancelled: number; deliveryRate: number; returnRate: number }[];
+  cityDeliveryRates: { city: string; total: number; delivered: number; returned: number; deliveryRate: number; returnRate: number }[];
 }
 
 interface CustomerEntry {
@@ -218,6 +219,7 @@ export default function AnalyticsPage() {
   const [hoveredCity, setHoveredCity] = useState<{ city: string; count: number; revenue: number; percentage: number; x: number; y: number } | null>(null);
   const [deliveryCitySearch, setDeliveryCitySearch] = useState("");
   const [returnCitySearch, setReturnCitySearch] = useState("");
+  const [cityDeliveryRateSearch, setCityDeliveryRateSearch] = useState("");
 
   const getDateRange = useCallback(() => {
     const [year, month] = selectedMonth.split("-").map(Number);
@@ -1066,6 +1068,85 @@ export default function AnalyticsPage() {
                         })}
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* City-wise Delivery Rates */}
+                {perfData.cityDeliveryRates && perfData.cityDeliveryRates.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                          <MapPin className="w-5 h-5 text-indigo-500" />
+                          City-wise Delivery Rates
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">Delivery success rate by city (min. 3 orders)</p>
+                      </div>
+                      <span className="text-xs text-gray-400">{perfData.cityDeliveryRates.length} cities</span>
+                    </div>
+
+                    <div className="relative mb-4">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search city..."
+                        value={cityDeliveryRateSearch}
+                        onChange={(e) => setCityDeliveryRateSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all"
+                      />
+                    </div>
+
+                    {(() => {
+                      const filtered = cityDeliveryRateSearch
+                        ? perfData.cityDeliveryRates.filter(c => c.city.toLowerCase().includes(cityDeliveryRateSearch.toLowerCase()))
+                        : perfData.cityDeliveryRates;
+                      return filtered.length > 0 ? (
+                        <>
+                          {cityDeliveryRateSearch && <p className="text-xs text-gray-400 mb-3">Showing {filtered.length} of {perfData.cityDeliveryRates.length} cities</p>}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="text-xs text-gray-500 uppercase border-b border-gray-100">
+                                  <th className="text-left py-2.5 px-3 font-semibold">#</th>
+                                  <th className="text-left py-2.5 px-3 font-semibold">City</th>
+                                  <th className="text-center py-2.5 px-3 font-semibold">Total</th>
+                                  <th className="text-center py-2.5 px-3 font-semibold">Delivered</th>
+                                  <th className="text-center py-2.5 px-3 font-semibold">Returned</th>
+                                  <th className="text-left py-2.5 px-3 font-semibold" style={{ minWidth: 220 }}>Delivery Rate</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filtered.map((city, i) => {
+                                  const rateColor = city.deliveryRate >= 70 ? "text-green-700 bg-green-50" : city.deliveryRate >= 50 ? "text-amber-700 bg-amber-50" : "text-red-700 bg-red-50";
+                                  const barColor = city.deliveryRate >= 70 ? "bg-green-500" : city.deliveryRate >= 50 ? "bg-amber-500" : "bg-red-500";
+                                  return (
+                                    <tr key={city.city} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                                      <td className="py-2.5 px-3 text-xs text-gray-400 font-bold">{i + 1}</td>
+                                      <td className="py-2.5 px-3 font-medium text-gray-800">{city.city}</td>
+                                      <td className="py-2.5 px-3 text-center text-gray-600">{city.total}</td>
+                                      <td className="py-2.5 px-3 text-center text-green-700 font-medium">{city.delivered}</td>
+                                      <td className="py-2.5 px-3 text-center text-red-600 font-medium">{city.returned}</td>
+                                      <td className="py-2.5 px-3">
+                                        <div className="flex items-center gap-3">
+                                          <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${city.deliveryRate}%` }} />
+                                          </div>
+                                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${rateColor}`} style={{ minWidth: 48, textAlign: "center" }}>
+                                            {city.deliveryRate}%
+                                          </span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-400 text-center py-6">No cities match your search</p>
+                      );
+                    })()}
                   </div>
                 )}
 

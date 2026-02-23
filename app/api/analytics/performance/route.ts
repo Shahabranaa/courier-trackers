@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       Tranzo: { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
     };
 
-    const returnByCity: Record<string, { total: number; returned: number; city: string }> = {};
+    const returnByCity: Record<string, { total: number; delivered: number; returned: number; city: string }> = {};
     const returnByProduct: Record<string, { total: number; returned: number }> = {};
 
     for (const order of orders) {
@@ -98,9 +98,10 @@ export async function GET(req: NextRequest) {
       }
 
       if (!returnByCity[city]) {
-        returnByCity[city] = { total: 0, returned: 0, city: cityDisplay };
+        returnByCity[city] = { total: 0, delivered: 0, returned: 0, city: cityDisplay };
       }
       returnByCity[city].total++;
+      if (isDelivered) returnByCity[city].delivered++;
       if (isReturned) returnByCity[city].returned++;
 
       const productName = (order.orderDetail || "Unknown Product").trim();
@@ -182,6 +183,18 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.rate - a.rate)
       .slice(0, 15);
 
+    const cityDeliveryRates = Object.values(returnByCity)
+      .filter((d) => d.total >= 3)
+      .map((d) => ({
+        city: d.city,
+        total: d.total,
+        delivered: d.delivered,
+        returned: d.returned,
+        deliveryRate: Math.round((d.delivered / d.total) * 100 * 10) / 10,
+        returnRate: Math.round((d.returned / d.total) * 100 * 10) / 10,
+      }))
+      .sort((a, b) => b.deliveryRate - a.deliveryRate);
+
     const courierComparison = Object.entries(courierStats)
       .filter(([, d]) => d.total > 0)
       .map(([courier, d]) => ({
@@ -214,6 +227,7 @@ export async function GET(req: NextRequest) {
       cityReturnRates,
       productReturnRates,
       courierComparison,
+      cityDeliveryRates,
     });
   } catch (error: any) {
     console.error("Performance API Error:", error);
