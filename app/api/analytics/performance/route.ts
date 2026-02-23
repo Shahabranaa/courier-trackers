@@ -211,7 +211,7 @@ export async function GET(req: NextRequest) {
           couriers,
         };
       })
-      .sort((a, b) => b.deliveryRate - a.deliveryRate);
+      .sort((a, b) => b.total - a.total);
 
     const courierComparison = Object.entries(courierStats)
       .filter(([, d]) => d.total > 0)
