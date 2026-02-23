@@ -45,11 +45,30 @@ export async function GET(req: NextRequest) {
             }
 
             const data = await response.json();
-            const results = data.results || data.data || [];
+            console.log(`Tranzo invoice-orders response (page ${currentPage}): keys=${JSON.stringify(Object.keys(data))}, type=${typeof data}, isArray=${Array.isArray(data)}`);
+
+            let results: any[] = [];
+
+            if (Array.isArray(data)) {
+                results = data;
+            } else if (data.results && Array.isArray(data.results)) {
+                results = data.results;
+            } else if (data.data && Array.isArray(data.data)) {
+                results = data.data;
+            } else if (data.orders && Array.isArray(data.orders)) {
+                results = data.orders;
+            } else {
+                console.log(`Unexpected response structure (first 1000 chars): ${JSON.stringify(data).substring(0, 1000)}`);
+            }
+
+            if (results.length > 0 && currentPage === 1) {
+                console.log(`First order sample keys: ${JSON.stringify(Object.keys(results[0]))}`);
+            }
+
             allOrders.push(...results);
 
             const totalCount = data.count || data.total || 0;
-            if (!data.next || allOrders.length >= totalCount) {
+            if (!data.next || allOrders.length >= totalCount || results.length === 0) {
                 hasMore = false;
             } else {
                 currentPage++;
