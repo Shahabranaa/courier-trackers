@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
-import { Receipt, Download, Filter, RefreshCw, CheckCircle, Clock, AlertTriangle, Ban, AlertCircle, FileText } from "lucide-react";
+import { Receipt, Download, Filter, RefreshCw, CheckCircle, Clock, AlertTriangle, Ban, AlertCircle, FileText, ChevronDown, ChevronRight, Package, Loader2 } from "lucide-react";
 
 interface TranzoInvoice {
     id: number;
@@ -24,6 +24,10 @@ interface TranzoInvoice {
     settled_by: string | null;
     disputed_at: string | null;
     disputed_by: string | null;
+}
+
+interface InvoiceOrder {
+    [key: string]: any;
 }
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: any }> = {
@@ -47,6 +51,11 @@ export default function TranzoInvoicesPage() {
     const hasToken = selectedBrand?.tranzoMerchantToken && selectedBrand.tranzoMerchantToken !== "";
 
     const [syncing, setSyncing] = useState(false);
+
+    const [expandedInvoice, setExpandedInvoice] = useState<number | null>(null);
+    const [invoiceOrders, setInvoiceOrders] = useState<Record<number, InvoiceOrder[]>>({});
+    const [orderLoading, setOrderLoading] = useState<Record<number, boolean>>({});
+    const [orderError, setOrderError] = useState<Record<number, string>>({});
 
     const loadInvoicesFromDB = async () => {
         if (!selectedBrand) return;
@@ -99,6 +108,37 @@ export default function TranzoInvoicesPage() {
         }
     };
 
+    const toggleInvoiceExpand = useCallback(async (invoiceId: number) => {
+        if (expandedInvoice === invoiceId) {
+            setExpandedInvoice(null);
+            return;
+        }
+
+        setExpandedInvoice(invoiceId);
+
+        if (invoiceOrders[invoiceId]) return;
+
+        setOrderLoading(prev => ({ ...prev, [invoiceId]: true }));
+        setOrderError(prev => ({ ...prev, [invoiceId]: "" }));
+
+        try {
+            const res = await fetch(`/api/tranzo/invoice-orders?invoice_id=${invoiceId}`, {
+                headers: { "brand-id": sanitizeHeader(selectedBrand!.id) }
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to load orders");
+            }
+
+            setInvoiceOrders(prev => ({ ...prev, [invoiceId]: data.orders || [] }));
+        } catch (err: any) {
+            setOrderError(prev => ({ ...prev, [invoiceId]: err.message }));
+        } finally {
+            setOrderLoading(prev => ({ ...prev, [invoiceId]: false }));
+        }
+    }, [expandedInvoice, invoiceOrders, selectedBrand]);
+
     useEffect(() => {
         if (selectedBrand) {
             loadInvoicesFromDB();
@@ -119,16 +159,6 @@ export default function TranzoInvoicesPage() {
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 2 }).format(amount);
-    };
-
-    const formatDateTime = (dateStr: string | null) => {
-        if (!dateStr) return "-";
-        try {
-            const d = new Date(dateStr);
-            return d.toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-        } catch {
-            return dateStr;
-        }
     };
 
     const formatDate = (dateStr: string | null) => {
@@ -172,6 +202,29 @@ export default function TranzoInvoicesPage() {
         const statuses = new Set(invoices.map(inv => inv.invoice_status));
         return Array.from(statuses);
     }, [invoices]);
+
+    const getOrderColumns = (orders: InvoiceOrder[]) => {
+        if (orders.length === 0) return [];
+        const allKeys = new Set<string>();
+        orders.forEach(o => Object.keys(o).forEach(k => allKeys.add(k)));
+        const priorityKeys = ["tracking_number", "cn_number", "consignee_name", "consignee_phone", "consignee_city", "consignee_address", "order_status", "cod_amount", "delivery_charges", "net_amount", "order_date", "created_at"];
+        const ordered: string[] = [];
+        priorityKeys.forEach(k => { if (allKeys.has(k)) { ordered.push(k); allKeys.delete(k); } });
+        allKeys.forEach(k => {
+            if (k !== "id" && k !== "invoice_master_id") ordered.push(k);
+        });
+        return ordered;
+    };
+
+    const formatColumnName = (key: string) => {
+        return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    };
+
+    const formatCellValue = (value: any) => {
+        if (value === null || value === undefined) return "-";
+        if (typeof value === "object") return JSON.stringify(value);
+        return String(value);
+    };
 
     if (!selectedBrand) {
         return (
@@ -294,6 +347,7 @@ export default function TranzoInvoicesPage() {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="bg-gray-50 text-left">
+                                        <th className="px-3 py-3 w-10"></th>
                                         <th className="px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Invoice #</th>
                                         <th className="px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Type</th>
                                         <th className="px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
@@ -309,54 +363,134 @@ export default function TranzoInvoicesPage() {
                                         const statusInfo = STATUS_CONFIG[inv.invoice_status] || { color: "text-gray-700", bg: "bg-gray-50 border-gray-200", icon: Clock };
                                         const StatusIcon = statusInfo.icon;
                                         const amount = parseFloat(inv.net_amount || "0");
+                                        const isExpanded = expandedInvoice === inv.id;
+                                        const orders = invoiceOrders[inv.id] || [];
+                                        const isLoadingOrders = orderLoading[inv.id];
+                                        const orderErr = orderError[inv.id];
+                                        const columns = getOrderColumns(orders);
+
                                         return (
-                                            <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <span className="font-mono text-sm font-medium text-gray-900">{inv.invoice_number}</span>
-                                                </td>
-                                                <td className="px-6 py-4 text-gray-600 text-xs">{inv.invoice_type}</td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${statusInfo.bg} ${statusInfo.color}`}>
-                                                        <StatusIcon size={12} />
-                                                        {inv.invoice_status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="font-semibold text-gray-900">{inv.total_orders}</span>
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <span className={`font-semibold ${amount < 0 ? "text-red-600" : "text-gray-900"}`}>{formatCurrency(amount)}</span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-gray-600 text-xs">{formatDate(inv.created_at)}</div>
-                                                    <div className="text-gray-400 text-[10px]">by {inv.created_by}</div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {inv.approved_at ? (
-                                                        <>
-                                                            <div className="text-gray-600 text-xs">{formatDate(inv.approved_at)}</div>
-                                                            <div className="text-gray-400 text-[10px]">by {inv.approved_by}</div>
-                                                        </>
-                                                    ) : (
-                                                        <span className="text-gray-300 text-xs">-</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {inv.settled_at ? (
-                                                        <>
-                                                            <div className="text-gray-600 text-xs">{formatDate(inv.settled_at)}</div>
-                                                            <div className="text-gray-400 text-[10px]">by {inv.settled_by}</div>
-                                                        </>
-                                                    ) : (
-                                                        <span className="text-gray-300 text-xs">-</span>
-                                                    )}
-                                                </td>
-                                            </tr>
+                                            <>
+                                                <tr
+                                                    key={inv.id}
+                                                    className={`hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? "bg-violet-50/50" : ""}`}
+                                                    onClick={() => hasToken && toggleInvoiceExpand(inv.id)}
+                                                >
+                                                    <td className="px-3 py-4 text-center">
+                                                        {hasToken ? (
+                                                            isExpanded ? (
+                                                                <ChevronDown size={16} className="text-violet-500 mx-auto" />
+                                                            ) : (
+                                                                <ChevronRight size={16} className="text-gray-400 mx-auto" />
+                                                            )
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="font-mono text-sm font-medium text-gray-900">{inv.invoice_number}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-gray-600 text-xs">{inv.invoice_type}</td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${statusInfo.bg} ${statusInfo.color}`}>
+                                                            <StatusIcon size={12} />
+                                                            {inv.invoice_status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="font-semibold text-gray-900">{inv.total_orders}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <span className={`font-semibold ${amount < 0 ? "text-red-600" : "text-gray-900"}`}>{formatCurrency(amount)}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-gray-600 text-xs">{formatDate(inv.created_at)}</div>
+                                                        <div className="text-gray-400 text-[10px]">by {inv.created_by}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {inv.approved_at ? (
+                                                            <>
+                                                                <div className="text-gray-600 text-xs">{formatDate(inv.approved_at)}</div>
+                                                                <div className="text-gray-400 text-[10px]">by {inv.approved_by}</div>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-gray-300 text-xs">-</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {inv.settled_at ? (
+                                                            <>
+                                                                <div className="text-gray-600 text-xs">{formatDate(inv.settled_at)}</div>
+                                                                <div className="text-gray-400 text-[10px]">by {inv.settled_by}</div>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-gray-300 text-xs">-</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                {isExpanded && (
+                                                    <tr key={`${inv.id}-details`}>
+                                                        <td colSpan={9} className="p-0">
+                                                            <div className="bg-violet-50/30 border-t border-b border-violet-100 px-6 py-4">
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <Package size={16} className="text-violet-600" />
+                                                                    <h4 className="font-semibold text-sm text-gray-800">
+                                                                        Order Details for {inv.invoice_number}
+                                                                    </h4>
+                                                                    {orders.length > 0 && (
+                                                                        <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">{orders.length} orders</span>
+                                                                    )}
+                                                                </div>
+
+                                                                {isLoadingOrders ? (
+                                                                    <div className="flex items-center justify-center py-8">
+                                                                        <Loader2 size={20} className="animate-spin text-violet-500" />
+                                                                        <span className="ml-2 text-sm text-gray-500">Loading order details...</span>
+                                                                    </div>
+                                                                ) : orderErr ? (
+                                                                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
+                                                                        <AlertCircle size={16} className="text-red-500 shrink-0" />
+                                                                        <p className="text-sm text-red-700">{orderErr}</p>
+                                                                    </div>
+                                                                ) : orders.length === 0 ? (
+                                                                    <div className="text-center py-6 text-gray-400 text-sm">No orders found for this invoice</div>
+                                                                ) : (
+                                                                    <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+                                                                        <table className="w-full text-xs">
+                                                                            <thead>
+                                                                                <tr className="bg-gray-50">
+                                                                                    <th className="px-3 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">#</th>
+                                                                                    {columns.map(col => (
+                                                                                        <th key={col} className="px-3 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                                                                            {formatColumnName(col)}
+                                                                                        </th>
+                                                                                    ))}
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-gray-100">
+                                                                                {orders.map((order, idx) => (
+                                                                                    <tr key={order.id || order.tracking_number || order.cn_number || idx} className="hover:bg-gray-50/50">
+                                                                                        <td className="px-3 py-2.5 text-gray-400 font-mono">{idx + 1}</td>
+                                                                                        {columns.map(col => (
+                                                                                            <td key={col} className="px-3 py-2.5 text-gray-700 whitespace-nowrap max-w-[200px] truncate" title={formatCellValue(order[col])}>
+                                                                                                {formatCellValue(order[col])}
+                                                                                            </td>
+                                                                                        ))}
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </>
                                         );
                                     })}
                                 </tbody>
                                 <tfoot>
                                     <tr className="bg-gray-50 border-t-2 border-gray-200">
+                                        <td></td>
                                         <td className="px-6 py-3 font-bold text-gray-900" colSpan={3}>Total</td>
                                         <td className="px-6 py-3 text-center font-bold text-gray-900">{totalOrders}</td>
                                         <td className="px-6 py-3 text-right font-bold text-gray-900">{formatCurrency(totalAmount)}</td>
