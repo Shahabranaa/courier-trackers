@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import CityStats from "@/components/CityStats";
+import OrderCharts from "@/components/OrderCharts";
 import { Zap, RefreshCw, Calendar, Download, Filter, AlertCircle, Package, Search, X, MapPin, User, Truck } from "lucide-react";
 import { useBrand } from "@/components/providers/BrandContext";
 import { Order, TrackingStatus } from "@/lib/types";
@@ -375,6 +376,8 @@ export default function ZoomOrdersDashboard() {
                         </div>
 
                         {filteredOrders.length > 0 ? (
+                            <>
+                            <OrderCharts orders={filteredOrders} trackingStatuses={trackingStatuses} />
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                                     <h3 className="font-bold text-gray-900">Zoom Orders ({filteredOrders.length})</h3>
@@ -440,6 +443,7 @@ export default function ZoomOrdersDashboard() {
                                     </table>
                                 </div>
                             </div>
+                            </>
                         ) : (
                             <div className="h-64 flex flex-col items-center justify-center text-center text-gray-400 bg-white rounded-2xl border border-gray-100 border-dashed">
                                 <Package className="w-12 h-12 text-gray-200 mb-3" />
