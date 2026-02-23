@@ -36,7 +36,15 @@ export default function DashboardSidebar() {
                 { name: "Payment Receipts", href: "/tranzo/invoices" },
             ]
         },
-        { name: "Zoom Portal", href: "/zoom", icon: Zap },
+        {
+            name: "Zoom Portal",
+            href: "/zoom",
+            icon: Zap,
+            children: [
+                { name: "Shopify View", href: "/zoom" },
+                { name: "All Orders", href: "/zoom/orders" },
+            ]
+        },
         { name: "Shopify Orders", href: "/shopify", icon: ShoppingBag },
         { name: "Finance", href: "/finance", icon: Wallet },
         { name: "Analytics", href: "/analytics", icon: TrendingUp },
@@ -48,7 +56,8 @@ export default function DashboardSidebar() {
     // Let's default to expanded if pathname starts with href
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
         "/postex": true,
-        "/tranzo": true
+        "/tranzo": true,
+        "/zoom": true,
     });
 
     const toggleGroup = (href: string) => {
