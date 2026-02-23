@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Zap, RefreshCw, Calendar, Download, Filter, AlertCircle, Package, CheckCircle, Clock, TrendingUp } from "lucide-react";
+import { Zap, RefreshCw, Calendar, Download, Filter, AlertCircle, Package, CheckCircle, Clock, TrendingUp, X, MapPin, User, Truck, Search } from "lucide-react";
 import { useBrand } from "@/components/providers/BrandContext";
 
 interface ZoomOrder {
@@ -27,6 +27,17 @@ interface ZoomOrder {
     zoomTrackingNumbers: string[];
 }
 
+interface TrackingDetail {
+    trackingNumber: string;
+    shipper: string;
+    origin: string;
+    consigneeName: string;
+    destination: string;
+    currentStatus: string;
+    lastUpdate: string;
+    trackingHistory: { date: string; status: string }[];
+}
+
 export default function ZoomPortal() {
     const { selectedBrand } = useBrand();
 
@@ -38,6 +49,29 @@ export default function ZoomPortal() {
         new Date().toISOString().slice(0, 7)
     );
     const [selectedCity, setSelectedCity] = useState<string>("");
+
+    const [trackingModal, setTrackingModal] = useState<TrackingDetail | null>(null);
+    const [trackingLoading, setTrackingLoading] = useState<string | null>(null);
+    const [trackingError, setTrackingError] = useState<string | null>(null);
+
+    const fetchTracking = async (trackingNumber: string) => {
+        setTrackingLoading(trackingNumber);
+        setTrackingError(null);
+        setTrackingModal({ trackingNumber, shipper: "", origin: "", consigneeName: "", destination: "", currentStatus: "Loading...", lastUpdate: "", trackingHistory: [] });
+        try {
+            const res = await fetch(`/api/zoom/track?trackingNumber=${encodeURIComponent(trackingNumber)}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || "Failed to fetch tracking");
+            }
+            const data: TrackingDetail = await res.json();
+            setTrackingModal(data);
+        } catch (err: any) {
+            setTrackingError(err.message);
+        } finally {
+            setTrackingLoading(null);
+        }
+    };
 
     const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
 
@@ -331,9 +365,19 @@ export default function ZoomPortal() {
                                                             {order.zoomTrackingNumbers && order.zoomTrackingNumbers.length > 0 ? (
                                                                 <div className="flex flex-col gap-0.5">
                                                                     {order.zoomTrackingNumbers.map((tn, i) => (
-                                                                        <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-mono font-medium whitespace-nowrap inline-block w-fit">
+                                                                        <button
+                                                                            key={i}
+                                                                            onClick={() => fetchTracking(tn)}
+                                                                            disabled={trackingLoading === tn}
+                                                                            className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-mono font-medium whitespace-nowrap inline-flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-900 transition-colors cursor-pointer disabled:opacity-50"
+                                                                        >
+                                                                            {trackingLoading === tn ? (
+                                                                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                                                            ) : (
+                                                                                <Search className="w-3 h-3" />
+                                                                            )}
                                                                             {tn}
-                                                                        </span>
+                                                                        </button>
                                                                     ))}
                                                                 </div>
                                                             ) : (
@@ -361,6 +405,112 @@ export default function ZoomPortal() {
                 </div>
 
             </div>
+
+            {trackingModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setTrackingModal(null); setTrackingError(null); }}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between">
+                            <div>
+                                <h3 className="font-bold text-lg">Tracking Details</h3>
+                                <p className="text-blue-200 text-sm font-mono">{trackingModal.trackingNumber}</p>
+                            </div>
+                            <button onClick={() => { setTrackingModal(null); setTrackingError(null); }} className="text-white/70 hover:text-white transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {trackingLoading ? (
+                            <div className="p-12 flex flex-col items-center justify-center">
+                                <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-3" />
+                                <p className="text-sm text-gray-500">Fetching tracking details...</p>
+                            </div>
+                        ) : trackingError ? (
+                            <div className="p-6">
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                                    <AlertCircle className="w-5 h-5" />
+                                    <span className="text-sm">{trackingError}</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="overflow-y-auto max-h-[calc(85vh-80px)]">
+                                <div className="p-6 space-y-4">
+                                    <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+                                        <div className={`px-3 py-1.5 rounded-lg text-sm font-bold ${
+                                            trackingModal.currentStatus.toLowerCase() === "delivered"
+                                                ? "bg-emerald-50 text-emerald-700"
+                                                : trackingModal.currentStatus.toLowerCase().includes("return")
+                                                    ? "bg-red-50 text-red-700"
+                                                    : "bg-blue-50 text-blue-700"
+                                        }`}>
+                                            {trackingModal.currentStatus}
+                                        </div>
+                                        {trackingModal.lastUpdate && (
+                                            <span className="text-xs text-gray-400">Last update: {trackingModal.lastUpdate}</span>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-gray-50 rounded-xl p-4">
+                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                                                <Truck className="w-3.5 h-3.5" /> Shipping Info
+                                            </h4>
+                                            {trackingModal.shipper && <p className="text-sm text-gray-900 font-medium">{trackingModal.shipper}</p>}
+                                            {trackingModal.origin && (
+                                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                                    <MapPin className="w-3 h-3" /> {trackingModal.origin}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="bg-gray-50 rounded-xl p-4">
+                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                                                <User className="w-3.5 h-3.5" /> Consignee
+                                            </h4>
+                                            {trackingModal.consigneeName && <p className="text-sm text-gray-900 font-medium">{trackingModal.consigneeName}</p>}
+                                            {trackingModal.destination && (
+                                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                                    <MapPin className="w-3 h-3" /> {trackingModal.destination}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {trackingModal.trackingHistory.length > 0 && (
+                                        <div>
+                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Tracking History</h4>
+                                            <div className="space-y-0">
+                                                {trackingModal.trackingHistory.map((entry, i) => {
+                                                    const isLast = i === trackingModal.trackingHistory.length - 1;
+                                                    const isDelivered = entry.status.toLowerCase() === "delivered";
+                                                    return (
+                                                        <div key={i} className="flex gap-3 relative">
+                                                            <div className="flex flex-col items-center">
+                                                                <div className={`w-3 h-3 rounded-full border-2 mt-1 ${
+                                                                    isDelivered ? "bg-emerald-500 border-emerald-500" :
+                                                                    isLast ? "bg-blue-500 border-blue-500" :
+                                                                    "bg-white border-gray-300"
+                                                                }`} />
+                                                                {i < trackingModal.trackingHistory.length - 1 && (
+                                                                    <div className="w-0.5 h-full bg-gray-200 min-h-[32px]" />
+                                                                )}
+                                                            </div>
+                                                            <div className="pb-4 flex-1">
+                                                                <p className={`text-sm font-medium ${isDelivered ? "text-emerald-700" : "text-gray-900"}`}>
+                                                                    {entry.status}
+                                                                </p>
+                                                                <p className="text-xs text-gray-400 mt-0.5">{entry.date}</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </DashboardLayout>
     );
 }

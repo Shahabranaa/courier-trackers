@@ -29,12 +29,14 @@ The application is built using Next.js 16 with the App Router and Turbopack for 
 - **Customer Insights:** Identifies repeat customers, tracks Customer Lifetime Value (CLTV), and flags problem customers.
 - **Multi-tenancy & SaaS Auth:** Full multi-tenant SaaS with JWT-based email/password authentication. Users are created by admins via the Admin Panel (`/admin/users`). Each user manages their own brands; admins see all brands. Authentication uses HTTP-only cookies with bcryptjs password hashing and JWT tokens (7-day expiry). Default admin: `admin@hublogistic.com` / `admin123`.
 - **Shopify Integration:** Supports both Direct Admin API Access Token (Custom Apps) and Client Credentials Grant (Dev Dashboard apps) for Shopify authentication. Tracks Shopify order tags, phone numbers, and shipping addresses.
-- **Zoom Integration:** Integrates Zoom orders by filtering Shopify orders based on fulfillment courier, providing a dedicated portal.
+- **Zoom Integration:** Integrates Zoom orders by filtering Shopify orders based on fulfillment courier, providing a dedicated portal. Includes tracking detail scraping from `portal.zoomcod.com` using cheerio HTML parsing, with a modal UI showing shipping info, consignee info, and tracking history timeline.
 
 ## External Dependencies
 - **PostgreSQL:** Primary database for all application data, accessed via Prisma ORM.
 - **PostEx Merchant API:** For fetching PostEx order details, tracking information, and Cash Payment Receipts (CPR).
 - **Tranzo Merchant API (`api-merchant.tranzo.pk`, `api-integration.tranzo.pk`):** For fetching Tranzo order logs and invoice details.
 - **Shopify Admin API:** For fetching Shopify order data, including fulfillments, tags, and customer information.
+- **Zoom Courier Portal (`portal.zoomcod.com`):** Tracking page scraped server-side using cheerio for shipment tracking details.
 - **Recharts:** JavaScript charting library for data visualization.
 - **Tailwind CSS v4:** Utility-first CSS framework for styling.
+- **Cheerio:** Server-side HTML parsing library for web scraping Zoom tracking pages.
