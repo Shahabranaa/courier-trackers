@@ -5,6 +5,16 @@ import * as cheerio from "cheerio";
 
 const ZOOM_DELIVERY_FEE = 150;
 const ZOOM_COMMISSION_RATE = 0.04;
+const BATCH_SIZE = 15;
+const REQUEST_TIMEOUT_MS = 10000;
+
+const TERMINAL_STATUSES = ["delivered", "returned", "return", "cancelled", "canceled"];
+const SKIP_RESCRAPE_DAYS = 7;
+
+function isTerminalStatus(status: string): boolean {
+    const s = (status || "").toLowerCase();
+    return TERMINAL_STATUSES.some(t => s.includes(t));
+}
 
 async function scrapeTrackingStatus(trackingNumber: string): Promise<{
     currentStatus: string;
@@ -15,9 +25,13 @@ async function scrapeTrackingStatus(trackingNumber: string): Promise<{
     origin: string;
     trackingHistory: { date: string; status: string }[];
 } | null> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
     try {
         const url = `https://portal.zoomcod.com/track-detail.php?track_code=${encodeURIComponent(trackingNumber)}&track=`;
         const response = await fetch(url, {
+            signal: controller.signal,
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -72,6 +86,8 @@ async function scrapeTrackingStatus(trackingNumber: string): Promise<{
         return { currentStatus, lastUpdate, consigneeName, destination, shipper, origin, trackingHistory };
     } catch {
         return null;
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
 
@@ -142,14 +158,47 @@ export async function POST(req: NextRequest) {
         }
 
         const trackingNumbers = Object.keys(trackingMap);
+
+        // Load existing orders to check for terminal status skip
+        const existingOrders = await prisma.order.findMany({
+            where: {
+                trackingNumber: { in: trackingNumbers },
+                brandId,
+                courier: "Zoom",
+            },
+            select: { trackingNumber: true, transactionStatus: true, lastFetchedAt: true },
+        });
+        const existingMap: Record<string, { transactionStatus: string | null; lastFetchedAt: Date | null }> = {};
+        for (const o of existingOrders) {
+            existingMap[o.trackingNumber] = { transactionStatus: o.transactionStatus, lastFetchedAt: o.lastFetchedAt };
+        }
+
+        const skipCutoff = new Date(Date.now() - SKIP_RESCRAPE_DAYS * 24 * 60 * 60 * 1000);
+
         let synced = 0;
         let failed = 0;
         let skipped = 0;
 
-        const BATCH_SIZE = 5;
-        for (let i = 0; i < trackingNumbers.length; i += BATCH_SIZE) {
-            const batch = trackingNumbers.slice(i, i + BATCH_SIZE);
-            const results = await Promise.allSettled(
+        // Filter out orders we can skip
+        const toScrape: string[] = [];
+        for (const tn of trackingNumbers) {
+            const existing = existingMap[tn];
+            if (
+                existing &&
+                existing.transactionStatus &&
+                isTerminalStatus(existing.transactionStatus) &&
+                existing.lastFetchedAt &&
+                existing.lastFetchedAt > skipCutoff
+            ) {
+                skipped++;
+            } else {
+                toScrape.push(tn);
+            }
+        }
+
+        for (let i = 0; i < toScrape.length; i += BATCH_SIZE) {
+            const batch = toScrape.slice(i, i + BATCH_SIZE);
+            await Promise.allSettled(
                 batch.map(async (tn) => {
                     const shopifyOrder = trackingMap[tn];
                     const trackingData = await scrapeTrackingStatus(tn);
@@ -163,7 +212,6 @@ export async function POST(req: NextRequest) {
                     const deliveryFee = ZOOM_DELIVERY_FEE;
                     const commission = orderAmount * ZOOM_COMMISSION_RATE;
                     const netAmount = orderAmount - deliveryFee - commission;
-
                     const orderDate = shopifyOrder.createdAt || new Date().toISOString();
 
                     await prisma.order.upsert({
