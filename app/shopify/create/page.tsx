@@ -1,19 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import {
     ShoppingBag, Plus, Trash2, Loader2, CheckCircle,
-    ArrowLeft, Phone, MapPin, User, Package, FileText
+    ArrowLeft, Phone, MapPin, User, Package, FileText, Search, ChevronDown, X
 } from "lucide-react";
+
+interface ProductVariant {
+    id: number;
+    title: string;
+    price: string;
+    sku: string;
+    inventoryQuantity: number;
+}
+
+interface Product {
+    id: number;
+    title: string;
+    productType: string;
+    image: string | null;
+    variants: ProductVariant[];
+}
 
 interface LineItem {
     id: string;
     title: string;
     quantity: string;
     price: string;
+    image: string | null;
+    variantId: number | null;
 }
 
 interface CreatedOrder {
@@ -29,6 +47,157 @@ function generateId() {
     return Math.random().toString(36).substring(2, 10);
 }
 
+function ProductSelector({ onSelect, products, loadingProducts }: {
+    onSelect: (title: string, price: string, image: string | null, variantId: number | null) => void;
+    products: Product[];
+    loadingProducts: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const containerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const filtered = useMemo(() => {
+        if (!search.trim()) return products;
+        const q = search.toLowerCase();
+        return products.filter(p =>
+            p.title.toLowerCase().includes(q) ||
+            p.variants.some(v => v.title.toLowerCase().includes(q) || v.sku.toLowerCase().includes(q))
+        );
+    }, [products, search]);
+
+    return (
+        <div ref={containerRef} className="relative">
+            <button
+                type="button"
+                onClick={() => { setOpen(!open); setTimeout(() => inputRef.current?.focus(), 50); }}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-left flex items-center gap-2 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+            >
+                <Package size={14} className="text-gray-400 shrink-0" />
+                <span className="text-gray-400 flex-1">Select product...</span>
+                <ChevronDown size={14} className="text-gray-400" />
+            </button>
+
+            {open && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                    <div className="p-2 border-b border-gray-100">
+                        <div className="relative">
+                            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search products..."
+                                className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                        </div>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                        {loadingProducts ? (
+                            <div className="flex items-center justify-center py-8 text-gray-400 text-sm gap-2">
+                                <Loader2 size={16} className="animate-spin" />
+                                Loading products...
+                            </div>
+                        ) : filtered.length === 0 ? (
+                            <div className="py-6 text-center text-sm text-gray-400">
+                                {search ? "No products match your search" : "No products found"}
+                            </div>
+                        ) : (
+                            filtered.map(product => (
+                                <div key={product.id}>
+                                    {product.variants.length === 1 ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const v = product.variants[0];
+                                                onSelect(product.title, v.price, product.image, v.id);
+                                                setOpen(false);
+                                                setSearch("");
+                                            }}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-indigo-50 transition-colors text-left"
+                                        >
+                                            {product.image ? (
+                                                <img src={product.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-gray-100 shrink-0" />
+                                            ) : (
+                                                <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                                    <Package size={14} className="text-gray-400" />
+                                                </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
+                                                {product.variants[0].sku && (
+                                                    <p className="text-xs text-gray-400">SKU: {product.variants[0].sku}</p>
+                                                )}
+                                            </div>
+                                            <span className="text-sm font-bold text-gray-700 shrink-0">Rs. {parseFloat(product.variants[0].price).toLocaleString()}</span>
+                                        </button>
+                                    ) : (
+                                        <div>
+                                            <div className="flex items-center gap-3 px-3 py-2 bg-gray-50/50">
+                                                {product.image ? (
+                                                    <img src={product.image} alt="" className="w-7 h-7 rounded-md object-cover border border-gray-100 shrink-0" />
+                                                ) : (
+                                                    <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
+                                                        <Package size={12} className="text-gray-400" />
+                                                    </div>
+                                                )}
+                                                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider truncate">{product.title}</p>
+                                            </div>
+                                            {product.variants.map(v => (
+                                                <button
+                                                    key={v.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const title = v.title === "Default Title" ? product.title : `${product.title} - ${v.title}`;
+                                                        onSelect(title, v.price, product.image, v.id);
+                                                        setOpen(false);
+                                                        setSearch("");
+                                                    }}
+                                                    className="w-full flex items-center gap-3 px-3 pl-12 py-2 hover:bg-indigo-50 transition-colors text-left"
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm text-gray-700 truncate">{v.title}</p>
+                                                        {v.sku && <p className="text-xs text-gray-400">SKU: {v.sku}</p>}
+                                                    </div>
+                                                    <span className="text-sm font-bold text-gray-700 shrink-0">Rs. {parseFloat(v.price).toLocaleString()}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    <div className="border-t border-gray-100 p-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onSelect(search || "", "", null, null);
+                                setOpen(false);
+                                setSearch("");
+                            }}
+                            className="w-full text-center text-xs text-indigo-600 font-medium py-2 hover:bg-indigo-50 rounded-lg transition-colors"
+                        >
+                            + Add custom item{search ? `: "${search}"` : ""}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function CreateOrderPage() {
     const { selectedBrand } = useBrand();
 
@@ -37,24 +206,45 @@ export default function CreateOrderPage() {
     const [shippingAddress, setShippingAddress] = useState("");
     const [shippingCity, setShippingCity] = useState("");
     const [notes, setNotes] = useState("");
-    const [lineItems, setLineItems] = useState<LineItem[]>([
-        { id: generateId(), title: "", quantity: "1", price: "" }
-    ]);
+    const [lineItems, setLineItems] = useState<LineItem[]>([]);
+
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loadingProducts, setLoadingProducts] = useState(false);
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
 
-    const addLineItem = () => {
-        setLineItems(prev => [...prev, { id: generateId(), title: "", quantity: "1", price: "" }]);
+    useEffect(() => {
+        if (!selectedBrand) return;
+        setLoadingProducts(true);
+        fetch("/api/shopify/products", {
+            headers: { "brand-id": selectedBrand.id }
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.products) setProducts(data.products);
+            })
+            .catch(() => {})
+            .finally(() => setLoadingProducts(false));
+    }, [selectedBrand]);
+
+    const addProduct = (title: string, price: string, image: string | null, variantId: number | null) => {
+        setLineItems(prev => [...prev, {
+            id: generateId(),
+            title,
+            quantity: "1",
+            price,
+            image,
+            variantId,
+        }]);
     };
 
     const removeLineItem = (id: string) => {
-        if (lineItems.length <= 1) return;
         setLineItems(prev => prev.filter(item => item.id !== id));
     };
 
-    const updateLineItem = (id: string, field: keyof LineItem, value: string) => {
+    const updateLineItem = (id: string, field: "quantity" | "price" | "title", value: string) => {
         setLineItems(prev => prev.map(item =>
             item.id === id ? { ...item, [field]: value } : item
         ));
@@ -123,7 +313,7 @@ export default function CreateOrderPage() {
         setShippingAddress("");
         setShippingCity("");
         setNotes("");
-        setLineItems([{ id: generateId(), title: "", quantity: "1", price: "" }]);
+        setLineItems([]);
         setCreatedOrder(null);
         setError(null);
     };
@@ -283,78 +473,94 @@ export default function CreateOrderPage() {
                                     <Package size={16} className="text-indigo-500" />
                                     Order Items
                                 </h3>
-                                <button
-                                    type="button"
-                                    onClick={addLineItem}
-                                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 transition-colors"
-                                >
-                                    <Plus size={14} />
-                                    Add Item
-                                </button>
+                                <span className="text-xs text-gray-400">
+                                    {products.length > 0 ? `${products.length} products loaded` : loadingProducts ? "Loading..." : ""}
+                                </span>
                             </div>
 
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-12 gap-3 text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-                                    <div className="col-span-5">Item Name</div>
-                                    <div className="col-span-2">Qty</div>
-                                    <div className="col-span-3">Price (Rs.)</div>
-                                    <div className="col-span-2 text-right">Subtotal</div>
-                                </div>
+                            <div className="mb-4">
+                                <ProductSelector
+                                    products={products}
+                                    loadingProducts={loadingProducts}
+                                    onSelect={addProduct}
+                                />
+                            </div>
 
-                                {lineItems.map((item) => {
-                                    const subtotal = (parseInt(item.quantity) || 0) * (parseFloat(item.price) || 0);
-                                    return (
-                                        <div key={item.id} className="grid grid-cols-12 gap-3 items-center">
-                                            <div className="col-span-5">
-                                                <input
-                                                    type="text"
-                                                    value={item.title}
-                                                    onChange={e => updateLineItem(item.id, "title", e.target.value)}
-                                                    placeholder="Product name"
-                                                    required
-                                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                />
-                                            </div>
-                                            <div className="col-span-2">
-                                                <input
-                                                    type="number"
-                                                    value={item.quantity}
-                                                    onChange={e => updateLineItem(item.id, "quantity", e.target.value)}
-                                                    min="1"
-                                                    required
-                                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                />
-                                            </div>
-                                            <div className="col-span-3">
-                                                <input
-                                                    type="number"
-                                                    value={item.price}
-                                                    onChange={e => updateLineItem(item.id, "price", e.target.value)}
-                                                    placeholder="0"
-                                                    min="0"
-                                                    step="1"
-                                                    required
-                                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                                />
-                                            </div>
-                                            <div className="col-span-2 flex items-center justify-end gap-2">
-                                                <span className="text-sm font-medium text-gray-700">
-                                                    {subtotal > 0 ? `Rs. ${subtotal.toLocaleString()}` : "-"}
-                                                </span>
-                                                {lineItems.length > 1 && (
+                            {lineItems.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-12 gap-3 text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+                                        <div className="col-span-5">Item</div>
+                                        <div className="col-span-2">Qty</div>
+                                        <div className="col-span-3">Price (Rs.)</div>
+                                        <div className="col-span-2 text-right">Subtotal</div>
+                                    </div>
+
+                                    {lineItems.map((item) => {
+                                        const subtotal = (parseInt(item.quantity) || 0) * (parseFloat(item.price) || 0);
+                                        return (
+                                            <div key={item.id} className="grid grid-cols-12 gap-3 items-center bg-gray-50/50 rounded-xl p-2">
+                                                <div className="col-span-5 flex items-center gap-2">
+                                                    {item.image ? (
+                                                        <img src={item.image} alt="" className="w-8 h-8 rounded-lg object-cover border border-gray-100 shrink-0" />
+                                                    ) : (
+                                                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                                            <Package size={12} className="text-gray-400" />
+                                                        </div>
+                                                    )}
+                                                    <input
+                                                        type="text"
+                                                        value={item.title}
+                                                        onChange={e => updateLineItem(item.id, "title", e.target.value)}
+                                                        placeholder="Product name"
+                                                        required
+                                                        className="w-full px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <input
+                                                        type="number"
+                                                        value={item.quantity}
+                                                        onChange={e => updateLineItem(item.id, "quantity", e.target.value)}
+                                                        min="1"
+                                                        required
+                                                        className="w-full px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                    />
+                                                </div>
+                                                <div className="col-span-3">
+                                                    <input
+                                                        type="number"
+                                                        value={item.price}
+                                                        onChange={e => updateLineItem(item.id, "price", e.target.value)}
+                                                        placeholder="0"
+                                                        min="0"
+                                                        step="1"
+                                                        required
+                                                        className="w-full px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2 flex items-center justify-end gap-1">
+                                                    <span className="text-sm font-medium text-gray-700">
+                                                        {subtotal > 0 ? `${subtotal.toLocaleString()}` : "-"}
+                                                    </span>
                                                     <button
                                                         type="button"
                                                         onClick={() => removeLineItem(item.id)}
                                                         className="p-1 text-gray-400 hover:text-red-500 transition-colors"
                                                     >
-                                                        <Trash2 size={14} />
+                                                        <X size={14} />
                                                     </button>
-                                                )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {lineItems.length === 0 && (
+                                <div className="text-center py-8 text-gray-400 text-sm">
+                                    Select products from the dropdown above to add them to the order
+                                </div>
+                            )}
 
                             <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
                                 <div className="text-right">
@@ -387,7 +593,7 @@ export default function CreateOrderPage() {
                             </Link>
                             <button
                                 type="submit"
-                                disabled={submitting || !selectedBrand}
+                                disabled={submitting || !selectedBrand || lineItems.length === 0}
                                 className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 shadow-sm"
                             >
                                 {submitting ? (
