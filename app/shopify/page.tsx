@@ -6,7 +6,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import {
     ShoppingBag, RefreshCw, Calendar, TrendingUp, Package,
-    Truck, ArrowRight, CheckCircle, Clock, XCircle, AlertTriangle, X, MessageSquare, Save, Loader2
+    Truck, ArrowRight, CheckCircle, Clock, XCircle, AlertTriangle, X, MessageSquare, Save, Loader2, Plus
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -30,6 +30,7 @@ interface ShopifyOrderData {
     shippingCity: string;
     tags: string;
     pendingRemark: string;
+    source?: string;
 }
 
 interface DailyComparison {
@@ -51,6 +52,7 @@ export default function ShopifyOrdersPage() {
     const [courierOrders, setCourierOrders] = useState<any[]>([]);
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [error, setError] = useState<string | null>(null);
+    const [sourceFilter, setSourceFilter] = useState<"all" | "app" | "synced">("all");
 
     const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
 
@@ -245,6 +247,18 @@ export default function ShopifyOrdersPage() {
     const [localRemarks, setLocalRemarks] = useState<Record<string, string>>({});
     const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
+    const filteredOrders = useMemo(() => {
+        if (sourceFilter === "all") return shopifyOrders;
+        if (sourceFilter === "app") {
+            return shopifyOrders.filter(o =>
+                o.source === "app" || (o.tags || "").toLowerCase().includes("hublogistic-app")
+            );
+        }
+        return shopifyOrders.filter(o =>
+            o.source !== "app" && !(o.tags || "").toLowerCase().includes("hublogistic-app")
+        );
+    }, [shopifyOrders, sourceFilter]);
+
     const pendingOrdersForDate = useMemo(() => {
         if (!pendingModalDate) return [];
         return shopifyOrders.filter(o => {
@@ -336,6 +350,15 @@ export default function ShopifyOrdersPage() {
                                 className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none shadow-sm hover:border-gray-300 transition-all cursor-pointer"
                             />
                         </div>
+                        <select
+                            value={sourceFilter}
+                            onChange={e => setSourceFilter(e.target.value as "all" | "app" | "synced")}
+                            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none shadow-sm hover:border-gray-300 transition-all cursor-pointer"
+                        >
+                            <option value="all">All Orders</option>
+                            <option value="app">App Created</option>
+                            <option value="synced">Synced Only</option>
+                        </select>
                         <button
                             onClick={() => fetchData(true)}
                             disabled={syncing || !hasShopifyCredentials}
@@ -344,6 +367,13 @@ export default function ShopifyOrdersPage() {
                             <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
                             {syncing ? "Syncing..." : "Sync Live Data"}
                         </button>
+                        <Link
+                            href="/shopify/create"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Create Order
+                        </Link>
                     </div>
                 </div>
 
@@ -604,7 +634,7 @@ export default function ShopifyOrdersPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
                         <h3 className="text-lg font-bold text-gray-900">Recent Orders</h3>
-                        <span className="text-sm text-gray-500">{shopifyOrders.length} orders</span>
+                        <span className="text-sm text-gray-500">{filteredOrders.length} orders{sourceFilter !== "all" ? ` (${sourceFilter === "app" ? "App Created" : "Synced"})` : ""}</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full">
@@ -620,7 +650,7 @@ export default function ShopifyOrdersPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {shopifyOrders.slice(0, 50).map(order => {
+                                {filteredOrders.slice(0, 50).map(order => {
                                     const fulfillStatus = (order.fulfillmentStatus || "unfulfilled").toLowerCase();
                                     const trackingNums: string[] = JSON.parse(order.trackingNumbers || "[]");
 
@@ -632,7 +662,14 @@ export default function ShopifyOrdersPage() {
 
                                     return (
                                         <tr key={order.shopifyOrderId} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-6 py-3 text-sm font-medium text-gray-900">{order.orderName}</td>
+                                            <td className="px-6 py-3 text-sm font-medium text-gray-900">
+                                                <span className="flex items-center gap-1.5">
+                                                    {order.orderName}
+                                                    {(order.source === "app" || (order.tags || "").toLowerCase().includes("hublogistic-app")) && (
+                                                        <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">App</span>
+                                                    )}
+                                                </span>
+                                            </td>
                                             <td className="px-6 py-3 text-sm text-gray-600">{order.customerName || "-"}</td>
                                             <td className="px-6 py-3 text-sm text-gray-500">
                                                 {new Date(order.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}

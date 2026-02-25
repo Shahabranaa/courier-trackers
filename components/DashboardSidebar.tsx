@@ -45,7 +45,15 @@ export default function DashboardSidebar() {
                 { name: "All Orders", href: "/zoom/orders" },
             ]
         },
-        { name: "Shopify Orders", href: "/shopify", icon: ShoppingBag },
+        {
+            name: "Shopify Orders",
+            href: "/shopify",
+            icon: ShoppingBag,
+            children: [
+                { name: "All Orders", href: "/shopify" },
+                { name: "Create Order", href: "/shopify/create" },
+            ]
+        },
         { name: "Finance", href: "/finance", icon: Wallet },
         { name: "Analytics", href: "/analytics", icon: TrendingUp },
         { name: "Return Discrepancies", href: "/discrepancies", icon: GitCompare },
@@ -58,6 +66,7 @@ export default function DashboardSidebar() {
         "/postex": true,
         "/tranzo": true,
         "/zoom": true,
+        "/shopify": true,
     });
 
     const toggleGroup = (href: string) => {
