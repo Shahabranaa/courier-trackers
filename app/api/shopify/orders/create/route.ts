@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
 
         const nameParts = customerName.trim().split(/\s+/);
         const firstName = nameParts[0] || "";
-        const lastName = nameParts.slice(1).join(" ") || "";
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
 
         const shopifyOrder = {
             order: {
