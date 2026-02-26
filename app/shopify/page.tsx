@@ -6,7 +6,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import {
     ShoppingBag, RefreshCw, Calendar, TrendingUp, Package,
-    Truck, ArrowRight, CheckCircle, Clock, XCircle, AlertTriangle, X, MessageSquare, Save, Loader2, Plus
+    Truck, ArrowRight, CheckCircle, Clock, XCircle, AlertTriangle, X, MessageSquare, Save, Loader2, Plus, Edit3
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -647,6 +647,7 @@ export default function ShopifyOrdersPage() {
                                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
                                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Courier</th>
                                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Amount</th>
+                                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase w-16"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -712,12 +713,19 @@ export default function ShopifyOrdersPage() {
                                             <td className="px-6 py-3 text-right text-sm font-bold text-gray-900 font-mono">
                                                 Rs. {Math.round(order.totalPrice).toLocaleString()}
                                             </td>
+                                            <td className="px-6 py-3 text-center">
+                                                {(order.source === "app" || (order.tags || "").toLowerCase().includes("hublogistic-app")) && (
+                                                    <Link href={`/shopify/edit/${order.shopifyOrderId}`} className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit order">
+                                                        <Edit3 size={13} />
+                                                    </Link>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })}
                                 {shopifyOrders.length === 0 && !loading && (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-12 text-center text-gray-400 text-sm">
+                                        <td colSpan={8} className="px-6 py-12 text-center text-gray-400 text-sm">
                                             No orders to display
                                         </td>
                                     </tr>
