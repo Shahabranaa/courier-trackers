@@ -298,7 +298,9 @@ export default function CreateOrderPage() {
     const [shippingAddress, setShippingAddress] = useState("");
     const [shippingCity, setShippingCity] = useState("");
     const [notes, setNotes] = useState("");
-    const [deliveryFee, setDeliveryFee] = useState("0");
+    const [deliveryFee, setDeliveryFee] = useState("190");
+    const [freeDelivery, setFreeDelivery] = useState(false);
+    const [manualDeliveryOverride, setManualDeliveryOverride] = useState(false);
     const [lineItems, setLineItems] = useState<LineItem[]>([]);
 
     const [products, setProducts] = useState<Product[]>([]);
@@ -386,7 +388,19 @@ export default function CreateOrderPage() {
         const price = parseFloat(item.price) || 0;
         return sum + (qty * price);
     }, 0);
-    const deliveryFeeNum = parseFloat(deliveryFee) || 0;
+
+    useEffect(() => {
+        if (manualDeliveryOverride) return;
+        if (itemsTotal >= 2200) {
+            setFreeDelivery(true);
+            setDeliveryFee("0");
+        } else {
+            setFreeDelivery(false);
+            setDeliveryFee("190");
+        }
+    }, [itemsTotal, manualDeliveryOverride]);
+
+    const deliveryFeeNum = freeDelivery ? 0 : (parseFloat(deliveryFee) || 0);
     const totalAmount = itemsTotal + deliveryFeeNum;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -447,7 +461,9 @@ export default function CreateOrderPage() {
         setShippingAddress("");
         setShippingCity("");
         setNotes("");
-        setDeliveryFee("0");
+        setDeliveryFee("190");
+        setFreeDelivery(false);
+        setManualDeliveryOverride(false);
         setLineItems([]);
         setCreatedOrder(null);
         setError(null);
@@ -760,27 +776,57 @@ export default function CreateOrderPage() {
 
                                 <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-sm font-medium text-gray-700">Delivery Fee (Rs.)</label>
+                                        <div className="flex items-center gap-3">
+                                            <label className="text-sm font-medium text-gray-700">Delivery Fee (Rs.)</label>
+                                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={freeDelivery}
+                                                    onChange={e => {
+                                                        setManualDeliveryOverride(true);
+                                                        setFreeDelivery(e.target.checked);
+                                                        if (e.target.checked) {
+                                                            setDeliveryFee("0");
+                                                        } else {
+                                                            setDeliveryFee("190");
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span className="text-xs font-medium text-green-600">Free Delivery</span>
+                                            </label>
+                                        </div>
                                         <input
                                             type="number"
-                                            value={deliveryFee}
-                                            onChange={e => setDeliveryFee(e.target.value)}
+                                            value={freeDelivery ? "0" : deliveryFee}
+                                            onChange={e => {
+                                                setManualDeliveryOverride(true);
+                                                setDeliveryFee(e.target.value);
+                                                setFreeDelivery(false);
+                                            }}
                                             min="0"
                                             step="1"
                                             placeholder="0"
-                                            className="w-32 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                            disabled={freeDelivery}
+                                            className={`w-32 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-1 focus:ring-indigo-500 ${freeDelivery ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-50"}`}
                                         />
                                     </div>
+                                    {itemsTotal >= 2200 && !manualDeliveryOverride && (
+                                        <p className="text-xs text-green-600">Free delivery applied (order over Rs. 2,200)</p>
+                                    )}
+                                    {itemsTotal < 2200 && (
+                                        <p className="text-xs text-gray-400">Free delivery on orders over Rs. 2,200</p>
+                                    )}
                                     <div className="flex items-center justify-between text-sm text-gray-500">
                                         <span>Items Subtotal</span>
                                         <span>Rs. {itemsTotal.toLocaleString()}</span>
                                     </div>
-                                    {deliveryFeeNum > 0 && (
-                                        <div className="flex items-center justify-between text-sm text-gray-500">
-                                            <span>Delivery</span>
-                                            <span>Rs. {deliveryFeeNum.toLocaleString()}</span>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center justify-between text-sm text-gray-500">
+                                        <span>Delivery</span>
+                                        <span className={freeDelivery ? "text-green-600 font-medium" : ""}>
+                                            {freeDelivery ? "FREE" : `Rs. ${deliveryFeeNum.toLocaleString()}`}
+                                        </span>
+                                    </div>
                                     <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                                         <p className="text-xs text-gray-500 uppercase tracking-wider">Total Amount</p>
                                         <p className="text-2xl font-bold text-gray-900">Rs. {totalAmount.toLocaleString()}</p>
