@@ -298,6 +298,7 @@ export default function CreateOrderPage() {
     const [shippingAddress, setShippingAddress] = useState("");
     const [shippingCity, setShippingCity] = useState("");
     const [notes, setNotes] = useState("");
+    const [deliveryFee, setDeliveryFee] = useState("0");
     const [lineItems, setLineItems] = useState<LineItem[]>([]);
 
     const [products, setProducts] = useState<Product[]>([]);
@@ -380,11 +381,13 @@ export default function CreateOrderPage() {
         ));
     };
 
-    const totalAmount = lineItems.reduce((sum, item) => {
+    const itemsTotal = lineItems.reduce((sum, item) => {
         const qty = parseInt(item.quantity) || 0;
         const price = parseFloat(item.price) || 0;
         return sum + (qty * price);
     }, 0);
+    const deliveryFeeNum = parseFloat(deliveryFee) || 0;
+    const totalAmount = itemsTotal + deliveryFeeNum;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -420,6 +423,7 @@ export default function CreateOrderPage() {
                         price: parseFloat(item.price),
                     })),
                     notes,
+                    deliveryFee: deliveryFeeNum,
                 }),
             });
 
@@ -443,6 +447,7 @@ export default function CreateOrderPage() {
         setShippingAddress("");
         setShippingCity("");
         setNotes("");
+        setDeliveryFee("0");
         setLineItems([]);
         setCreatedOrder(null);
         setError(null);
@@ -753,8 +758,30 @@ export default function CreateOrderPage() {
                                     </div>
                                 )}
 
-                                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
-                                    <div className="text-right">
+                                <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-medium text-gray-700">Delivery Fee (Rs.)</label>
+                                        <input
+                                            type="number"
+                                            value={deliveryFee}
+                                            onChange={e => setDeliveryFee(e.target.value)}
+                                            min="0"
+                                            step="1"
+                                            placeholder="0"
+                                            className="w-32 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm text-gray-500">
+                                        <span>Items Subtotal</span>
+                                        <span>Rs. {itemsTotal.toLocaleString()}</span>
+                                    </div>
+                                    {deliveryFeeNum > 0 && (
+                                        <div className="flex items-center justify-between text-sm text-gray-500">
+                                            <span>Delivery</span>
+                                            <span>Rs. {deliveryFeeNum.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                                         <p className="text-xs text-gray-500 uppercase tracking-wider">Total Amount</p>
                                         <p className="text-2xl font-bold text-gray-900">Rs. {totalAmount.toLocaleString()}</p>
                                     </div>

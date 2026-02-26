@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { customerName, phone, shippingAddress, shippingCity, lineItems, notes } = body;
+    const { customerName, phone, shippingAddress, shippingCity, lineItems, notes, deliveryFee } = body;
 
     if (!customerName || !phone || !shippingAddress || !shippingCity) {
         return NextResponse.json({ error: "Customer name, phone, shipping address, and city are required" }, { status: 400 });
@@ -138,7 +138,9 @@ export async function POST(req: NextRequest) {
         const firstName = nameParts[0] || "";
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
 
-        const shopifyOrder = {
+        const parsedDeliveryFee = parseFloat(deliveryFee) || 0;
+
+        const shopifyOrder: any = {
             order: {
                 line_items: lineItems.map((item: any) => ({
                     title: item.title,
@@ -173,6 +175,13 @@ export async function POST(req: NextRequest) {
                 send_fulfillment_receipt: false,
             }
         };
+
+        if (parsedDeliveryFee > 0) {
+            shopifyOrder.order.shipping_lines = [{
+                title: "Delivery",
+                price: parsedDeliveryFee.toFixed(2),
+            }];
+        }
 
         const createUrl = `https://${storeDomain}/admin/api/2024-10/orders.json`;
         let response = await fetch(createUrl, {
