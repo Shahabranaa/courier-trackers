@@ -42,6 +42,10 @@ interface CreatedOrder {
     totalPrice: number;
     customerName: string;
     status: string;
+    phone: string;
+    address: string;
+    city: string;
+    createdAt: string;
 }
 
 interface ParsedData {
@@ -447,7 +451,13 @@ export default function CreateOrderPage() {
                 throw new Error(data.error || "Failed to create order");
             }
 
-            setCreatedOrder(data.order);
+            setCreatedOrder({
+                ...data.order,
+                phone,
+                address: shippingAddress,
+                city: shippingCity,
+                createdAt: new Date().toISOString(),
+            });
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -494,12 +504,33 @@ export default function CreateOrderPage() {
                                     <span className="text-sm font-medium text-gray-900">{createdOrder.customerName}</span>
                                 </div>
                                 <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Phone</span>
+                                    <span className="text-sm font-medium text-gray-900">{createdOrder.phone}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Address</span>
+                                    <span className="text-sm font-medium text-gray-900 text-right max-w-[60%]">{createdOrder.address}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500">City</span>
+                                    <span className="text-sm font-medium text-gray-900">{createdOrder.city}</span>
+                                </div>
+                                <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Total</span>
                                     <span className="text-sm font-bold text-green-600">Rs. {createdOrder.totalPrice.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Created At</span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                        {new Date(createdOrder.createdAt).toLocaleString("en-PK", {
+                                            dateStyle: "medium",
+                                            timeStyle: "short",
+                                        })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Status</span>
-                                    <span className="text-xs font-medium px-2 py-1 bg-amber-100 text-amber-700 rounded-full capitalize">{createdOrder.status}</span>
+                                    <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-full">Order Created</span>
                                 </div>
                             </div>
 
