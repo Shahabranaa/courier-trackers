@@ -220,14 +220,21 @@ export default function TranzoDashboard() {
     const monthlyStats = useMemo(() => {
         const stats = { count: 0, revenue: 0, net: 0, delivered: 0, returned: 0 };
         orders.forEach(o => {
-            // STRICT: Order Date (Dispatch Date) - already loaded for selected month
             stats.count++;
             stats.revenue += (o.orderAmount || o.invoicePayment || 0);
-            stats.net += (o.netAmount || 0);
 
             const status = (o.transactionStatus || "").toLowerCase();
-            if (status === "delivered" || status === "payment transferred" || status === "transferred") stats.delivered++;
-            if (status.includes("return")) stats.returned++;
+            const isDelivered = status === "delivered" || status === "payment transferred" || status === "transferred";
+            const isReturned = status.includes("return");
+
+            if (isDelivered) {
+                stats.delivered++;
+                stats.net += (o.netAmount || 0);
+            }
+            if (isReturned) {
+                stats.returned++;
+                stats.net -= (o.transactionFee || 0);
+            }
         });
         return stats;
     }, [orders]);

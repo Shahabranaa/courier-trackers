@@ -86,14 +86,20 @@ export async function GET(req: NextRequest) {
 
                 const m = months[monthKey];
                 m.totalOrders++;
-                if (isDelivered(o)) m.deliveredOrders++;
-                if (isReturn(o)) m.returnedOrders++;
+                const delivered = isDelivered(o);
+                const returned = isReturn(o);
+                if (delivered) m.deliveredOrders++;
+                if (returned) m.returnedOrders++;
                 m.grossAmount += o.invoicePayment || 0;
                 m.fees += o.transactionFee || 0;
                 m.taxes += o.transactionTax || 0;
                 m.withholdingTax += o.salesWithholdingTax || 0;
                 m.upfrontPayments += o.upfrontPayment || 0;
-                m.netAmount += o.netAmount || 0;
+                if (delivered) {
+                    m.netAmount += o.netAmount || 0;
+                } else if (returned) {
+                    m.netAmount -= o.transactionFee || 0;
+                }
 
                 let dayKey = dateStr;
                 try {
@@ -119,14 +125,18 @@ export async function GET(req: NextRequest) {
                 }
                 const day = m.days[dayKey];
                 day.totalOrders++;
-                if (isDelivered(o)) day.deliveredOrders++;
-                if (isReturn(o)) day.returnedOrders++;
+                if (delivered) day.deliveredOrders++;
+                if (returned) day.returnedOrders++;
                 day.grossAmount += o.invoicePayment || 0;
                 day.fees += o.transactionFee || 0;
                 day.taxes += o.transactionTax || 0;
                 day.withholdingTax += o.salesWithholdingTax || 0;
                 day.upfrontPayments += o.upfrontPayment || 0;
-                day.netAmount += o.netAmount || 0;
+                if (delivered) {
+                    day.netAmount += o.netAmount || 0;
+                } else if (returned) {
+                    day.netAmount -= o.transactionFee || 0;
+                }
             }
 
             return Object.values(months)
@@ -161,7 +171,11 @@ export async function GET(req: NextRequest) {
             taxes: tranzoOrders.reduce((s, o) => s + (o.transactionTax || 0), 0),
             withholdingTax: 0,
             upfrontPayments: 0,
-            netAmount: tranzoOrders.reduce((s, o) => s + (o.netAmount || 0), 0),
+            netAmount: tranzoOrders.reduce((s, o) => {
+                if (isDelivered(o)) return s + (o.netAmount || 0);
+                if (isReturn(o)) return s - (o.transactionFee || 0);
+                return s;
+            }, 0),
         };
 
         const shopifyRevenue = shopifyOrders.reduce((s, o) => s + (o.totalPrice || 0), 0);

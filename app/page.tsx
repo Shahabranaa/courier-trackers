@@ -175,14 +175,22 @@ export default function UnifiedDashboard() {
       const day = getDay(o.orderDate || o.transactionDate);
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
       const status = (o.orderStatus || o.transactionStatus || "Unknown").toLowerCase();
-      const net = parseFloat(o.netAmount || "0");
-      if (!status.includes("cancel") && !status.includes("return")) {
-        dailyMap[day].tranzoOrders += 1;
+      if (status.includes("cancel")) return;
+      const isDelivered = status === "delivered" || status.includes("transferred");
+      const isReturned = status.includes("return");
+      dailyMap[day].tranzoOrders += 1;
+      dailyMap[day].totalOrders += 1;
+      totOrders++;
+      if (isDelivered) {
+        const net = parseFloat(o.netAmount || "0");
         dailyMap[day].tranzoNet += net;
-        dailyMap[day].totalOrders += 1;
         dailyMap[day].totalNet += net;
-        totOrders++;
         totNet += net;
+      } else if (isReturned) {
+        const fee = parseFloat(o.transactionFee || "0");
+        dailyMap[day].tranzoNet -= fee;
+        dailyMap[day].totalNet -= fee;
+        totNet -= fee;
       }
     });
 
