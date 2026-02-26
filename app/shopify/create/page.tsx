@@ -5,9 +5,9 @@ import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import {
-    ShoppingBag, Plus, Trash2, Loader2, CheckCircle,
+    ShoppingBag, Plus, Loader2, CheckCircle,
     ArrowLeft, Phone, MapPin, User, Package, FileText, Search, ChevronDown, X,
-    ClipboardPaste, AlertCircle, Check, Edit3
+    ClipboardPaste, Edit3
 } from "lucide-react";
 
 interface ProductVariant {
@@ -291,8 +291,6 @@ export default function CreateOrderPage() {
 
     const [mode, setMode] = useState<"quick" | "manual">("quick");
     const [pasteText, setPasteText] = useState("");
-    const [parsed, setParsed] = useState<ParsedData | null>(null);
-    const [showConfirm, setShowConfirm] = useState(false);
     const [filledFromPaste, setFilledFromPaste] = useState(false);
 
     const [customerName, setCustomerName] = useState("");
@@ -326,19 +324,14 @@ export default function CreateOrderPage() {
     const handleParse = () => {
         if (!pasteText.trim()) return;
         const data = parseWhatsAppMessage(pasteText);
-        setParsed(data);
-        setShowConfirm(true);
-    };
 
-    const handleConfirmAndFill = () => {
-        if (!parsed) return;
-        setCustomerName(parsed.name);
-        setPhone(parsed.phone);
-        setShippingAddress(parsed.address);
-        setShippingCity(parsed.city);
+        setCustomerName(data.name);
+        setPhone(data.phone);
+        setShippingAddress(data.address);
+        setShippingCity(data.city);
 
-        if (parsed.product) {
-            const match = fuzzyMatchProduct(parsed.product, products);
+        if (data.product) {
+            const match = fuzzyMatchProduct(data.product, products);
             if (match) {
                 const title = match.variant.title === "Default Title"
                     ? match.product.title
@@ -354,7 +347,7 @@ export default function CreateOrderPage() {
             } else {
                 setLineItems([{
                     id: generateId(),
-                    title: parsed.product,
+                    title: data.product,
                     quantity: "1",
                     price: "",
                     image: null,
@@ -363,7 +356,6 @@ export default function CreateOrderPage() {
             }
         }
 
-        setShowConfirm(false);
         setFilledFromPaste(true);
     };
 
@@ -455,8 +447,6 @@ export default function CreateOrderPage() {
         setCreatedOrder(null);
         setError(null);
         setPasteText("");
-        setParsed(null);
-        setShowConfirm(false);
         setFilledFromPaste(false);
         setMode("quick");
     };
@@ -515,8 +505,6 @@ export default function CreateOrderPage() {
         );
     }
 
-    const parsedProductMatch = parsed?.product ? fuzzyMatchProduct(parsed.product, products) : null;
-
     return (
         <DashboardLayout>
             <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-6">
@@ -566,7 +554,7 @@ export default function CreateOrderPage() {
                         </div>
                     )}
 
-                    {mode === "quick" && !showConfirm && (
+                    {mode === "quick" && !filledFromPaste && (
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
                             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <ClipboardPaste size={16} className="text-indigo-500" />
@@ -598,92 +586,6 @@ export default function CreateOrderPage() {
                                 >
                                     <Search size={16} />
                                     Parse Order
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {mode === "quick" && showConfirm && parsed && (
-                        <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm p-6 mb-6">
-                            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <CheckCircle size={16} className="text-indigo-500" />
-                                Confirm Parsed Values
-                            </h3>
-                            <div className="space-y-3">
-                                {[
-                                    { label: "Name", key: "name" as const, icon: User },
-                                    { label: "Phone", key: "phone" as const, icon: Phone },
-                                    { label: "Address", key: "address" as const, icon: MapPin },
-                                    { label: "City", key: "city" as const, icon: MapPin },
-                                ].map(({ label, key, icon: Icon }) => (
-                                    <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-                                        <Icon size={16} className={parsed[key] ? "text-green-500" : "text-red-400"} />
-                                        <div className="flex-1">
-                                            <p className="text-xs font-semibold text-gray-500 uppercase mb-1">{label}</p>
-                                            <input
-                                                type="text"
-                                                value={parsed[key]}
-                                                onChange={e => setParsed({ ...parsed, [key]: e.target.value })}
-                                                placeholder={`Enter ${label.toLowerCase()}`}
-                                                className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                            />
-                                        </div>
-                                        {parsed[key] ? (
-                                            <Check size={16} className="text-green-500 shrink-0" />
-                                        ) : (
-                                            <AlertCircle size={16} className="text-red-400 shrink-0" />
-                                        )}
-                                    </div>
-                                ))}
-
-                                <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-                                    <Package size={16} className={parsed.product ? "text-green-500" : "text-red-400"} />
-                                    <div className="flex-1">
-                                        <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Product</p>
-                                        <input
-                                            type="text"
-                                            value={parsed.product}
-                                            onChange={e => setParsed({ ...parsed, product: e.target.value })}
-                                            placeholder="Enter product name"
-                                            className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                        />
-                                        {parsed.product && parsedProductMatch && (
-                                            <div className="flex items-center gap-2 mt-1.5">
-                                                <Check size={12} className="text-green-500" />
-                                                <span className="text-xs text-green-600">
-                                                    Matched: {parsedProductMatch.variant.title === "Default Title" ? parsedProductMatch.product.title : `${parsedProductMatch.product.title} - ${parsedProductMatch.variant.title}`}
-                                                    {" "}(Rs. {parseFloat(parsedProductMatch.variant.price).toLocaleString()})
-                                                </span>
-                                            </div>
-                                        )}
-                                        {parsed.product && !parsedProductMatch && (
-                                            <p className="text-xs text-amber-500 mt-1.5">No matching product found — will be added as custom item (set price manually)</p>
-                                        )}
-                                    </div>
-                                    {parsed.product ? (
-                                        <Check size={16} className="text-green-500 shrink-0" />
-                                    ) : (
-                                        <AlertCircle size={16} className="text-red-400 shrink-0" />
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex justify-between mt-5">
-                                <button
-                                    type="button"
-                                    onClick={() => { setShowConfirm(false); setParsed(null); }}
-                                    className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
-                                >
-                                    <ArrowLeft size={14} />
-                                    Edit Paste
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleConfirmAndFill}
-                                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
-                                >
-                                    <Check size={16} />
-                                    Confirm & Fill Form
                                 </button>
                             </div>
                         </div>
