@@ -138,35 +138,54 @@ export async function POST(req: NextRequest) {
         const firstName = nameParts[0] || "";
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
 
-        let customerPayload: any = {
-            first_name: firstName,
-            last_name: lastName,
-            phone: phone,
-        };
-
-        try {
-            const searchUrl = `https://${storeDomain}/admin/api/2024-10/customers/search.json?query=phone:${encodeURIComponent(phone)}`;
-            const searchRes = await fetch(searchUrl, {
-                headers: { "X-Shopify-Access-Token": accessToken },
-            });
-            if (searchRes.ok) {
-                const searchData = await searchRes.json();
-                if (searchData.customers && searchData.customers.length > 0) {
-                    customerPayload = { id: searchData.customers[0].id };
-                }
+        async function searchCustomerByPhone(token: string, rawPhone: string): Promise<number | null> {
+            const phoneVariants: string[] = [rawPhone];
+            const digits = rawPhone.replace(/[\s\-\+]/g, "");
+            if (digits.startsWith("0")) {
+                phoneVariants.push("+92" + digits.slice(1));
+            } else if (digits.startsWith("92")) {
+                phoneVariants.push("+" + digits);
+                phoneVariants.push("0" + digits.slice(2));
+            } else if (digits.startsWith("+92")) {
+                phoneVariants.push("0" + digits.slice(3));
             }
-        } catch (_) {}
+            const unique = [...new Set(phoneVariants)];
+
+            for (const ph of unique) {
+                try {
+                    const searchUrl = `https://${storeDomain}/admin/api/2024-10/customers/search.json?query=phone:${encodeURIComponent(ph)}`;
+                    const searchRes = await fetch(searchUrl, {
+                        headers: { "X-Shopify-Access-Token": token },
+                    });
+                    if (searchRes.ok) {
+                        const searchData = await searchRes.json();
+                        if (searchData.customers && searchData.customers.length > 0) {
+                            console.log(`Customer found for phone ${ph}: ID ${searchData.customers[0].id}`);
+                            return searchData.customers[0].id;
+                        }
+                    }
+                } catch (_) {}
+            }
+            console.log(`No existing customer found for phone: ${rawPhone}`);
+            return null;
+        }
+
+        const existingCustomerId = await searchCustomerByPhone(accessToken, phone);
+
+        const customerPayload: any = existingCustomerId
+            ? { id: existingCustomerId }
+            : { first_name: firstName, last_name: lastName, phone: phone };
 
         const parsedDeliveryFee = parseFloat(deliveryFee) || 0;
 
-        const shopifyOrder: any = {
-            order: {
+        function buildOrderPayload(custPayload: any) {
+            const order: any = {
                 line_items: lineItems.map((item: any) => ({
                     title: item.title,
                     quantity: parseInt(item.quantity),
                     price: parseFloat(item.price).toFixed(2),
                 })),
-                customer: customerPayload,
+                customer: custPayload,
                 shipping_address: {
                     first_name: firstName,
                     last_name: lastName,
@@ -188,14 +207,11 @@ export async function POST(req: NextRequest) {
                 financial_status: "pending",
                 send_receipt: false,
                 send_fulfillment_receipt: false,
+            };
+            if (parsedDeliveryFee > 0) {
+                order.shipping_lines = [{ title: "Delivery", price: parsedDeliveryFee.toFixed(2) }];
             }
-        };
-
-        if (parsedDeliveryFee > 0) {
-            shopifyOrder.order.shipping_lines = [{
-                title: "Delivery",
-                price: parsedDeliveryFee.toFixed(2),
-            }];
+            return { order };
         }
 
         const createUrl = `https://${storeDomain}/admin/api/2024-10/orders.json`;
@@ -205,7 +221,7 @@ export async function POST(req: NextRequest) {
                 "X-Shopify-Access-Token": accessToken,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify(shopifyOrder)
+            body: JSON.stringify(buildOrderPayload(customerPayload))
         });
 
         if (response.status === 401 && hasClientCredentials) {
@@ -216,8 +232,28 @@ export async function POST(req: NextRequest) {
                     "X-Shopify-Access-Token": accessToken,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify(shopifyOrder)
+                body: JSON.stringify(buildOrderPayload(customerPayload))
             });
+        }
+
+        if (response.status === 422) {
+            const errorText = await response.text().catch(() => "");
+            if (errorText.includes("phone_number") && errorText.includes("has already been taken")) {
+                console.log("Phone duplicate error, retrying with customer ID lookup...");
+                const retryCustomerId = await searchCustomerByPhone(accessToken, phone);
+                const retryPayload = retryCustomerId
+                    ? { id: retryCustomerId }
+                    : { phone: phone };
+
+                response = await fetch(createUrl, {
+                    method: "POST",
+                    headers: {
+                        "X-Shopify-Access-Token": accessToken,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(buildOrderPayload(retryPayload))
+                });
+            }
         }
 
         if (!response.ok) {
