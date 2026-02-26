@@ -138,6 +138,25 @@ export async function POST(req: NextRequest) {
         const firstName = nameParts[0] || "";
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : ".";
 
+        let customerPayload: any = {
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone,
+        };
+
+        try {
+            const searchUrl = `https://${storeDomain}/admin/api/2024-10/customers/search.json?query=phone:${encodeURIComponent(phone)}`;
+            const searchRes = await fetch(searchUrl, {
+                headers: { "X-Shopify-Access-Token": accessToken },
+            });
+            if (searchRes.ok) {
+                const searchData = await searchRes.json();
+                if (searchData.customers && searchData.customers.length > 0) {
+                    customerPayload = { id: searchData.customers[0].id };
+                }
+            }
+        } catch (_) {}
+
         const parsedDeliveryFee = parseFloat(deliveryFee) || 0;
 
         const shopifyOrder: any = {
@@ -147,11 +166,7 @@ export async function POST(req: NextRequest) {
                     quantity: parseInt(item.quantity),
                     price: parseFloat(item.price).toFixed(2),
                 })),
-                customer: {
-                    first_name: firstName,
-                    last_name: lastName,
-                    phone: phone,
-                },
+                customer: customerPayload,
                 shipping_address: {
                     first_name: firstName,
                     last_name: lastName,
