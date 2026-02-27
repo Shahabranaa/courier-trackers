@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Truck, Package, ArrowRight, BarChart3, ShieldCheck, DollarSign, Calendar, TrendingUp, RefreshCw, Zap } from "lucide-react";
+import { Truck, Package, ArrowRight, BarChart3, ShieldCheck, DollarSign, Calendar, TrendingUp, RefreshCw, Zap, CheckCircle, RotateCcw, Clock, Target } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
@@ -219,6 +219,54 @@ export default function UnifiedDashboard() {
     return [...dailyStats].sort((a, b) => a.date.localeCompare(b.date));
   }, [dailyStats]);
 
+  const overallStats = useMemo(() => {
+    let delivered = 0, returned = 0, inTransit = 0, deliveredRevenue = 0;
+
+    postexData.forEach(o => {
+      const s = (o.orderStatus || o.transactionStatus || "").toLowerCase();
+      if (s.includes("cancel")) return;
+      if (s.includes("delivered") || s.includes("transferred")) {
+        delivered++;
+        deliveredRevenue += parseFloat(o.invoicePayment || o.orderAmount || "0");
+      } else if (s.includes("return")) {
+        returned++;
+      } else {
+        inTransit++;
+      }
+    });
+
+    tranzoData.forEach(o => {
+      const s = (o.orderStatus || o.transactionStatus || "Unknown").toLowerCase();
+      if (s.includes("cancel")) return;
+      if (s === "delivered" || s.includes("transferred")) {
+        delivered++;
+        deliveredRevenue += parseFloat(o.invoicePayment || o.orderAmount || o.booking_amount || "0");
+      } else if (s.includes("return")) {
+        returned++;
+      } else {
+        inTransit++;
+      }
+    });
+
+    zoomData.forEach(o => {
+      const fs = (o.fulfillmentStatus || "").toLowerCase();
+      const price = parseFloat(o.totalPrice || "0");
+      if (fs === "fulfilled") {
+        delivered++;
+        deliveredRevenue += price;
+      } else {
+        inTransit++;
+      }
+    });
+
+    const total = delivered + returned + inTransit;
+    const deliveryRate = total > 0 ? (delivered / total) * 100 : 0;
+    const returnRate = total > 0 ? (returned / total) * 100 : 0;
+    const avgOrderValue = delivered > 0 ? deliveredRevenue / delivered : 0;
+
+    return { delivered, returned, inTransit, total, deliveryRate, returnRate, avgOrderValue };
+  }, [postexData, tranzoData, zoomData]);
+
   const formatRs = (v: number) => `Rs. ${Math.round(v).toLocaleString()}`;
 
   return (
@@ -293,6 +341,58 @@ export default function UnifiedDashboard() {
                 <ShieldCheck className="w-6 h-6" />
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              {!loading && overallStats.total > 0 && (
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  {overallStats.deliveryRate.toFixed(1)}%
+                </span>
+              )}
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{loading ? "..." : overallStats.delivered.toLocaleString()}</p>
+            <p className="text-xs font-medium text-gray-500 mt-1">Delivered</p>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-red-50 text-red-500 rounded-xl">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              {!loading && overallStats.total > 0 && (
+                <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                  {overallStats.returnRate.toFixed(1)}%
+                </span>
+              )}
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{loading ? "..." : overallStats.returned.toLocaleString()}</p>
+            <p className="text-xs font-medium text-gray-500 mt-1">Returned</p>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-amber-50 text-amber-500 rounded-xl">
+                <Clock className="w-5 h-5" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{loading ? "..." : overallStats.inTransit.toLocaleString()}</p>
+            <p className="text-xs font-medium text-gray-500 mt-1">In Transit</p>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-blue-50 text-blue-500 rounded-xl">
+                <Target className="w-5 h-5" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{loading ? "..." : overallStats.avgOrderValue > 0 ? formatRs(overallStats.avgOrderValue) : "-"}</p>
+            <p className="text-xs font-medium text-gray-500 mt-1">Avg Order Value</p>
           </div>
         </div>
 
