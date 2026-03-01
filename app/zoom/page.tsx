@@ -128,14 +128,29 @@ export default function ZoomPortal() {
         return true;
     });
 
+    const ZOOM_DELIVERY_FEE = 150;
+    const ZOOM_COMMISSION_RATE = 0.04;
+
     const monthlyStats = useMemo(() => {
-        const stats = { count: 0, revenue: 0, fulfilled: 0, unfulfilled: 0 };
+        const stats = { count: 0, grossRevenue: 0, net: 0, fulfilled: 0, unfulfilled: 0, returned: 0 };
         orders.forEach(o => {
             stats.count++;
-            stats.revenue += o.totalPrice;
-            const status = (o.fulfillmentStatus || "unfulfilled").toLowerCase();
-            if (status === "fulfilled") stats.fulfilled++;
-            else stats.unfulfilled++;
+            stats.grossRevenue += o.totalPrice;
+            const fStatus = (o.fulfillmentStatus || "unfulfilled").toLowerCase();
+            const finStatus = (o.financialStatus || "").toLowerCase();
+            const tags = (o.tags || "").toLowerCase();
+            const isReturned = finStatus === "refunded" || finStatus === "voided" || tags.includes("return");
+
+            if (isReturned) {
+                stats.returned++;
+                stats.net -= ZOOM_DELIVERY_FEE;
+            } else if (fStatus === "fulfilled") {
+                stats.fulfilled++;
+                const orderNet = o.totalPrice - ZOOM_DELIVERY_FEE - (o.totalPrice * ZOOM_COMMISSION_RATE);
+                stats.net += orderNet;
+            } else {
+                stats.unfulfilled++;
+            }
         });
         return stats;
     }, [orders]);
@@ -292,12 +307,20 @@ export default function ZoomPortal() {
                                             <p className="text-2xl font-bold bg-white/20 px-3 py-1 rounded-lg mt-1 inline-block backdrop-blur-sm">{monthlyStats.count}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Total Revenue</p>
-                                            <p className="text-2xl font-bold mt-1">Rs. {monthlyStats.revenue.toLocaleString()}</p>
+                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Gross Revenue</p>
+                                            <p className="text-2xl font-bold mt-1">Rs. {Math.round(monthlyStats.grossRevenue).toLocaleString()}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Net Revenue</p>
+                                            <p className="text-2xl font-bold text-emerald-100 mt-1">Rs. {Math.round(monthlyStats.net).toLocaleString()}</p>
                                         </div>
                                         <div className="pl-6 border-l border-white/20">
                                             <p className="text-xs uppercase font-bold tracking-wider opacity-70">Fulfilled</p>
                                             <p className="text-2xl font-bold text-emerald-100 mt-1">{monthlyStats.fulfilled}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Returned</p>
+                                            <p className="text-2xl font-bold text-red-200 mt-1">{monthlyStats.returned}</p>
                                         </div>
                                         <div>
                                             <p className="text-xs uppercase font-bold tracking-wider opacity-70">Pending</p>
