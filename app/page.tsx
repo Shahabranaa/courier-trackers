@@ -174,10 +174,11 @@ export default function UnifiedDashboard() {
     tranzoData.forEach(o => {
       const day = getDay(o.orderDate || o.transactionDate);
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
-      const status = (o.transactionStatus || "").toLowerCase();
-      if (status.includes("cancel")) return;
-      const isDelivered = status === "delivered" || status === "transferred" || status === "payment transferred";
-      const isReturned = status.includes("return");
+      const ts = (o.transactionStatus || "").toLowerCase();
+      const os = (o.orderStatus || "").toLowerCase();
+      if (ts.includes("cancel")) return;
+      const isDelivered = os === "delivered";
+      const isReturned = ts.includes("return");
       dailyMap[day].tranzoOrders += 1;
       dailyMap[day].totalOrders += 1;
       totOrders++;
@@ -236,12 +237,13 @@ export default function UnifiedDashboard() {
     let delivered = 0, returned = 0, inTransit = 0, deliveredRevenue = 0;
 
     postexData.forEach(o => {
-      const s = (o.transactionStatus || "").toLowerCase();
-      if (s.includes("cancel")) return;
-      if (s === "delivered" || s === "transferred" || s === "payment transferred") {
+      const ts = (o.transactionStatus || "").toLowerCase();
+      const os = (o.orderStatus || "").toLowerCase();
+      if (ts.includes("cancel")) return;
+      if (os === "delivered") {
         delivered++;
         deliveredRevenue += parseFloat(o.invoicePayment || o.orderAmount || "0");
-      } else if (s.includes("return")) {
+      } else if (ts.includes("return")) {
         returned++;
       } else {
         inTransit++;
@@ -249,12 +251,13 @@ export default function UnifiedDashboard() {
     });
 
     tranzoData.forEach(o => {
-      const s = (o.transactionStatus || "").toLowerCase();
-      if (s.includes("cancel")) return;
-      if (s === "delivered" || s === "transferred" || s === "payment transferred") {
+      const ts = (o.transactionStatus || "").toLowerCase();
+      const os = (o.orderStatus || "").toLowerCase();
+      if (ts.includes("cancel")) return;
+      if (os === "delivered") {
         delivered++;
         deliveredRevenue += parseFloat(o.invoicePayment || o.orderAmount || o.booking_amount || "0");
-      } else if (s.includes("return")) {
+      } else if (ts.includes("return")) {
         returned++;
       } else {
         inTransit++;
