@@ -197,21 +197,25 @@ export default function UnifiedDashboard() {
     zoomData.forEach(o => {
       const day = getDay(o.createdAt || o.orderDate);
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
-      const status = (o.transactionStatus || o.orderStatus || "").toLowerCase();
-      if (status.includes("cancel")) return;
+      const fStatus = (o.fulfillmentStatus || "").toLowerCase();
+      const finStatus = (o.financialStatus || "").toLowerCase();
+      const tags = (o.tags || "").toLowerCase();
+      const isReturned = finStatus === "refunded" || finStatus === "voided" || tags.includes("return");
+      const isFulfilled = fStatus === "fulfilled";
       dailyMap[day].zoomOrders += 1;
       dailyMap[day].totalOrders += 1;
       totOrders++;
-      if (status === "delivered") {
-        const net = parseFloat(o.netAmount || "0");
-        dailyMap[day].zoomNet += net;
-        dailyMap[day].totalNet += net;
-        totNet += net;
-      } else if (status.includes("return")) {
-        const fee = parseFloat(o.transactionFee || "0");
+      const price = parseFloat(o.totalPrice || "0");
+      if (isReturned) {
+        const fee = 150;
         dailyMap[day].zoomNet -= fee;
         dailyMap[day].totalNet -= fee;
         totNet -= fee;
+      } else if (isFulfilled) {
+        const net = price - 150 - (price * 0.04);
+        dailyMap[day].zoomNet += net;
+        dailyMap[day].totalNet += net;
+        totNet += net;
       }
     });
 
@@ -258,13 +262,15 @@ export default function UnifiedDashboard() {
     });
 
     zoomData.forEach(o => {
-      const zs = (o.transactionStatus || o.orderStatus || "").toLowerCase();
-      if (zs.includes("cancel")) return;
-      if (zs === "delivered") {
-        delivered++;
-        deliveredRevenue += parseFloat(o.orderAmount || o.invoicePayment || "0");
-      } else if (zs.includes("return")) {
+      const fStatus = (o.fulfillmentStatus || "").toLowerCase();
+      const finStatus = (o.financialStatus || "").toLowerCase();
+      const tags = (o.tags || "").toLowerCase();
+      const isReturned = finStatus === "refunded" || finStatus === "voided" || tags.includes("return");
+      if (isReturned) {
         returned++;
+      } else if (fStatus === "fulfilled") {
+        delivered++;
+        deliveredRevenue += parseFloat(o.totalPrice || "0");
       } else {
         inTransit++;
       }
