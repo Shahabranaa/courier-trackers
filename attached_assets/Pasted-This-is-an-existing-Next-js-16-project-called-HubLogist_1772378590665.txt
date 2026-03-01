@@ -1,0 +1,215 @@
+This is an existing Next.js 16 project called HubLogistic — a multi-tenant SaaS logistics dashboard. Before making any changes, read this entire context carefully. It describes every aspect of the architecture, data models, business logic, conventions, and critical rules.
+
+Tech Stack
+Next.js 16 with App Router (no Pages Router), Turbopack, running on port 5000
+React 19 with client components ("use client" directive)
+Prisma ORM with PostgreSQL (Neon). Schema at prisma/schema.prisma. Client at lib/prisma.ts
+Tailwind CSS v4 (PostCSS-based, not the old config approach)
+Recharts for charts/data visualization
+Lucide React for icons
+Cheerio for server-side HTML scraping (Zoom tracking)
+bcryptjs + jsonwebtoken for auth
+date-fns for date utilities
+No Docker, no virtual envs. Replit-native environment
+Project Structure
+app/                          # Next.js App Router pages
+  page.tsx                    # Overview dashboard (unified stats from all couriers)
+  login/page.tsx              # Login page
+  postex/page.tsx             # PostEx orders page
+  postex/critical/page.tsx    # Critical (stuck-in-transit) PostEx orders
+  postex/cpr/page.tsx         # PostEx Cash Payment Receipts
+  tranzo/page.tsx             # Tranzo orders page
+  tranzo/invoices/page.tsx    # Tranzo invoice receipts
+  zoom/page.tsx               # Zoom Portal (Shopify-based view of Zoom orders)
+  zoom/orders/page.tsx        # Zoom Orders (courier-level scraped data)
+  shopify/page.tsx            # Shopify orders list
+  shopify/create/page.tsx     # Create Shopify order from WhatsApp message
+  shopify/edit/[id]/page.tsx  # Edit app-created Shopify order
+  finance/page.tsx            # Financial overview (all couriers)
+  analytics/page.tsx          # Advanced analytics + customer insights
+  discrepancies/page.tsx      # Return discrepancy detection
+  alerts/page.tsx             # Smart alerts (stuck orders, rate spikes)
+  daily/[date]/page.tsx       # Daily drill-down page
+  settings/page.tsx           # Brand/API key management
+  admin/users/page.tsx        # Admin panel for user management
+app/api/                      # API routes (all Next.js Route Handlers)
+  auth/login/route.ts         # POST login
+  auth/me/route.ts            # GET current user
+  auth/logout/route.ts        # POST logout
+  brands/route.ts             # GET/POST brands
+  brands/[id]/route.ts        # PUT/DELETE brand
+  admin/users/route.ts        # GET/POST admin user management
+  admin/user-brands/route.ts  # Brand access management
+  postex/orders/route.ts      # GET PostEx orders (DB-first, sync on force)
+  postex/track/route.ts       # GET PostEx tracking
+  postex/track/bulk/route.ts  # POST bulk tracking refresh
+  postex/payment-status/route.ts  # GET PostEx payment status
+  postex/critical/route.ts    # GET critical orders
+  postex/cpr/route.ts         # GET PostEx CPR
+  tranzo/orders/route.ts      # GET Tranzo orders (DB-first, sync on force)
+  tranzo/invoices/route.ts    # GET Tranzo invoices
+  tranzo/invoice-orders/route.ts  # GET orders for a specific invoice
+  shopify/orders/route.ts     # GET Shopify orders (DB-first)
+  shopify/orders/create/route.ts  # POST create Shopify order
+  shopify/orders/[id]/edit/route.ts   # POST edit (cancel+recreate) Shopify order
+  shopify/orders/[id]/remark/route.ts # PUT update order remark
+  shopify/products/route.ts   # GET Shopify product catalog
+  zoom/orders/route.ts        # GET Zoom orders (from ShopifyOrder table, filtered by courier)
+  zoom/db-orders/route.ts     # GET Zoom orders from Order table (scraped data)
+  zoom/track/route.ts         # GET Zoom tracking (scrapes portal.zoomcod.com)
+  zoom/sync/route.ts          # POST sync Zoom tracking data
+  finance/route.ts            # GET finance data (all couriers combined)
+  analytics/route.ts          # GET analytics data
+  analytics/customers/route.ts # GET customer insights
+  analytics/performance/route.ts # GET delivery performance
+  discrepancies/route.ts      # GET return discrepancies
+  alerts/route.ts             # GET smart alerts
+components/
+  DashboardLayout.tsx         # Main layout wrapper (sidebar + content)
+  DashboardSidebar.tsx        # Navigation sidebar with brand switcher
+  OrdersTable.tsx             # Reusable orders table component
+  OrderCharts.tsx             # Reusable chart components
+  CityStats.tsx               # City-level statistics component
+  SyncToast.tsx               # Toast notification for sync operations
+  providers/
+    AuthContext.tsx            # Authentication context (JWT via HTTP-only cookies)
+    BrandContext.tsx           # Brand selection context (multi-tenant)
+lib/
+  prisma.ts                   # Prisma client singleton
+  auth.ts                     # JWT sign/verify + getAuthUser() helper
+  types.ts                    # TypeScript interfaces (Order, Brand, TrackingStatus, PaymentStatus)
+Database Models (Prisma)
+There are 8 models. Here are the critical ones:
+
+Order — Courier-level order data (PostEx and Tranzo). Primary key is trackingNumber.
+
+Has courier field ("PostEx" or "Tranzo")
+orderStatus = booking/logistics status (e.g., "Booked", "Arrived at Origin")
+transactionStatus = financial/delivery status (e.g., "Delivered", "Returned", "Payment Transferred", "Transferred")
+transactionFee = delivery fee charged by courier
+netAmount = amount merchant receives after fees
+source = "synced" (from API) or "app" (created via app)
+Indexed by [brandId, orderDate] and [brandId, courier]
+ShopifyOrder — Shopify order data. Primary key is shopifyOrderId.
+
+fulfillmentStatus = "fulfilled", "partial", "unfulfilled", or ""
+financialStatus = "paid", "refunded", "voided", etc.
+totalPrice = gross order value (Float)
+tags = comma-separated Shopify tags string
+courierPartner = which courier handles fulfillment
+fulfillments = JSON string of fulfillment objects (contains tracking_company, tracking_numbers)
+source = "" (synced from Shopify) or "app" (created via Create Order page)
+Does NOT have transactionStatus, netAmount, or transactionFee
+Brand — Multi-tenant brand configuration. Stores API tokens for all services:
+
+apiToken = PostEx API token
+tranzoApiToken = Tranzo API token
+shopifyClientId + shopifyClientSecret = Shopify Client Credentials auth
+shopifyStore = Shopify store domain
+postexMerchantId / postexMerchantToken = PostEx merchant credentials
+tranzoMerchantToken = Tranzo merchant credentials
+User — SaaS users with role enum (ADMIN or USER)
+UserBrand — Many-to-many join table for user-brand access
+PostexCpr — PostEx Cash Payment Receipt records
+TranzoInvoice — Tranzo invoice/settlement records
+TrackingStatus / PaymentStatus — Cached tracking and payment data (JSON string in data field)
+
+Authentication System
+JWT-based with HTTP-only cookies. Cookie name: auth_token
+lib/auth.ts: signToken(), verifyToken(), getAuthUser() (reads cookie, verifies JWT, checks DB)
+AuthContext (client-side): Checks /api/auth/me on mount, redirects to /login if unauthenticated
+BrandContext (client-side): Loads brands from /api/brands, manages selection, persists to localStorage
+Default admin account: admin@hublogistic.com / admin123
+JWT expiry: 7 days
+Admins see all brands; regular users see only their assigned brands
+DB-First Architecture (CRITICAL)
+All pages load data from PostgreSQL first. External APIs are ONLY called when user clicks "Sync Live Data":
+
+Default behavior: API routes query Prisma and return cached DB data
+Sync behavior: When force=true or sync=true query param is passed, route fetches from external API, upserts into DB, then returns fresh data
+This pattern applies to: PostEx orders, Tranzo orders, Shopify orders, PostEx CPR, Tranzo invoices
+Status Classification Rules (CRITICAL — must be consistent across all pages)
+PostEx status detection (uses transactionStatus field, NOT orderStatus):
+
+Delivered: transactionStatus === "delivered" OR === "transferred" OR === "payment transferred"
+Returned: transactionStatus.includes("return")
+Cancelled: transactionStatus.includes("cancel") — always skipped from counts
+Everything else: In Transit
+Tranzo status detection (uses transactionStatus field):
+
+Delivered: transactionStatus === "delivered" OR === "payment transferred" OR === "transferred"
+Returned: transactionStatus.includes("return")
+Cancelled: transactionStatus.includes("cancel") — always skipped
+Everything else: In Transit
+Zoom status detection (uses ShopifyOrder fields, NOT Order fields):
+
+Zoom data on the Zoom Portal page (/zoom) comes from /api/zoom/orders which returns ShopifyOrder records filtered by courier
+Delivered: fulfillmentStatus === "fulfilled"
+Returned: financialStatus === "refunded" OR === "voided" OR tags.includes("return")
+Everything else: Unfulfilled / In Transit
+Zoom data does NOT have transactionStatus/netAmount/transactionFee — those are Order model fields
+Zoom Orders page (/zoom/orders) uses the Order table (scraped courier data) with courier: "Zoom", so it follows PostEx/Tranzo-style status detection using transactionStatus.
+
+Financial Calculation Rules (CRITICAL)
+Net Revenue Formula (all couriers):
+Net = (sum of delivered orders' netAmount) − (sum of returned orders' transactionFee)
+
+Cancelled orders are always excluded
+This formula applies on: PostEx page, Tranzo page, Zoom Orders page, Finance page, Overview page
+Zoom Fee Structure (for ShopifyOrder-based data where netAmount doesn't exist):
+
+Delivery fee: Rs. 150 flat
+COD commission: 4% of order value
+Per-order net: totalPrice - 150 - (totalPrice × 0.04)
+Returned order cost: -Rs. 150 (delivery fee only)
+Shopify Create Order — Delivery Fee:
+
+Standard delivery: Rs. 190
+Free delivery: orders over Rs. 2,200
+Has freeDelivery toggle and manualDeliveryOverride states
+Zoom Integration
+Zoom Portal (/zoom): Filters ShopifyOrders by courierPartner containing "zoom" or fulfillment tracking_company containing "zoom"
+Zoom Orders (/zoom/orders): Shows Order table records with courier: "Zoom", populated by scraping portal.zoomcod.com via cheerio
+Tracking: Server-side scraping of https://portal.zoomcod.com/track/{trackingNumber} using cheerio HTML parser
+SKIP_RESCRAPE_DAYS = 7 — don't re-scrape tracking if data is recent enough
+Shopify Integration
+Auth method: Client Credentials Grant flow (NOT direct Admin API token)
+Uses shopifyClientId + shopifyClientSecret from Brand config
+Token endpoint: POST https://{store}.myshopify.com/admin/oauth/access_token with grant_type=client_credentials
+Tokens are cached in-memory with expiry
+API version: 2024-10
+Create Order (/shopify/create): Creates Shopify orders from WhatsApp messages
+Tags created orders with hublogistic-app, whatsapp-order
+Sets source: "app" in DB
+Quick Paste mode: Parses WhatsApp message format (Name: ...\nAddress: ...\nCity: ...\nPhone: ...\nProduct: ...)
+Supports separators: Label: value, Label - value, Label | value
+Label aliases: name/customer, address/pata, city/shehar, phone/mobile/contact/#, product/item/plan/package
+Fuzzy-matches product against Shopify catalog
+Customer phone search: tries raw phone, +92XXXXXXXXXX, 0XXXXXXXXX formats; retries on 422
+Edit Order (/shopify/edit/[id]): Cancel + recreate pattern (Shopify REST API doesn't allow line item edits)
+Only available for source: "app" orders
+Cancels old order via POST /orders/{id}/cancel.json, creates new one, updates DB shopifyOrderId
+If cancel fails (non-401), returns error instead of creating duplicate
+UI Conventions
+Sidebar navigation: Collapsible, with nested sub-menus for PostEx/Tranzo/Zoom/Shopify
+Brand switcher: In sidebar, persisted to localStorage
+Color scheme: PostEx=#f97316 (orange), Tranzo=#8b5cf6 (purple), Zoom=#3b82f6 (blue)
+Styling: Tailwind utility classes, rounded-2xl cards, shadow-sm, indigo accent colors
+Charts: Recharts with ResponsiveContainer, BarChart, PieChart, LineChart
+Tables: Interactive with filtering, sorting, CSV export
+Overview page: Shows per-courier breakdown labels (P: X · T: Y · Z: Z) under delivered/returned/in-transit cards for debugging
+All monetary values formatted as Rs. X,XXX (Pakistani Rupees)
+API Route Conventions
+Headers used: token (PostEx), api-token (Tranzo), brand-id (all routes)
+Query params: startDate, endDate (YYYY-MM-DD format), force/sync for live refresh
+PostEx orders returned under data.dist array
+Tranzo orders returned as array or under data.results/data.orders
+Zoom orders returned under data.orders
+Shopify orders returned under data.orders
+All API routes use NextRequest/NextResponse from next/server
+Important Gotchas
+Order vs ShopifyOrder: These are two completely different tables. Order has transactionStatus/netAmount/transactionFee. ShopifyOrder has fulfillmentStatus/financialStatus/totalPrice. Never mix their fields.
+Zoom has two data sources: /api/zoom/orders returns ShopifyOrder records (Shopify-based). /api/zoom/db-orders returns Order records (scraped courier data). The Overview page uses ShopifyOrder-based Zoom data.
+Status field priority: Always use transactionStatus for PostEx/Tranzo classification, never orderStatus (which is the logistics/booking status, not the financial outcome).
+Exact match vs includes: Use exact equality (===) for delivered status checks, not .includes(). The includes approach can match partial strings incorrectly.
+DB-first means no auto-sync: Data won't update unless user explicitly clicks sync. Pages should always load from DB first.
