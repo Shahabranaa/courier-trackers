@@ -197,13 +197,22 @@ export default function UnifiedDashboard() {
     zoomData.forEach(o => {
       const day = getDay(o.createdAt || o.orderDate);
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
-      const totalPrice = parseFloat(o.totalPrice || "0");
+      const status = (o.transactionStatus || o.orderStatus || "").toLowerCase();
+      if (status.includes("cancel")) return;
       dailyMap[day].zoomOrders += 1;
-      dailyMap[day].zoomNet += totalPrice;
       dailyMap[day].totalOrders += 1;
-      dailyMap[day].totalNet += totalPrice;
       totOrders++;
-      totNet += totalPrice;
+      if (status === "delivered") {
+        const net = parseFloat(o.netAmount || "0");
+        dailyMap[day].zoomNet += net;
+        dailyMap[day].totalNet += net;
+        totNet += net;
+      } else if (status.includes("return")) {
+        const fee = parseFloat(o.transactionFee || "0");
+        dailyMap[day].zoomNet -= fee;
+        dailyMap[day].totalNet -= fee;
+        totNet -= fee;
+      }
     });
 
     const sortedDays = Object.values(dailyMap).sort((a, b) => b.date.localeCompare(a.date));
@@ -249,11 +258,13 @@ export default function UnifiedDashboard() {
     });
 
     zoomData.forEach(o => {
-      const fs = (o.fulfillmentStatus || "").toLowerCase();
-      const price = parseFloat(o.totalPrice || "0");
-      if (fs === "fulfilled") {
+      const zs = (o.transactionStatus || o.orderStatus || "").toLowerCase();
+      if (zs.includes("cancel")) return;
+      if (zs === "delivered") {
         delivered++;
-        deliveredRevenue += price;
+        deliveredRevenue += parseFloat(o.orderAmount || o.invoicePayment || "0");
+      } else if (zs.includes("return")) {
+        returned++;
       } else {
         inTransit++;
       }
