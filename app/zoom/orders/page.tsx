@@ -169,14 +169,19 @@ export default function ZoomOrdersDashboard() {
         orders.forEach(o => {
             s.count++;
             s.revenue += (o.orderAmount || o.invoicePayment || 0);
-            s.net += (o.netAmount || 0);
             s.deliveryCharges += (o.transactionFee || 0);
             s.commission += (o.transactionTax || 0);
 
             const status = (o.transactionStatus || "").toLowerCase();
-            if (status === "delivered") s.delivered++;
-            else if (status.includes("return")) s.returned++;
-            else if (status.includes("transit") || status.includes("assigned")) s.inTransit++;
+            if (status === "delivered") {
+                s.delivered++;
+                s.net += (o.netAmount || 0);
+            } else if (status.includes("return")) {
+                s.returned++;
+                s.net -= (o.transactionFee || 0);
+            } else if (status.includes("transit") || status.includes("assigned")) {
+                s.inTransit++;
+            }
         });
         return s;
     }, [orders]);
