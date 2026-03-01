@@ -159,7 +159,7 @@ export default function UnifiedDashboard() {
     postexData.forEach(o => {
       const day = getDay(o.orderDate || o.transactionDate);
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
-      const status = (o.orderStatus || o.transactionStatus || "").toLowerCase();
+      const status = (o.transactionStatus || "").toLowerCase();
       const net = parseFloat(o.netAmount || "0");
       if (!status.includes("cancel")) {
         dailyMap[day].postexOrders += 1;
@@ -174,9 +174,9 @@ export default function UnifiedDashboard() {
     tranzoData.forEach(o => {
       const day = getDay(o.orderDate || o.transactionDate);
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
-      const status = (o.orderStatus || o.transactionStatus || "Unknown").toLowerCase();
+      const status = (o.transactionStatus || "").toLowerCase();
       if (status.includes("cancel")) return;
-      const isDelivered = status === "delivered" || status.includes("transferred");
+      const isDelivered = status === "delivered" || status === "transferred" || status === "payment transferred";
       const isReturned = status.includes("return");
       dailyMap[day].tranzoOrders += 1;
       dailyMap[day].totalOrders += 1;
@@ -236,9 +236,9 @@ export default function UnifiedDashboard() {
     let delivered = 0, returned = 0, inTransit = 0, deliveredRevenue = 0;
 
     postexData.forEach(o => {
-      const s = (o.orderStatus || o.transactionStatus || "").toLowerCase();
+      const s = (o.transactionStatus || "").toLowerCase();
       if (s.includes("cancel")) return;
-      if (s.includes("delivered") || s.includes("transferred")) {
+      if (s === "delivered" || s === "transferred" || s === "payment transferred") {
         delivered++;
         deliveredRevenue += parseFloat(o.invoicePayment || o.orderAmount || "0");
       } else if (s.includes("return")) {
@@ -249,9 +249,9 @@ export default function UnifiedDashboard() {
     });
 
     tranzoData.forEach(o => {
-      const s = (o.orderStatus || o.transactionStatus || "Unknown").toLowerCase();
+      const s = (o.transactionStatus || "").toLowerCase();
       if (s.includes("cancel")) return;
-      if (s === "delivered" || s.includes("transferred")) {
+      if (s === "delivered" || s === "transferred" || s === "payment transferred") {
         delivered++;
         deliveredRevenue += parseFloat(o.invoicePayment || o.orderAmount || o.booking_amount || "0");
       } else if (s.includes("return")) {
