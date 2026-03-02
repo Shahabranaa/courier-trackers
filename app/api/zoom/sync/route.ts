@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
-import * as cheerio from "cheerio";
+import { scrapeLeopardsTracking } from "@/lib/leopards";
 
 const ZOOM_DELIVERY_FEE = 150;
 const ZOOM_COMMISSION_RATE = 0.04;
 const BATCH_SIZE = 15;
-const REQUEST_TIMEOUT_MS = 10000;
 
 const TERMINAL_STATUSES = ["delivered", "returned", "return", "cancelled", "canceled"];
 const SKIP_RESCRAPE_DAYS = 7;
@@ -14,81 +13,6 @@ const SKIP_RESCRAPE_DAYS = 7;
 function isTerminalStatus(status: string): boolean {
     const s = (status || "").toLowerCase();
     return TERMINAL_STATUSES.some(t => s.includes(t));
-}
-
-async function scrapeTrackingStatus(trackingNumber: string): Promise<{
-    currentStatus: string;
-    lastUpdate: string;
-    consigneeName: string;
-    destination: string;
-    shipper: string;
-    origin: string;
-    trackingHistory: { date: string; status: string }[];
-} | null> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    try {
-        const url = `https://portal.zoomcod.com/track-detail.php?track_code=${encodeURIComponent(trackingNumber)}&track=`;
-        const response = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            },
-        });
-
-        if (!response.ok) return null;
-
-        const html = await response.text();
-        const $ = cheerio.load(html);
-        const panelBody = $(".panel-body");
-        if (panelBody.length === 0) return null;
-
-        let shipper = "";
-        let origin = "";
-        let consigneeName = "";
-        let destination = "";
-
-        const shippingInfo = panelBody.find(".sender_info").first();
-        shippingInfo.find("p").each((_, el) => {
-            const text = $(el).text().trim();
-            if (text.startsWith("Shipper:")) shipper = text.replace("Shipper:", "").trim();
-            else if (text.startsWith("Origin:")) origin = text.replace("Origin:", "").trim();
-        });
-
-        const consigneeInfo = panelBody.find(".sender_info").eq(1);
-        consigneeInfo.find("p").each((_, el) => {
-            const text = $(el).text().trim();
-            if (text.startsWith("Name:")) consigneeName = text.replace("Name:", "").trim();
-            else if (text.startsWith("Destination:")) destination = text.replace("Destination:", "").trim();
-        });
-
-        const trackingHistory: { date: string; status: string }[] = [];
-        panelBody.find(".table_info").first().find("tr").each((i, el) => {
-            if (i === 0) return;
-            const cells = $(el).find("td");
-            if (cells.length >= 2) {
-                trackingHistory.push({
-                    date: $(cells[0]).text().trim(),
-                    status: $(cells[1]).text().trim(),
-                });
-            }
-        });
-
-        const currentStatus = trackingHistory.length > 0
-            ? trackingHistory[trackingHistory.length - 1].status
-            : "Unknown";
-        const lastUpdate = trackingHistory.length > 0
-            ? trackingHistory[trackingHistory.length - 1].date
-            : "";
-
-        return { currentStatus, lastUpdate, consigneeName, destination, shipper, origin, trackingHistory };
-    } catch {
-        return null;
-    } finally {
-        clearTimeout(timeoutId);
-    }
 }
 
 export async function POST(req: NextRequest) {
@@ -201,7 +125,7 @@ export async function POST(req: NextRequest) {
             await Promise.allSettled(
                 batch.map(async (tn) => {
                     const shopifyOrder = trackingMap[tn];
-                    const trackingData = await scrapeTrackingStatus(tn);
+                    const trackingData = await scrapeLeopardsTracking(tn);
 
                     if (!trackingData) {
                         failed++;
