@@ -235,12 +235,12 @@ export default function UnifiedDashboard() {
 
   const overallStats = useMemo(() => {
     let delivered = 0, returned = 0, inTransit = 0, deliveredRevenue = 0;
+    const deliveredStatuses = ["delivered", "transferred", "payment transferred"];
 
     postexData.forEach(o => {
       const ts = (o.transactionStatus || "").toLowerCase();
-      const os = (o.orderStatus || "").toLowerCase();
       if (ts.includes("cancel")) return;
-      if (os === "delivered") {
+      if (deliveredStatuses.includes(ts)) {
         delivered++;
         deliveredRevenue += parseFloat(o.invoicePayment || o.orderAmount || "0");
       } else if (ts.includes("return")) {
@@ -252,9 +252,8 @@ export default function UnifiedDashboard() {
 
     tranzoData.forEach(o => {
       const ts = (o.transactionStatus || "").toLowerCase();
-      const os = (o.orderStatus || "").toLowerCase();
       if (ts.includes("cancel")) return;
-      if (os === "delivered") {
+      if (deliveredStatuses.includes(ts)) {
         delivered++;
         deliveredRevenue += parseFloat(o.invoicePayment || o.orderAmount || o.booking_amount || "0");
       } else if (ts.includes("return")) {
@@ -282,9 +281,10 @@ export default function UnifiedDashboard() {
     const total = delivered + returned + inTransit;
     const deliveryRate = total > 0 ? (delivered / total) * 100 : 0;
     const returnRate = total > 0 ? (returned / total) * 100 : 0;
+    const inTransitRate = total > 0 ? (inTransit / total) * 100 : 0;
     const avgOrderValue = delivered > 0 ? deliveredRevenue / delivered : 0;
 
-    return { delivered, returned, inTransit, total, deliveryRate, returnRate, avgOrderValue };
+    return { delivered, returned, inTransit, total, deliveryRate, returnRate, inTransitRate, avgOrderValue };
   }, [postexData, tranzoData, zoomData]);
 
   const formatRs = (v: number) => `Rs. ${Math.round(v).toLocaleString()}`;
@@ -400,6 +400,11 @@ export default function UnifiedDashboard() {
               <div className="p-2 bg-amber-50 text-amber-500 rounded-xl">
                 <Clock className="w-5 h-5" />
               </div>
+              {!loading && overallStats.inTransitRate > 0 && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
+                  {overallStats.inTransitRate.toFixed(1)}%
+                </span>
+              )}
             </div>
             <p className="text-2xl font-bold text-gray-900">{loading ? "..." : overallStats.inTransit.toLocaleString()}</p>
             <p className="text-xs font-medium text-gray-500 mt-1">In Transit</p>

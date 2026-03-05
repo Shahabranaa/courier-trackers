@@ -61,31 +61,47 @@ async function getShopifyAccessToken(storeDomain: string, clientId: string, clie
 }
 
 export async function POST(req: NextRequest) {
-    const user = await getAuthUser();
-    if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const body = await req.json();
+    const { customerName, phone, shippingAddress, shippingCity, lineItems, notes, deliveryFee, employeeUsername } = body;
 
-    const brandId = req.headers.get("brand-id");
-    if (!brandId) {
-        return NextResponse.json({ error: "brand-id header is required" }, { status: 400 });
-    }
+    let brandId: string;
+    let employeeName: string | null = null;
 
-    if (user.role !== "ADMIN") {
-        const brandAccess = await prisma.userBrand.findUnique({
-            where: { userId_brandId: { userId: user.id, brandId } }
+    if (employeeUsername) {
+        const employee = await prisma.employee.findUnique({
+            where: { username: employeeUsername },
+            include: { brand: true },
         });
-        const brandOwner = await prisma.brand.findUnique({
-            where: { id: brandId },
-            select: { userId: true }
-        });
-        if (!brandAccess && brandOwner?.userId !== user.id) {
-            return NextResponse.json({ error: "You do not have access to this brand" }, { status: 403 });
+        if (!employee || !employee.isActive) {
+            return NextResponse.json({ error: "Invalid or inactive employee" }, { status: 403 });
+        }
+        brandId = employee.brandId;
+        employeeName = employee.name;
+    } else {
+        const user = await getAuthUser();
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const headerBrandId = req.headers.get("brand-id");
+        if (!headerBrandId) {
+            return NextResponse.json({ error: "brand-id header is required" }, { status: 400 });
+        }
+        brandId = headerBrandId;
+
+        if (user.role !== "ADMIN") {
+            const brandAccess = await prisma.userBrand.findUnique({
+                where: { userId_brandId: { userId: user.id, brandId } }
+            });
+            const brandOwner = await prisma.brand.findUnique({
+                where: { id: brandId },
+                select: { userId: true }
+            });
+            if (!brandAccess && brandOwner?.userId !== user.id) {
+                return NextResponse.json({ error: "You do not have access to this brand" }, { status: 403 });
+            }
         }
     }
-
-    const body = await req.json();
-    const { customerName, phone, shippingAddress, shippingCity, lineItems, notes, deliveryFee } = body;
 
     if (!customerName || !phone || !shippingAddress || !shippingCity) {
         return NextResponse.json({ error: "Customer name, phone, shipping address, and city are required" }, { status: 400 });
@@ -202,7 +218,9 @@ export async function POST(req: NextRequest) {
                     country: "Pakistan",
                     phone: phone,
                 },
-                tags: "hublogistic-app, whatsapp-order",
+                tags: employeeName
+                    ? `hublogistic-app, whatsapp-order, ${employeeName}`
+                    : "hublogistic-app, whatsapp-order",
                 note: notes || "",
                 financial_status: "pending",
                 send_receipt: false,
@@ -303,6 +321,7 @@ export async function POST(req: NextRequest) {
                 shippingCity: shippingCity,
                 tags: createdOrder.tags || "hublogistic-app, whatsapp-order",
                 source: "app",
+                createdBy: employeeName || "",
                 lastFetchedAt: new Date(),
             },
             create: {
@@ -326,6 +345,7 @@ export async function POST(req: NextRequest) {
                 shippingCity: shippingCity,
                 tags: createdOrder.tags || "hublogistic-app, whatsapp-order",
                 source: "app",
+                createdBy: employeeName || "",
                 lastFetchedAt: new Date(),
             },
         });

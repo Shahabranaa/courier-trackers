@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkAuth]);
 
   useEffect(() => {
-    if (!loading && !user && pathname !== "/login") {
+    if (!loading && !user && pathname !== "/login" && !pathname.startsWith("/shopify/create/")) {
       router.push("/login");
     }
   }, [loading, user, pathname, router]);

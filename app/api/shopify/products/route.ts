@@ -61,14 +61,20 @@ async function getShopifyAccessToken(storeDomain: string, clientId: string, clie
 }
 
 export async function GET(req: NextRequest) {
-    const user = await getAuthUser();
-    if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const brandId = req.headers.get("brand-id");
     if (!brandId) {
         return NextResponse.json({ error: "brand-id header is required" }, { status: 400 });
+    }
+
+    const user = await getAuthUser();
+    if (!user) {
+        const hasActiveEmployee = await prisma.employee.findFirst({
+            where: { brandId, isActive: true },
+            select: { id: true },
+        });
+        if (!hasActiveEmployee) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
     }
 
     const brand = await prisma.brand.findUnique({ where: { id: brandId } });

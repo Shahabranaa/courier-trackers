@@ -96,8 +96,22 @@ model Brand {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   userAccess           UserBrand[]
+  employees            Employee[]
 
   @@index([userId])
+}
+
+model Employee {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  name      String
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandId])
 }
 
 model ShopifyOrder {
@@ -122,6 +136,7 @@ model ShopifyOrder {
   tags              String   @default("")
   pendingRemark     String   @default("")
   source            String   @default("")
+  createdBy         String   @default("")
   lastFetchedAt     DateTime @default(now())
 
   @@index([brandId, createdAt])

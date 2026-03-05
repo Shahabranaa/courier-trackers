@@ -31,6 +31,7 @@ interface ShopifyOrderData {
     tags: string;
     pendingRemark: string;
     source?: string;
+    createdBy?: string;
 }
 
 interface DailyComparison {
@@ -53,6 +54,7 @@ export default function ShopifyOrdersPage() {
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [error, setError] = useState<string | null>(null);
     const [sourceFilter, setSourceFilter] = useState<"all" | "app" | "synced">("all");
+    const [employeeFilter, setEmployeeFilter] = useState<string>("all");
 
     const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
 
@@ -247,17 +249,32 @@ export default function ShopifyOrdersPage() {
     const [localRemarks, setLocalRemarks] = useState<Record<string, string>>({});
     const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
+    const employeeNames = useMemo(() => {
+        const names = new Set<string>();
+        shopifyOrders.forEach(o => {
+            if (o.createdBy && o.createdBy.trim()) {
+                names.add(o.createdBy.trim());
+            }
+        });
+        return Array.from(names).sort();
+    }, [shopifyOrders]);
+
     const filteredOrders = useMemo(() => {
-        if (sourceFilter === "all") return shopifyOrders;
+        let orders = shopifyOrders;
         if (sourceFilter === "app") {
-            return shopifyOrders.filter(o =>
+            orders = orders.filter(o =>
                 o.source === "app" || (o.tags || "").toLowerCase().includes("hublogistic-app")
             );
+        } else if (sourceFilter === "synced") {
+            orders = orders.filter(o =>
+                o.source !== "app" && !(o.tags || "").toLowerCase().includes("hublogistic-app")
+            );
         }
-        return shopifyOrders.filter(o =>
-            o.source !== "app" && !(o.tags || "").toLowerCase().includes("hublogistic-app")
-        );
-    }, [shopifyOrders, sourceFilter]);
+        if (employeeFilter !== "all") {
+            orders = orders.filter(o => (o.createdBy || "").trim() === employeeFilter);
+        }
+        return orders;
+    }, [shopifyOrders, sourceFilter, employeeFilter]);
 
     const pendingOrdersForDate = useMemo(() => {
         if (!pendingModalDate) return [];
@@ -359,6 +376,18 @@ export default function ShopifyOrdersPage() {
                             <option value="app">App Created</option>
                             <option value="synced">Synced Only</option>
                         </select>
+                        {employeeNames.length > 0 && (
+                            <select
+                                value={employeeFilter}
+                                onChange={e => setEmployeeFilter(e.target.value)}
+                                className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none shadow-sm hover:border-gray-300 transition-all cursor-pointer"
+                            >
+                                <option value="all">All Employees</option>
+                                {employeeNames.map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
+                        )}
                         <button
                             onClick={() => fetchData(true)}
                             disabled={syncing || !hasShopifyCredentials}
@@ -634,7 +663,7 @@ export default function ShopifyOrdersPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
                         <h3 className="text-lg font-bold text-gray-900">Recent Orders</h3>
-                        <span className="text-sm text-gray-500">{filteredOrders.length} orders{sourceFilter !== "all" ? ` (${sourceFilter === "app" ? "App Created" : "Synced"})` : ""}</span>
+                        <span className="text-sm text-gray-500">{filteredOrders.length} orders{sourceFilter !== "all" ? ` (${sourceFilter === "app" ? "App Created" : "Synced"})` : ""}{employeeFilter !== "all" ? ` · ${employeeFilter}` : ""}</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full">
