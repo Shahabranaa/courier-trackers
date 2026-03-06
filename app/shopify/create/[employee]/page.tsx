@@ -539,12 +539,16 @@ export default function EmployeeCreateOrderPage() {
                                     <span className="text-sm font-semibold text-gray-900">{createdOrder.orderName}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-sm text-gray-500">Customer</span>
+                                    <span className="text-sm text-gray-500">Customer Name</span>
                                     <span className="text-sm font-medium text-gray-900">{createdOrder.customerName}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Phone</span>
                                     <span className="text-sm font-medium text-gray-900">{createdOrder.phone}</span>
+                                </div>
+                                <div className="flex justify-between items-start">
+                                    <span className="text-sm text-gray-500 shrink-0">Address</span>
+                                    <span className="text-sm font-medium text-gray-900 text-right ml-4">{createdOrder.address}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">City</span>
@@ -555,8 +559,16 @@ export default function EmployeeCreateOrderPage() {
                                     <span className="text-sm font-bold text-green-600">Rs. {createdOrder.totalPrice.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Created At</span>
+                                    <span className="text-sm font-medium text-gray-900">{new Date(createdOrder.createdAt).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })}</span>
+                                </div>
+                                <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Created By</span>
                                     <span className="text-sm font-medium text-indigo-600">{employeeInfo.name}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-500">Order Status</span>
+                                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">Order Created</span>
                                 </div>
                             </div>
 
