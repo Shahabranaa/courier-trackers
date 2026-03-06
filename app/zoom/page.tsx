@@ -185,10 +185,9 @@ export default function ZoomPortal() {
 
     const downloadCSV = () => {
         if (filteredOrders.length === 0) return;
-        const headers = ["Date", "Order", "Customer", "City", "Address", "Phone", "Amount", "Status", "Tracking Number"];
+        const headers = ["Date", "Ref", "Tracking", "Customer", "Phone", "City", "Address", "Order Amount", "Delivery Fee", "Commission (4%)", "Net Amount", "Status"];
         const rows = filteredOrders.map(o => [
-            o.createdAt?.split("T")[0], o.orderName, o.customerName, o.shippingCity,
-            o.shippingAddress, o.phone, o.totalPrice, o.fulfillmentStatus, getZoomTracking(o)
+            o.createdAt?.split("T")[0], o.orderName, getZoomTracking(o), o.customerName, o.phone, o.shippingCity, o.shippingAddress, o.totalPrice, "", "", "", o.fulfillmentStatus
         ]);
         const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });

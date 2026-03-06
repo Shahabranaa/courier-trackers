@@ -241,11 +241,11 @@ export default function TranzoDashboard() {
 
     const downloadCSV = () => {
         if (filteredOrders.length === 0) return;
-        const headers = ["Date", "Ref", "Tracking", "Customer", "City", "Amount", "Status"];
+        const headers = ["Date", "Ref", "Tracking", "Customer", "Phone", "City", "Address", "Order Amount", "Delivery Fee", "Commission (4%)", "Net Amount", "Status"];
         const rows = filteredOrders.map(o => [
-            o.orderDate, o.orderRefNumber, o.trackingNumber, o.customerName, o.cityName, o.netAmount, o.transactionStatus
+            o.orderDate, o.orderRefNumber, o.trackingNumber, o.customerName, o.customerPhone, o.cityName, o.deliveryAddress, o.orderAmount, o.transactionFee, o.transactionTax, o.netAmount, o.transactionStatus
         ]);
-        const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${c}"`).join(","))].join("\n");
+        const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");

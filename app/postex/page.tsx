@@ -220,9 +220,9 @@ export default function PostExDashboard() {
     // CSV Export
     const downloadCSV = () => {
         if (filteredOrders.length === 0) return;
-        const headers = ["Date", "Ref", "Tracking", "Customer", "City", "Address", "Amount", "Net", "Status"];
+        const headers = ["Date", "Ref", "Tracking", "Customer", "Phone", "City", "Address", "Order Amount", "Delivery Fee", "Commission (4%)", "Net Amount", "Status"];
         const rows = filteredOrders.map(o => [
-            o.orderDate, o.orderRefNumber, o.trackingNumber, o.customerName, o.cityName, o.deliveryAddress, o.invoicePayment, o.netAmount, o.transactionStatus
+            o.orderDate, o.orderRefNumber, o.trackingNumber, o.customerName, o.customerPhone, o.cityName, o.deliveryAddress, o.orderAmount, o.transactionFee, o.transactionTax, o.netAmount, o.transactionStatus
         ]);
         const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
