@@ -52,6 +52,7 @@ export default function DashboardSidebar() {
             children: [
                 { name: "All Orders", href: "/shopify" },
                 { name: "Create Order", href: "/shopify/create" },
+                { name: "Sales Performance", href: "/shopify/sales" },
             ]
         },
         { name: "Finance", href: "/finance", icon: Wallet },
