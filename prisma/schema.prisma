@@ -97,6 +97,7 @@ model Brand {
   updatedAt            DateTime @updatedAt
   userAccess           UserBrand[]
   employees            Employee[]
+  whatsappMessages     WhatsAppMessage[]
 
   @@index([userId])
 }
@@ -201,4 +202,37 @@ model PaymentStatus {
   updatedAt      DateTime @updatedAt
   
   order          Order    @relation(fields: [trackingNumber], references: [trackingNumber], onDelete: Cascade)
+}
+
+model WhatsAppSession {
+  id            String   @id @default("default")
+  sessionData   String   @default("")
+  phone         String   @default("")
+  status        String   @default("disconnected")
+  qrCode        String   @default("")
+  lastConnected DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WhatsAppMessage {
+  id                String   @id @default(cuid())
+  brandId           String
+  remoteJid         String
+  senderName        String   @default("")
+  senderPhone       String   @default("")
+  message           String
+  messageType       String   @default("text")
+  timestamp         DateTime
+  isFromMe          Boolean  @default(false)
+  isOrderDetected   Boolean  @default(false)
+  parsedOrder       String   @default("")
+  orderCreated      Boolean  @default(false)
+  shopifyOrderId    String   @default("")
+  whatsappMessageId String   @unique
+  createdAt         DateTime @default(now())
+
+  brand             Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, timestamp])
 }

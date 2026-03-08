@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt, Wallet, Users, Shield, UserPlus } from "lucide-react";
+import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, ChevronRight, PieChart, ChevronDown, Plus, Building2, ShoppingBag, TrendingUp, Bell, Zap, GitCompare, Receipt, Wallet, Users, Shield, UserPlus, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
 import { useAuth } from "./providers/AuthContext";
@@ -55,6 +55,7 @@ export default function DashboardSidebar() {
                 { name: "Sales Performance", href: "/shopify/sales" },
             ]
         },
+        { name: "WhatsApp", href: "/whatsapp", icon: MessageCircle },
         { name: "Finance", href: "/finance", icon: Wallet },
         { name: "Analytics", href: "/analytics", icon: TrendingUp },
         { name: "Return Discrepancies", href: "/discrepancies", icon: GitCompare },
