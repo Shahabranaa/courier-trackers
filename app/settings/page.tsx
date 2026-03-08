@@ -23,11 +23,13 @@ export default function SettingsPage() {
         shopifyStore: "",
         shopifyAccessToken: "",
         shopifyClientId: "",
-        shopifyClientSecret: ""
+        shopifyClientSecret: "",
+        wetarseelAccountId: "",
+        wetarseelUserId: ""
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "" });
+        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -64,7 +66,9 @@ export default function SettingsPage() {
             shopifyStore: brand.shopifyStore || "",
             shopifyAccessToken: brand.shopifyAccessToken || "",
             shopifyClientId: brand.shopifyClientId || "",
-            shopifyClientSecret: brand.shopifyClientSecret || ""
+            shopifyClientSecret: brand.shopifyClientSecret || "",
+            wetarseelAccountId: brand.wetarseelAccountId || "",
+            wetarseelUserId: brand.wetarseelUserId || ""
         });
         setIsAdding(true);
     };
@@ -240,6 +244,35 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> WeTarSeel (WhatsApp)
+                                </h4>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Account ID</label>
+                                <input
+                                    type="text"
+                                    value={formData.wetarseelAccountId}
+                                    onChange={e => setFormData({ ...formData, wetarseelAccountId: e.target.value })}
+                                    placeholder="e.g. mn3flz113dojgq6"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-mono text-sm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                                <input
+                                    type="text"
+                                    value={formData.wetarseelUserId}
+                                    onChange={e => setFormData({ ...formData, wetarseelUserId: e.target.value })}
+                                    placeholder="e.g. 0coc3svt14ceq0w"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-mono text-sm"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Found in WeTarSeel URL parameters (account_id and current_user_id)</p>
+                            </div>
+
+                            <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
                                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                                     <Globe className="w-4 h-4 text-cyan-500" /> Proxy URL (Optional - For Pakistani IP)
                                 </label>
@@ -351,6 +384,14 @@ export default function SettingsPage() {
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Shopify</span>
                                             {(brand.shopifyAccessToken || (brand.shopifyClientId && brand.shopifyClientSecret)) ? (
+                                                <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
+                                            ) : (
+                                                <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-500 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> WeTarSeel</span>
+                                            {brand.wetarseelAccountId ? (
                                                 <span className="text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1"><Check className="w-3 h-3" /> Connected</span>
                                             ) : (
                                                 <span className="text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">Not Configured</span>

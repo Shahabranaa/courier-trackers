@@ -57,6 +57,8 @@ export interface Brand {
   postexMerchantId?: string;
   postexMerchantToken?: string;
   tranzoMerchantToken?: string;
+  wetarseelAccountId?: string;
+  wetarseelUserId?: string;
 }
 
 export interface PaymentStatus {

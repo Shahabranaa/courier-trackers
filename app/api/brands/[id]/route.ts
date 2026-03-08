@@ -5,7 +5,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, wetarseelAccountId, wetarseelUserId } = body;
 
         const shouldUpdateAccessToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
         const shouldUpdateSecret = shopifyClientSecret !== undefined && shopifyClientSecret !== "••••••••";
@@ -26,7 +26,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(shouldUpdateSecret && { shopifyClientSecret }),
                 ...(postexMerchantId !== undefined && { postexMerchantId }),
                 ...(shouldUpdateMerchantToken && { postexMerchantToken }),
-                ...(shouldUpdateTranzoMerchantToken && { tranzoMerchantToken })
+                ...(shouldUpdateTranzoMerchantToken && { tranzoMerchantToken }),
+                ...(wetarseelAccountId !== undefined && { wetarseelAccountId }),
+                ...(wetarseelUserId !== undefined && { wetarseelUserId })
             }
         });
 

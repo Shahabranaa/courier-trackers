@@ -1,43 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+const WETARSEEL_BASE = "https://bun-prod-new.app.wetarseel.ai";
+
 export async function GET(req: NextRequest) {
     const brandId = req.headers.get("brand-id");
     if (!brandId) {
         return NextResponse.json({ error: "brand-id header required" }, { status: 400 });
     }
 
-    const startDate = req.nextUrl.searchParams.get("startDate");
-    const endDate = req.nextUrl.searchParams.get("endDate");
-    const filter = req.nextUrl.searchParams.get("filter") || "all";
-
-    const where: any = { brandId };
-
-    if (startDate && endDate) {
-        where.timestamp = {
-            gte: new Date(startDate + "T00:00:00.000Z"),
-            lte: new Date(endDate + "T23:59:59.999Z"),
-        };
+    const brand = await prisma.brand.findUnique({ where: { id: brandId } });
+    if (!brand || !brand.wetarseelAccountId || !brand.wetarseelUserId) {
+        return NextResponse.json({ error: "WeTarSeel not configured for this brand. Add Account ID and User ID in Settings." }, { status: 400 });
     }
 
-    if (filter === "orders") {
-        where.isOrderDetected = true;
-    } else if (filter === "unconverted") {
-        where.isOrderDetected = true;
-        where.orderCreated = false;
+    const limit = req.nextUrl.searchParams.get("limit") || "1000";
+
+    try {
+        const url = `${WETARSEEL_BASE}/get-conversations?account_id=${brand.wetarseelAccountId}&limit=${limit}&super_access=true&view_all_chats=true&view_unassigned_chats=true&current_user_id=${brand.wetarseelUserId}&view_not_started_chats=true`;
+
+        const res = await fetch(url, {
+            headers: { "Accept": "application/json" },
+            next: { revalidate: 0 }
+        });
+
+        if (!res.ok) {
+            return NextResponse.json({ error: "Failed to fetch from WeTarSeel" }, { status: res.status });
+        }
+
+        const conversations = await res.json();
+        return NextResponse.json({ conversations });
+    } catch (err: any) {
+        return NextResponse.json({ error: err.message || "Failed to fetch conversations" }, { status: 500 });
     }
-
-    const messages = await prisma.whatsAppMessage.findMany({
-        where,
-        orderBy: { timestamp: "desc" },
-        take: 500,
-    });
-
-    const stats = {
-        total: await prisma.whatsAppMessage.count({ where: { brandId } }),
-        orderDetected: await prisma.whatsAppMessage.count({ where: { brandId, isOrderDetected: true } }),
-        orderCreated: await prisma.whatsAppMessage.count({ where: { brandId, orderCreated: true } }),
-    };
-
-    return NextResponse.json({ messages, stats });
 }

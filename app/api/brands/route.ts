@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, wetarseelAccountId, wetarseelUserId } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
                 shopifyClientSecret: shopifyClientSecret || "",
                 postexMerchantId: postexMerchantId || "",
                 postexMerchantToken: postexMerchantToken || "",
-                tranzoMerchantToken: tranzoMerchantToken || ""
+                tranzoMerchantToken: tranzoMerchantToken || "",
+                wetarseelAccountId: wetarseelAccountId || "",
+                wetarseelUserId: wetarseelUserId || ""
             }
         });
 
