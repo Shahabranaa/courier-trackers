@@ -5,7 +5,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, wetarseelAccountId, wetarseelUserId } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken } = body;
 
         const shouldUpdateAccessToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
         const shouldUpdateSecret = shopifyClientSecret !== undefined && shopifyClientSecret !== "••••••••";
@@ -28,7 +28,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(shouldUpdateMerchantToken && { postexMerchantToken }),
                 ...(shouldUpdateTranzoMerchantToken && { tranzoMerchantToken }),
                 ...(wetarseelAccountId !== undefined && { wetarseelAccountId }),
-                ...(wetarseelUserId !== undefined && { wetarseelUserId })
+                ...(wetarseelUserId !== undefined && { wetarseelUserId }),
+                ...((wetarseelAuthToken !== undefined && wetarseelAuthToken !== "••••••••") && { wetarseelAuthToken })
             }
         });
 
@@ -37,7 +38,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : "",
             shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : "",
             postexMerchantToken: brand.postexMerchantToken ? "••••••••" : "",
-            tranzoMerchantToken: brand.tranzoMerchantToken ? "••••••••" : ""
+            tranzoMerchantToken: brand.tranzoMerchantToken ? "••••••••" : "",
+            wetarseelAuthToken: brand.wetarseelAuthToken ? "••••••••" : ""
         });
     } catch (error: any) {
         console.error("Failed to update brand:", error.message);

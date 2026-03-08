@@ -59,6 +59,7 @@ export interface Brand {
   tranzoMerchantToken?: string;
   wetarseelAccountId?: string;
   wetarseelUserId?: string;
+  wetarseelAuthToken?: string;
 }
 
 export interface PaymentStatus {

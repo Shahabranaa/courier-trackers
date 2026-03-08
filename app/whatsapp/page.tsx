@@ -63,6 +63,10 @@ export default function WhatsAppPage() {
     const [convertError, setConvertError] = useState("");
     const [convertSuccess, setConvertSuccess] = useState(false);
 
+    const [replyText, setReplyText] = useState("");
+    const [sending, setSending] = useState(false);
+    const [sendError, setSendError] = useState("");
+
     const checkStatus = useCallback(async () => {
         if (!selectedBrand) return;
         try {
@@ -118,7 +122,51 @@ export default function WhatsAppPage() {
 
     const selectConversation = (convo: Conversation) => {
         setSelectedConvo(convo);
+        setReplyText("");
+        setSendError("");
         fetchMessages(convo.convo_id);
+    };
+
+    const handleSendReply = async () => {
+        if (!replyText.trim() || !selectedConvo || !selectedBrand || sending) return;
+        setSending(true);
+        setSendError("");
+        try {
+            const res = await fetch("/api/whatsapp/reply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "brand-id": selectedBrand.id },
+                body: JSON.stringify({
+                    convo_id: selectedConvo.convo_id,
+                    message: replyText.trim(),
+                    contact_id: selectedConvo.id,
+                    convoData: {
+                        convoFromDb: {
+                            convo_id: selectedConvo.convo_id,
+                            from: selectedConvo.id,
+                            assigned_agent: selectedConvo.assigned_agent || "",
+                            chat_archive: 0,
+                            unread_count: selectedConvo.unread_count || 0,
+                            channel: "",
+                            status: selectedConvo.status || "New",
+                            country: selectedConvo.country || "PK",
+                            active: 1,
+                            name: selectedConvo.name || "",
+                            phone_number: selectedConvo.phone_number || "",
+                            account: selectedBrand.wetarseelAccountId || "",
+                        },
+                        unread_count: selectedConvo.unread_count || 0,
+                    },
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to send");
+            setReplyText("");
+            setTimeout(() => fetchMessages(selectedConvo.convo_id), 500);
+        } catch (err: any) {
+            setSendError(err.message);
+        } finally {
+            setSending(false);
+        }
     };
 
     const openConvertModal = (convo: Conversation) => {
@@ -411,6 +459,45 @@ export default function WhatsAppPage() {
                                             </div>
                                         ))
                                     )}
+                                </div>
+
+                                <div className="px-4 py-3 bg-white border-t border-gray-200 shrink-0">
+                                    {sendError && (
+                                        <div className="mb-2 px-3 py-2 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-2">
+                                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                            <span className="flex-1">{sendError}</span>
+                                            <button onClick={() => setSendError("")} className="text-red-400 hover:text-red-600">
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="flex items-end gap-2">
+                                        <textarea
+                                            value={replyText}
+                                            onChange={e => setReplyText(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === "Enter" && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleSendReply();
+                                                }
+                                            }}
+                                            placeholder="Type a message..."
+                                            rows={1}
+                                            className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-none max-h-32"
+                                            style={{ minHeight: "42px" }}
+                                        />
+                                        <button
+                                            onClick={handleSendReply}
+                                            disabled={!replyText.trim() || sending}
+                                            className="p-2.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                                        >
+                                            {sending ? (
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                            ) : (
+                                                <Send className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </>
                         )}

@@ -95,6 +95,7 @@ model Brand {
   tranzoMerchantToken  String  @default("")
   wetarseelAccountId   String  @default("")
   wetarseelUserId      String  @default("")
+  wetarseelAuthToken   String  @default("")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   userAccess           UserBrand[]

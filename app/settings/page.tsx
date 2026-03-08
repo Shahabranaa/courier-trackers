@@ -25,11 +25,12 @@ export default function SettingsPage() {
         shopifyClientId: "",
         shopifyClientSecret: "",
         wetarseelAccountId: "",
-        wetarseelUserId: ""
+        wetarseelUserId: "",
+        wetarseelAuthToken: ""
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "" });
+        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", wetarseelAuthToken: "" });
         setIsAdding(false);
         setEditId(null);
     };
@@ -68,7 +69,8 @@ export default function SettingsPage() {
             shopifyClientId: brand.shopifyClientId || "",
             shopifyClientSecret: brand.shopifyClientSecret || "",
             wetarseelAccountId: brand.wetarseelAccountId || "",
-            wetarseelUserId: brand.wetarseelUserId || ""
+            wetarseelUserId: brand.wetarseelUserId || "",
+            wetarseelAuthToken: brand.wetarseelAuthToken || ""
         });
         setIsAdding(true);
     };
@@ -270,6 +272,18 @@ export default function SettingsPage() {
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-mono text-sm"
                                 />
                                 <p className="text-xs text-gray-400 mt-1">Found in WeTarSeel URL parameters (account_id and current_user_id)</p>
+                            </div>
+
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Auth Token (for sending replies)</label>
+                                <input
+                                    type="password"
+                                    value={formData.wetarseelAuthToken}
+                                    onChange={e => setFormData({ ...formData, wetarseelAuthToken: e.target.value })}
+                                    placeholder="pb_auth JWT token from WeTarSeel cookie"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-mono text-sm"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Required for replying to messages. Get from browser DevTools: Application &gt; Cookies &gt; pb_auth &gt; copy the "token" value</p>
                             </div>
 
                             <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">

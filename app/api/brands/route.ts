@@ -29,7 +29,8 @@ export async function GET() {
             shopifyAccessToken: b.shopifyAccessToken ? "••••••••" : "",
             shopifyClientSecret: b.shopifyClientSecret ? "••••••••" : "",
             postexMerchantToken: b.postexMerchantToken ? "••••••••" : "",
-            tranzoMerchantToken: b.tranzoMerchantToken ? "••••••••" : ""
+            tranzoMerchantToken: b.tranzoMerchantToken ? "••••••••" : "",
+            wetarseelAuthToken: b.wetarseelAuthToken ? "••••••••" : ""
         }));
         return NextResponse.json(safeBrands);
     } catch (error: any) {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, wetarseelAccountId, wetarseelUserId } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -68,7 +69,8 @@ export async function POST(req: NextRequest) {
                 postexMerchantToken: postexMerchantToken || "",
                 tranzoMerchantToken: tranzoMerchantToken || "",
                 wetarseelAccountId: wetarseelAccountId || "",
-                wetarseelUserId: wetarseelUserId || ""
+                wetarseelUserId: wetarseelUserId || "",
+                wetarseelAuthToken: wetarseelAuthToken || ""
             }
         });
 
@@ -77,7 +79,8 @@ export async function POST(req: NextRequest) {
             shopifyAccessToken: brand.shopifyAccessToken ? "••••••••" : "",
             shopifyClientSecret: brand.shopifyClientSecret ? "••••••••" : "",
             postexMerchantToken: brand.postexMerchantToken ? "••••••••" : "",
-            tranzoMerchantToken: brand.tranzoMerchantToken ? "••••••••" : ""
+            tranzoMerchantToken: brand.tranzoMerchantToken ? "••••••••" : "",
+            wetarseelAuthToken: brand.wetarseelAuthToken ? "••••••••" : ""
         }, { status: 201 });
     } catch (error: any) {
         console.error("Failed to create brand:", error.message);
