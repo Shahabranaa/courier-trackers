@@ -858,6 +858,8 @@ export default function WhatsAppPage() {
     const [loadingMessages, setLoadingMessages] = useState(false);
 
     const [orderModalConvo, setOrderModalConvo] = useState<Conversation | null>(null);
+    const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
+    const scanAbortRef = useRef<AbortController | null>(null);
 
     const checkStatus = useCallback(async () => {
         if (!selectedBrand) return;
@@ -937,6 +939,69 @@ export default function WhatsAppPage() {
             });
         }
     }, [selectedConvo, messages]);
+
+    useEffect(() => {
+        if (!selectedBrand || conversations.length === 0) return;
+        if (scanAbortRef.current) scanAbortRef.current.abort();
+        const controller = new AbortController();
+        scanAbortRef.current = controller;
+        let cancelled = false;
+
+        const sorted = [...conversations].sort((a, b) => {
+            const aUnreplied = a.last_message_from === "user" ? 0 : 1;
+            const bUnreplied = b.last_message_from === "user" ? 0 : 1;
+            return aUnreplied - bUnreplied;
+        });
+
+        const brandId = selectedBrand.id;
+        let done = 0;
+        setScanProgress({ done: 0, total: sorted.length });
+
+        (async () => {
+            for (const convo of sorted) {
+                if (cancelled) break;
+                const alreadyScanned = deepScanResults.get(convo.convo_id);
+                if (alreadyScanned) {
+                    done++;
+                    if (!cancelled) setScanProgress({ done, total: sorted.length });
+                    continue;
+                }
+                try {
+                    const res = await fetch(`/api/whatsapp/chat?convo_id=${convo.convo_id}&limit=50`, {
+                        headers: { "brand-id": brandId },
+                        signal: controller.signal,
+                    });
+                    if (cancelled) break;
+                    const data = await res.json();
+                    const msgs: Message[] = data.messages || [];
+                    if (msgs.length > 0 && !cancelled) {
+                        const flags = analyzeConvo(convo, msgs);
+                        setDeepScanResults(prev => {
+                            const next = new Map(prev);
+                            next.set(convo.convo_id, flags);
+                            return next;
+                        });
+                    }
+                } catch {
+                    if (cancelled) break;
+                }
+                done++;
+                if (!cancelled) setScanProgress({ done, total: sorted.length });
+                if (!cancelled) {
+                    await new Promise(r => setTimeout(r, 200));
+                }
+            }
+            if (!cancelled) {
+                setScanProgress(null);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            controller.abort();
+            setScanProgress(null);
+        };
+    }, [selectedBrand, conversations]);
 
     const attentionCount = useMemo(() => {
         let count = 0;
@@ -1149,6 +1214,20 @@ export default function WhatsAppPage() {
                                     )}
                                 </button>
                             </div>
+                            {scanProgress && (
+                                <div className="flex items-center gap-2 mt-1.5 px-1">
+                                    <Loader2 className="w-3 h-3 text-indigo-500 animate-spin shrink-0" />
+                                    <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-indigo-400 rounded-full transition-all duration-300"
+                                            style={{ width: `${Math.round((scanProgress.done / scanProgress.total) * 100)}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 shrink-0">
+                                        Scanning {scanProgress.done}/{scanProgress.total}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex-1 overflow-y-auto">
