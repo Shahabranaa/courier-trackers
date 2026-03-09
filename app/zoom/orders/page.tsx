@@ -25,6 +25,7 @@ export default function ZoomOrdersDashboard() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
+    const [recalculating, setRecalculating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [syncResult, setSyncResult] = useState<any>(null);
 
@@ -231,6 +232,35 @@ export default function ZoomOrdersDashboard() {
 
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                         <button
+                            onClick={async () => {
+                                if (!selectedBrand) return;
+                                setRecalculating(true);
+                                setError(null);
+                                try {
+                                    const res = await fetch("/api/zoom/recalculate", {
+                                        method: "POST",
+                                        headers: { "brand-id": sanitizeHeader(selectedBrand.id) },
+                                    });
+                                    if (!res.ok) {
+                                        const errData = await res.json().catch(() => ({}));
+                                        throw new Error(errData.error || "Failed to recalculate");
+                                    }
+                                    const data = await res.json();
+                                    setSyncResult({ recalculated: true, updated: data.updated, total: data.total, unchanged: data.unchanged });
+                                    await loadOrdersFromDB();
+                                } catch (err: any) {
+                                    setError(err.message);
+                                } finally {
+                                    setRecalculating(false);
+                                }
+                            }}
+                            disabled={recalculating || !selectedBrand}
+                            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-md active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
+                            {recalculating ? "Recalculating..." : "Recalculate Net"}
+                        </button>
+                        <button
                             onClick={syncFromPortal}
                             disabled={syncing || !selectedBrand}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-md active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 ml-auto lg:ml-0"
@@ -249,13 +279,16 @@ export default function ZoomOrdersDashboard() {
                 )}
 
                 {syncResult && (
-                    <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-xl flex items-center gap-3">
-                        <Zap className="w-5 h-5 text-blue-600" />
+                    <div className={`${syncResult.recalculated ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-blue-50 border-blue-200 text-blue-800"} border px-4 py-3 rounded-xl flex items-center gap-3`}>
+                        <Zap className={`w-5 h-5 ${syncResult.recalculated ? "text-amber-600" : "text-blue-600"}`} />
                         <div className="text-sm">
-                            <span className="font-semibold">Sync Complete:</span>{" "}
-                            {syncResult.synced} orders synced, {syncResult.failed} failed out of {syncResult.totalTrackingNumbers} tracking numbers
+                            {syncResult.recalculated ? (
+                                <><span className="font-semibold">Recalculation Complete:</span> {syncResult.updated} orders updated, {syncResult.unchanged} unchanged out of {syncResult.total} total</>
+                            ) : (
+                                <><span className="font-semibold">Sync Complete:</span> {syncResult.synced} orders synced, {syncResult.failed} failed out of {syncResult.totalTrackingNumbers} tracking numbers</>
+                            )}
                         </div>
-                        <button onClick={() => setSyncResult(null)} className="ml-auto text-blue-400 hover:text-blue-600">
+                        <button onClick={() => setSyncResult(null)} className="ml-auto text-gray-400 hover:text-gray-600">
                             <X className="w-4 h-4" />
                         </button>
                     </div>
