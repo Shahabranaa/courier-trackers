@@ -171,15 +171,15 @@ export default function ZoomOrdersDashboard() {
             s.revenue += (o.orderAmount || o.invoicePayment || 0);
             s.deliveryCharges += (o.transactionFee || 0);
             s.commission += (o.transactionTax || 0);
+            s.net += (o.netAmount || 0);
 
             const status = (o.transactionStatus || "").toLowerCase();
-            if (status === "delivered") {
+            const isDeliveredStatus = status.includes("delivered") && !status.includes("un delivered") && !status.includes("undelivered") && !status.includes("not delivered");
+            if (isDeliveredStatus) {
                 s.delivered++;
-                s.net += (o.netAmount || 0);
             } else if (status.includes("return")) {
                 s.returned++;
-                s.net -= (o.transactionFee || 0);
-            } else if (status.includes("transit") || status.includes("assigned")) {
+            } else if (status.includes("transit") || status.includes("assigned") || status.includes("arrived") || status.includes("pending") || status.includes("booked")) {
                 s.inTransit++;
             }
         });
@@ -207,7 +207,8 @@ export default function ZoomOrdersDashboard() {
 
     const getStatusBadge = (status: string) => {
         const s = status.toLowerCase();
-        if (s === "delivered") return "bg-emerald-50 text-emerald-700";
+        if (s.includes("un delivered") || s.includes("undelivered") || s.includes("not delivered")) return "bg-red-50 text-red-700";
+        if (s.includes("delivered")) return "bg-emerald-50 text-emerald-700";
         if (s.includes("return")) return "bg-red-50 text-red-700";
         if (s.includes("transit")) return "bg-blue-50 text-blue-700";
         if (s.includes("assigned")) return "bg-indigo-50 text-indigo-700";
@@ -491,9 +492,9 @@ export default function ZoomOrdersDashboard() {
                                 <div className="p-6 space-y-4">
                                     <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
                                         <div className={`px-3 py-1.5 rounded-lg text-sm font-bold ${
-                                            trackingModal.currentStatus.toLowerCase() === "delivered"
+                                            (trackingModal.currentStatus.toLowerCase().includes("delivered") && !trackingModal.currentStatus.toLowerCase().includes("un delivered") && !trackingModal.currentStatus.toLowerCase().includes("undelivered"))
                                                 ? "bg-emerald-50 text-emerald-700"
-                                                : trackingModal.currentStatus.toLowerCase().includes("return")
+                                                : trackingModal.currentStatus.toLowerCase().includes("return") || trackingModal.currentStatus.toLowerCase().includes("un delivered") || trackingModal.currentStatus.toLowerCase().includes("undelivered")
                                                     ? "bg-red-50 text-red-700"
                                                     : "bg-blue-50 text-blue-700"
                                         }`}>
@@ -535,7 +536,7 @@ export default function ZoomOrdersDashboard() {
                                             <div className="space-y-0">
                                                 {trackingModal.trackingHistory.map((entry, i) => {
                                                     const isLast = i === trackingModal.trackingHistory.length - 1;
-                                                    const isDelivered = entry.status.toLowerCase() === "delivered";
+                                                    const isDelivered = entry.status.toLowerCase().includes("delivered");
                                                     return (
                                                         <div key={i} className="flex gap-3 relative">
                                                             <div className="flex flex-col items-center">

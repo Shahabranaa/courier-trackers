@@ -135,7 +135,9 @@ export async function POST(req: NextRequest) {
                     const orderAmount = shopifyOrder.totalPrice || 0;
                     const deliveryFee = ZOOM_DELIVERY_FEE;
                     const commission = orderAmount * ZOOM_COMMISSION_RATE;
-                    const netAmount = orderAmount - deliveryFee - commission;
+                    const statusLower = (trackingData.currentStatus || "").toLowerCase();
+                    const isDelivered = statusLower.includes("delivered") && !statusLower.includes("un delivered") && !statusLower.includes("undelivered") && !statusLower.includes("not delivered");
+                    const netAmount = isDelivered ? orderAmount - deliveryFee - commission : -deliveryFee;
                     const orderDate = shopifyOrder.createdAt || new Date().toISOString();
 
                     await prisma.order.upsert({

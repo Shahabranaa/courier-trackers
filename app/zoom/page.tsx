@@ -458,9 +458,9 @@ export default function ZoomPortal() {
                                 <div className="p-6 space-y-4">
                                     <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
                                         <div className={`px-3 py-1.5 rounded-lg text-sm font-bold ${
-                                            trackingModal.currentStatus.toLowerCase() === "delivered"
+                                            (trackingModal.currentStatus.toLowerCase().includes("delivered") && !trackingModal.currentStatus.toLowerCase().includes("un delivered") && !trackingModal.currentStatus.toLowerCase().includes("undelivered"))
                                                 ? "bg-emerald-50 text-emerald-700"
-                                                : trackingModal.currentStatus.toLowerCase().includes("return")
+                                                : trackingModal.currentStatus.toLowerCase().includes("return") || trackingModal.currentStatus.toLowerCase().includes("un delivered") || trackingModal.currentStatus.toLowerCase().includes("undelivered")
                                                     ? "bg-red-50 text-red-700"
                                                     : "bg-blue-50 text-blue-700"
                                         }`}>
@@ -502,7 +502,7 @@ export default function ZoomPortal() {
                                             <div className="space-y-0">
                                                 {trackingModal.trackingHistory.map((entry, i) => {
                                                     const isLast = i === trackingModal.trackingHistory.length - 1;
-                                                    const isDelivered = entry.status.toLowerCase() === "delivered";
+                                                    const isDelivered = entry.status.toLowerCase().includes("delivered");
                                                     return (
                                                         <div key={i} className="flex gap-3 relative">
                                                             <div className="flex flex-col items-center">
