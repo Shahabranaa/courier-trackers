@@ -6,7 +6,7 @@ import { useBrand } from "@/components/providers/BrandContext";
 import {
     MessageCircle, CheckCircle, AlertCircle, Wifi, WifiOff,
     ShoppingBag, X, RefreshCw, Loader2, Search, ArrowLeft, User, Phone, MapPin, Bell,
-    Package, ChevronDown, FileText, ClipboardPaste, Edit3, BarChart3, TrendingUp, ShoppingCart
+    Package, ChevronDown, FileText, ClipboardPaste, Edit3, Scan
 } from "lucide-react";
 
 const PK_CITIES = [
@@ -861,17 +861,6 @@ export default function WhatsAppPage() {
     const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
     const scanAbortRef = useRef<AbortController | null>(null);
 
-    const [showStats, setShowStats] = useState(false);
-    const [analyticsData, setAnalyticsData] = useState<{
-        totals: { totalConversations: number; totalConverted: number; conversionRate: number; totalRevenue: number };
-        dailyStats: { date: string; total: number; converted: number; conversionRate: number; revenue: number }[];
-        orderMap: Record<string, { orderName: string; orderNumber: string }>;
-    } | null>(null);
-    const [analyticsLoading, setAnalyticsLoading] = useState(false);
-    const [analyticsMonth, setAnalyticsMonth] = useState(() => {
-        const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    });
 
     const checkStatus = useCallback(async () => {
         if (!selectedBrand) return;
@@ -921,36 +910,10 @@ export default function WhatsAppPage() {
         }
     }, [selectedBrand]);
 
-    const fetchAnalytics = useCallback(async (month?: string) => {
-        if (!selectedBrand) return;
-        setAnalyticsLoading(true);
-        try {
-            const m = month || analyticsMonth;
-            const [year, mo] = m.split("-").map(Number);
-            const startDate = `${year}-${String(mo).padStart(2, "0")}-01`;
-            const lastDay = new Date(year, mo, 0).getDate();
-            const endDate = `${year}-${String(mo).padStart(2, "0")}-${lastDay}`;
-            const res = await fetch(`/api/whatsapp/analytics?startDate=${startDate}&endDate=${endDate}`, {
-                headers: { "brand-id": selectedBrand.id },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setAnalyticsData(data);
-            }
-        } catch {}
-        finally { setAnalyticsLoading(false); }
-    }, [selectedBrand, analyticsMonth]);
-
     useEffect(() => {
         checkStatus();
         fetchConversations();
     }, [checkStatus, fetchConversations]);
-
-    useEffect(() => {
-        if (selectedBrand && configured) {
-            fetchAnalytics();
-        }
-    }, [selectedBrand, configured, analyticsMonth]);
 
     const [deepScanResults, setDeepScanResults] = useState<Map<string, ConvoFlags>>(new Map());
 
@@ -978,7 +941,7 @@ export default function WhatsAppPage() {
         }
     }, [selectedConvo, messages]);
 
-    useEffect(() => {
+    const startDeepScan = useCallback(() => {
         if (!selectedBrand || conversations.length === 0) return;
         if (scanAbortRef.current) scanAbortRef.current.abort();
         const controller = new AbortController();
@@ -1039,7 +1002,15 @@ export default function WhatsAppPage() {
             controller.abort();
             setScanProgress(null);
         };
-    }, [selectedBrand, conversations]);
+    }, [selectedBrand, conversations, deepScanResults]);
+
+    useEffect(() => {
+        return () => {
+            if (scanAbortRef.current) {
+                scanAbortRef.current.abort();
+            }
+        };
+    }, []);
 
     const attentionCount = useMemo(() => {
         let count = 0;
@@ -1194,105 +1165,18 @@ export default function WhatsAppPage() {
                                 {attentionCount} Need Attention
                             </button>
                         )}
-                        <button
-                            onClick={() => setShowStats(!showStats)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                                showStats ? "bg-indigo-600 text-white" : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                            }`}
-                        >
-                            <BarChart3 className="w-3 h-3" />
-                            Stats
-                        </button>
                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
                             <Wifi className="w-3 h-3" />
                             WeTarSeel
                         </div>
                         <button
-                            onClick={() => { fetchConversations(); fetchAnalytics(); if (selectedConvo) fetchMessages(selectedConvo.convo_id); }}
+                            onClick={() => { fetchConversations(); if (selectedConvo) fetchMessages(selectedConvo.convo_id); }}
                             className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
                         >
                             <RefreshCw className={`w-4 h-4 text-gray-500 ${loading ? "animate-spin" : ""}`} />
                         </button>
                     </div>
                 </div>
-
-                {showStats && (
-                    <div className="border-b border-gray-200 bg-gradient-to-r from-indigo-50/50 to-white p-4 shrink-0">
-                        <div className="flex items-center gap-3 mb-3">
-                            <input
-                                type="month"
-                                value={analyticsMonth}
-                                onChange={e => setAnalyticsMonth(e.target.value)}
-                                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            />
-                            {analyticsLoading && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" />}
-                        </div>
-                        {analyticsData ? (
-                            <>
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                                    <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Messages Received</p>
-                                        <p className="text-2xl font-bold text-gray-900">{analyticsData.totals.totalConversations}</p>
-                                    </div>
-                                    <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Orders Converted</p>
-                                        <p className="text-2xl font-bold text-emerald-600">{analyticsData.totals.totalConverted}</p>
-                                    </div>
-                                    <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Closing Ratio</p>
-                                        <p className="text-2xl font-bold text-indigo-600">{analyticsData.totals.conversionRate}%</p>
-                                    </div>
-                                    <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Revenue</p>
-                                        <p className="text-2xl font-bold text-gray-900">Rs. {Math.round(analyticsData.totals.totalRevenue).toLocaleString()}</p>
-                                    </div>
-                                </div>
-                                {analyticsData.dailyStats.length > 0 && (
-                                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden max-h-[200px] overflow-y-auto">
-                                        <table className="w-full text-sm">
-                                            <thead className="bg-gray-50 sticky top-0">
-                                                <tr>
-                                                    <th className="text-left px-3 py-2 text-[10px] font-bold text-gray-500 uppercase">Date</th>
-                                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-gray-500 uppercase">Messages</th>
-                                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-gray-500 uppercase">Converted</th>
-                                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-gray-500 uppercase">Rate</th>
-                                                    <th className="text-right px-3 py-2 text-[10px] font-bold text-gray-500 uppercase">Revenue</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {analyticsData.dailyStats.map(day => (
-                                                    <tr key={day.date} className="border-t border-gray-50 hover:bg-gray-50/50">
-                                                        <td className="px-3 py-2 text-gray-700 font-medium">
-                                                            {new Date(day.date + "T00:00:00").toLocaleDateString("en-PK", { day: "numeric", month: "short", weekday: "short" })}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-center">
-                                                            <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.total}</span>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-center">
-                                                            <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${day.converted > 0 ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>{day.converted}</span>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-center">
-                                                            <span className={`text-xs font-bold ${day.conversionRate >= 50 ? "text-emerald-600" : day.conversionRate >= 25 ? "text-amber-600" : "text-gray-500"}`}>
-                                                                {day.conversionRate}%
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right text-xs text-gray-600 font-mono">
-                                                            {day.revenue > 0 ? `Rs. ${Math.round(day.revenue).toLocaleString()}` : "-"}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <div className="text-center py-4 text-gray-400 text-sm">
-                                {analyticsLoading ? "Loading analytics..." : "No data available"}
-                            </div>
-                        )}
-                    </div>
-                )}
 
                 <div className="flex flex-1 overflow-hidden">
                     <div className={`w-full lg:w-[380px] border-r border-gray-200 bg-white flex flex-col ${selectedConvo ? "hidden lg:flex" : "flex"}`}>
@@ -1337,6 +1221,18 @@ export default function WhatsAppPage() {
                                             {attentionCount}
                                         </span>
                                     )}
+                                </button>
+                                <button
+                                    onClick={startDeepScan}
+                                    disabled={!!scanProgress || conversations.length === 0}
+                                    className={`ml-auto px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                                        scanProgress
+                                            ? "bg-indigo-100 text-indigo-400 cursor-not-allowed"
+                                            : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                    }`}
+                                >
+                                    {scanProgress ? <Loader2 className="w-3 h-3 animate-spin" /> : <Scan className="w-3 h-3" />}
+                                    Deep Scan
                                 </button>
                             </div>
                             {scanProgress && (
@@ -1395,14 +1291,8 @@ export default function WhatsAppPage() {
                                                         {convo.last_message_from === "agent" && <span className="text-gray-400">You: </span>}
                                                         {convo.last_message || "No messages"}
                                                     </p>
-                                                    {(flags && (flags.hasSignals || flags.needsReply)) || analyticsData?.orderMap[convo.convo_id] ? (
+                                                    {flags && (flags.hasSignals || flags.needsReply) ? (
                                                         <div className="flex flex-wrap gap-1 mt-1.5">
-                                                            {analyticsData?.orderMap[convo.convo_id] && (
-                                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-100 text-emerald-700">
-                                                                    <ShoppingCart className="w-2.5 h-2.5" />
-                                                                    {analyticsData.orderMap[convo.convo_id].orderName}
-                                                                </span>
-                                                            )}
                                                             {flags?.cityDetected && (
                                                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-blue-100 text-blue-700">
                                                                     <MapPin className="w-2.5 h-2.5" />

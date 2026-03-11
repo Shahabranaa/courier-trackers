@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
-import { Calendar, Users, Package, CheckCircle, TrendingUp, Award } from "lucide-react";
+import { Calendar, Users, Package, CheckCircle, TrendingUp, Award, MessageCircle, Loader2 } from "lucide-react";
 
 interface EmployeeStats {
     name: string;
     total: number;
     delivered: number;
     daily: Record<string, number>;
+}
+
+interface WhatsAppAnalytics {
+    totals: { totalConversations: number; totalConverted: number; conversionRate: number; totalRevenue: number };
+    dailyStats: { date: string; total: number; converted: number; conversionRate: number; revenue: number }[];
 }
 
 export default function SalesPerformancePage() {
@@ -19,6 +24,9 @@ export default function SalesPerformancePage() {
     const [dates, setDates] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [waAnalytics, setWaAnalytics] = useState<WhatsAppAnalytics | null>(null);
+    const [waLoading, setWaLoading] = useState(false);
+
     const getDateRange = () => {
         const [year, month] = selectedMonth.split("-").map(Number);
         const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -26,6 +34,27 @@ export default function SalesPerformancePage() {
         const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
         return { startDate, endDate };
     };
+
+    const fetchWhatsAppAnalytics = useCallback(async () => {
+        if (!selectedBrand) return;
+        setWaLoading(true);
+        try {
+            const { startDate, endDate } = getDateRange();
+            const res = await fetch(`/api/whatsapp/analytics?startDate=${startDate}&endDate=${endDate}`, {
+                headers: { "brand-id": selectedBrand.id },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setWaAnalytics(data);
+            } else {
+                setWaAnalytics(null);
+            }
+        } catch {
+            setWaAnalytics(null);
+        } finally {
+            setWaLoading(false);
+        }
+    }, [selectedBrand, selectedMonth]);
 
     useEffect(() => {
         if (!selectedBrand) {
@@ -47,6 +76,8 @@ export default function SalesPerformancePage() {
                 setDates([]);
             })
             .finally(() => setLoading(false));
+
+        fetchWhatsAppAnalytics();
     }, [selectedMonth, selectedBrand]);
 
     const totals = useMemo(() => {
@@ -244,6 +275,95 @@ export default function SalesPerformancePage() {
                         </div>
                     </>
                 )}
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-green-50 text-green-500 rounded-xl">
+                                    <MessageCircle className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">WhatsApp Conversion</h3>
+                                    <p className="text-sm text-gray-500">Messages matched to Shopify orders</p>
+                                </div>
+                            </div>
+                            {waLoading && <Loader2 className="w-5 h-5 text-green-500 animate-spin" />}
+                        </div>
+                    </div>
+
+                    {waLoading && !waAnalytics ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                        </div>
+                    ) : waAnalytics ? (
+                        <div className="p-6 space-y-5">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Messages Received</p>
+                                    <p className="text-2xl font-bold text-gray-900">{waAnalytics.totals.totalConversations}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Orders Converted</p>
+                                    <p className="text-2xl font-bold text-emerald-600">{waAnalytics.totals.totalConverted}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Closing Ratio</p>
+                                    <p className="text-2xl font-bold text-indigo-600">{waAnalytics.totals.conversionRate}%</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Revenue</p>
+                                    <p className="text-2xl font-bold text-gray-900">Rs. {Math.round(waAnalytics.totals.totalRevenue).toLocaleString()}</p>
+                                </div>
+                            </div>
+
+                            {waAnalytics.dailyStats.length > 0 && (
+                                <div className="border border-gray-100 rounded-xl overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
+                                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Messages</th>
+                                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Converted</th>
+                                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Rate</th>
+                                                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Revenue</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {waAnalytics.dailyStats.map(day => (
+                                                <tr key={day.date} className="hover:bg-gray-50/50 transition-colors">
+                                                    <td className="px-4 py-3 text-gray-700 font-medium">
+                                                        {new Date(day.date + "T00:00:00").toLocaleDateString("en-PK", { day: "numeric", month: "short", weekday: "short" })}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.total}</span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${day.converted > 0 ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>{day.converted}</span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`text-xs font-bold ${day.conversionRate >= 50 ? "text-emerald-600" : day.conversionRate >= 25 ? "text-amber-600" : "text-gray-500"}`}>
+                                                            {day.conversionRate}%
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-xs text-gray-600 font-mono">
+                                                        {day.revenue > 0 ? `Rs. ${Math.round(day.revenue).toLocaleString()}` : "-"}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 text-gray-400">
+                            <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                            <p className="text-sm font-medium">No WhatsApp data available</p>
+                            <p className="text-xs text-gray-300 mt-1">Configure WeTarSeel in Settings to see conversion analytics</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </DashboardLayout>
     );
