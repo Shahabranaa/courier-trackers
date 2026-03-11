@@ -851,7 +851,7 @@ export default function WhatsAppPage() {
     const [loading, setLoading] = useState(true);
     const [configured, setConfigured] = useState<boolean | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
-    const [filter, setFilter] = useState<"all" | "attention" | "unreplied">("all");
+    const [filter, setFilter] = useState<"all" | "attention" | "unreplied" | "orders">("all");
 
     const [selectedConvo, setSelectedConvo] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -861,6 +861,7 @@ export default function WhatsAppPage() {
     const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
     const scanAbortRef = useRef<AbortController | null>(null);
     const [orderMap, setOrderMap] = useState<Record<string, { orderName: string; orderNumber: string }[]>>({});
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const fetchOrderMap = useCallback(async () => {
         if (!selectedBrand) return;
@@ -1064,6 +1065,10 @@ export default function WhatsAppPage() {
         return phone;
     };
 
+    const ordersCount = useMemo(() => {
+        return conversations.filter(c => !!orderMap[c.convo_id]).length;
+    }, [conversations, orderMap]);
+
     const filteredConversations = useMemo(() => {
         return conversations.filter(c => {
             if (filter === "attention") {
@@ -1071,6 +1076,8 @@ export default function WhatsAppPage() {
                 if (!flags || (flags.priority !== "high" && flags.priority !== "medium")) return false;
             } else if (filter === "unreplied") {
                 if (c.last_message_from !== "user") return false;
+            } else if (filter === "orders") {
+                if (!orderMap[c.convo_id]) return false;
             }
             if (!searchQuery) return true;
             const q = searchQuery.toLowerCase();
@@ -1080,7 +1087,7 @@ export default function WhatsAppPage() {
                 (c.last_message && c.last_message.toLowerCase().includes(q))
             );
         });
-    }, [conversations, convoAnalysis, filter, searchQuery]);
+    }, [conversations, convoAnalysis, filter, searchQuery, orderMap]);
 
     const selectedFlags = selectedConvo ? convoAnalysis.get(selectedConvo.convo_id) : null;
 
@@ -1096,6 +1103,12 @@ export default function WhatsAppPage() {
         });
         return results;
     }, [messages]);
+
+    useEffect(() => {
+        if (!loadingMessages && messages.length > 0 && messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: "instant" });
+        }
+    }, [messages, loadingMessages]);
 
     if (configured === false) {
         return (
@@ -1226,6 +1239,20 @@ export default function WhatsAppPage() {
                                     }`}
                                 >
                                     Unreplied
+                                </button>
+                                <button
+                                    onClick={() => setFilter("orders")}
+                                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                                        filter === "orders" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                    }`}
+                                >
+                                    <ShoppingCart className="w-3 h-3" />
+                                    Orders
+                                    {ordersCount > 0 && (
+                                        <span className={`ml-0.5 text-[10px] font-bold ${filter === "orders" ? "text-white" : "text-emerald-600"}`}>
+                                            {ordersCount}
+                                        </span>
+                                    )}
                                 </button>
                                 <button
                                     onClick={() => setFilter("attention")}
@@ -1431,10 +1458,11 @@ export default function WhatsAppPage() {
                                             <p className="text-sm">No messages in this conversation</p>
                                         </div>
                                     ) : (
-                                        [...messages].reverse().map(msg => {
+                                        [...messages].reverse().map((msg, idx, arr) => {
                                             const msgSignals = messageSignals.get(msg.id);
+                                            const isLast = idx === arr.length - 1;
                                             return (
-                                                <div key={msg.id}>
+                                                <div key={msg.id} ref={isLast ? messagesEndRef : undefined}>
                                                     <div className={`flex ${msg.from === "agent" ? "justify-end" : "justify-start"}`}>
                                                         <div
                                                             className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
