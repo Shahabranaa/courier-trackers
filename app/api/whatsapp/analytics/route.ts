@@ -9,7 +9,7 @@ function normalizePhone(phone: string): string {
     let cleaned = phone.replace(/[^0-9]/g, "");
     if (cleaned.startsWith("0092")) {
         cleaned = cleaned.slice(4);
-    } else if (cleaned.startsWith("92") && cleaned.length >= 12) {
+    } else if (cleaned.startsWith("92") && cleaned.length >= 11) {
         cleaned = cleaned.slice(2);
     }
     if (cleaned.startsWith("0")) {
@@ -50,12 +50,13 @@ export async function GET(req: NextRequest) {
 
         const conversations: any[] = await convosRes.json();
 
-        const convosByPhone = new Map<string, any[]>();
+        const convosByPhone = new Map<string, any>();
         for (const c of conversations) {
             const norm = normalizePhone(c.phone_number || "");
-            if (!norm || norm.length < 10) continue;
-            if (!convosByPhone.has(norm)) convosByPhone.set(norm, []);
-            convosByPhone.get(norm)!.push(c);
+            if (!norm || norm.length < 9) continue;
+            if (!convosByPhone.has(norm)) {
+                convosByPhone.set(norm, c);
+            }
         }
 
         const dateStart = startDate ? new Date(startDate + "T00:00:00Z") : null;
@@ -104,34 +105,16 @@ export async function GET(req: NextRequest) {
 
             const norm = normalizePhone(order.phone || "");
             if (norm && convosByPhone.has(norm)) {
-                const convos = convosByPhone.get(norm)!;
-                let bestConvo: any = null;
-                let bestDiff = Infinity;
-
-                for (const c of convos) {
-                    if (!c.last_message_created) continue;
-                    const msgDate = new Date(c.last_message_created);
-                    const diffMs = orderDate.getTime() - msgDate.getTime();
-                    if (diffMs >= -6 * 60 * 60 * 1000 && diffMs <= 72 * 60 * 60 * 1000) {
-                        const absDiff = Math.abs(diffMs);
-                        if (absDiff < bestDiff) {
-                            bestDiff = absDiff;
-                            bestConvo = c;
-                        }
-                    }
-                }
-
-                if (bestConvo) {
-                    totalMatched++;
-                    totalRevenue += order.totalPrice || 0;
-                    dailyStats[day].matched++;
-                    dailyStats[day].revenue += order.totalPrice || 0;
-                    if (!orderMap[bestConvo.convo_id]) orderMap[bestConvo.convo_id] = [];
-                    orderMap[bestConvo.convo_id].push({
-                        orderName: order.orderName,
-                        orderNumber: order.orderNumber,
-                    });
-                }
+                const convo = convosByPhone.get(norm)!;
+                totalMatched++;
+                totalRevenue += order.totalPrice || 0;
+                dailyStats[day].matched++;
+                dailyStats[day].revenue += order.totalPrice || 0;
+                if (!orderMap[convo.convo_id]) orderMap[convo.convo_id] = [];
+                orderMap[convo.convo_id].push({
+                    orderName: order.orderName,
+                    orderNumber: order.orderNumber,
+                });
             }
         }
 
