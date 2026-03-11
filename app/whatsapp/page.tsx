@@ -6,7 +6,7 @@ import { useBrand } from "@/components/providers/BrandContext";
 import {
     MessageCircle, CheckCircle, AlertCircle, Wifi, WifiOff,
     ShoppingBag, X, RefreshCw, Loader2, Search, ArrowLeft, User, Phone, MapPin, Bell,
-    Package, ChevronDown, FileText, ClipboardPaste, Edit3, Scan
+    Package, ChevronDown, FileText, ClipboardPaste, Edit3, Scan, ShoppingCart
 } from "lucide-react";
 
 const PK_CITIES = [
@@ -860,7 +860,25 @@ export default function WhatsAppPage() {
     const [orderModalConvo, setOrderModalConvo] = useState<Conversation | null>(null);
     const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
     const scanAbortRef = useRef<AbortController | null>(null);
+    const [orderMap, setOrderMap] = useState<Record<string, { orderName: string; orderNumber: string }[]>>({});
 
+    const fetchOrderMap = useCallback(async () => {
+        if (!selectedBrand) return;
+        try {
+            const now = new Date();
+            const start = new Date(now);
+            start.setDate(start.getDate() - 90);
+            const startDate = start.toISOString().split("T")[0];
+            const endDate = now.toISOString().split("T")[0];
+            const res = await fetch(`/api/whatsapp/analytics?startDate=${startDate}&endDate=${endDate}`, {
+                headers: { "brand-id": selectedBrand.id },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setOrderMap(data.orderMap || {});
+            }
+        } catch {}
+    }, [selectedBrand]);
 
     const checkStatus = useCallback(async () => {
         if (!selectedBrand) return;
@@ -913,7 +931,8 @@ export default function WhatsAppPage() {
     useEffect(() => {
         checkStatus();
         fetchConversations();
-    }, [checkStatus, fetchConversations]);
+        fetchOrderMap();
+    }, [checkStatus, fetchConversations, fetchOrderMap]);
 
     const [deepScanResults, setDeepScanResults] = useState<Map<string, ConvoFlags>>(new Map());
 
@@ -1170,7 +1189,7 @@ export default function WhatsAppPage() {
                             WeTarSeel
                         </div>
                         <button
-                            onClick={() => { fetchConversations(); if (selectedConvo) fetchMessages(selectedConvo.convo_id); }}
+                            onClick={() => { fetchConversations(); fetchOrderMap(); if (selectedConvo) fetchMessages(selectedConvo.convo_id); }}
                             className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
                         >
                             <RefreshCw className={`w-4 h-4 text-gray-500 ${loading ? "animate-spin" : ""}`} />
@@ -1291,8 +1310,14 @@ export default function WhatsAppPage() {
                                                         {convo.last_message_from === "agent" && <span className="text-gray-400">You: </span>}
                                                         {convo.last_message || "No messages"}
                                                     </p>
-                                                    {flags && (flags.hasSignals || flags.needsReply) ? (
+                                                    {(flags && (flags.hasSignals || flags.needsReply)) || orderMap[convo.convo_id] ? (
                                                         <div className="flex flex-wrap gap-1 mt-1.5">
+                                                            {orderMap[convo.convo_id]?.map((o, i) => (
+                                                                <span key={i} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-100 text-emerald-700">
+                                                                    <ShoppingCart className="w-2.5 h-2.5" />
+                                                                    {o.orderName}
+                                                                </span>
+                                                            ))}
                                                             {flags?.cityDetected && (
                                                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-blue-100 text-blue-700">
                                                                     <MapPin className="w-2.5 h-2.5" />
