@@ -13,8 +13,8 @@ interface EmployeeStats {
 }
 
 interface WhatsAppAnalytics {
-    totals: { totalConversations: number; totalConverted: number; conversionRate: number; totalRevenue: number };
-    dailyStats: { date: string; total: number; converted: number; conversionRate: number; revenue: number }[];
+    totals: { totalConversations: number; totalOrders: number; totalConverted: number; conversionRate: number; totalRevenue: number };
+    dailyStats: { date: string; total: number; messages: number; converted: number; conversionRate: number; revenue: number }[];
 }
 
 export default function SalesPerformancePage() {
@@ -298,17 +298,21 @@ export default function SalesPerformancePage() {
                         </div>
                     ) : waAnalytics ? (
                         <div className="p-6 space-y-5">
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Messages Received</p>
                                     <p className="text-2xl font-bold text-gray-900">{waAnalytics.totals.totalConversations}</p>
                                 </div>
                                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Orders Converted</p>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Orders</p>
+                                    <p className="text-2xl font-bold text-blue-600">{waAnalytics.totals.totalOrders}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">WhatsApp Matched</p>
                                     <p className="text-2xl font-bold text-emerald-600">{waAnalytics.totals.totalConverted}</p>
                                 </div>
                                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Closing Ratio</p>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Match Rate</p>
                                     <p className="text-2xl font-bold text-indigo-600">{waAnalytics.totals.conversionRate}%</p>
                                 </div>
                                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
@@ -324,7 +328,8 @@ export default function SalesPerformancePage() {
                                             <tr>
                                                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
                                                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Messages</th>
-                                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Converted</th>
+                                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Orders</th>
+                                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">WA Matched</th>
                                                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Rate</th>
                                                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Revenue</th>
                                             </tr>
@@ -336,7 +341,10 @@ export default function SalesPerformancePage() {
                                                         {new Date(day.date + "T00:00:00").toLocaleDateString("en-PK", { day: "numeric", month: "short", weekday: "short" })}
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
-                                                        <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.total}</span>
+                                                        <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.messages}</span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.total}</span>
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${day.converted > 0 ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>{day.converted}</span>

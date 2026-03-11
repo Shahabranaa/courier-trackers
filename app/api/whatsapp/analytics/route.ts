@@ -50,10 +50,18 @@ export async function GET(req: NextRequest) {
 
         const conversations: any[] = await convosRes.json();
 
+        const convosByPhone = new Map<string, any[]>();
+        for (const c of conversations) {
+            const norm = normalizePhone(c.phone_number || "");
+            if (!norm || norm.length < 10) continue;
+            if (!convosByPhone.has(norm)) convosByPhone.set(norm, []);
+            convosByPhone.get(norm)!.push(c);
+        }
+
         const dateStart = startDate ? new Date(startDate + "T00:00:00Z") : null;
         const dateEnd = endDate ? new Date(endDate + "T23:59:59Z") : null;
 
-        const filtered = conversations.filter(c => {
+        const messagesInRange = conversations.filter(c => {
             if (!c.last_message_created) return false;
             const msgDate = new Date(c.last_message_created);
             if (dateStart && msgDate < dateStart) return false;
@@ -61,130 +69,103 @@ export async function GET(req: NextRequest) {
             return true;
         });
 
-        const convoPhones = new Set<string>();
-        const phoneToConvos = new Map<string, any[]>();
-
-        for (const c of filtered) {
-            const norm = normalizePhone(c.phone_number || "");
-            if (!norm || norm.length < 10) continue;
-            convoPhones.add(norm);
-            if (!phoneToConvos.has(norm)) phoneToConvos.set(norm, []);
-            phoneToConvos.get(norm)!.push(c);
+        const whereClause: any = { brandId };
+        if (dateStart && dateEnd) {
+            whereClause.createdAt = {
+                gte: dateStart.toISOString(),
+                lte: dateEnd.toISOString(),
+            };
         }
 
-        let shopifyOrders: any[] = [];
-        if (convoPhones.size > 0) {
-            const dbStartDate = dateStart ? new Date(dateStart.getTime() - 48 * 60 * 60 * 1000).toISOString() : undefined;
-            const dbEndDate = dateEnd ? new Date(dateEnd.getTime() + 48 * 60 * 60 * 1000).toISOString() : undefined;
+        const shopifyOrders = await prisma.shopifyOrder.findMany({
+            where: whereClause,
+            select: {
+                shopifyOrderId: true,
+                orderName: true,
+                orderNumber: true,
+                phone: true,
+                createdAt: true,
+                customerName: true,
+                totalPrice: true,
+            },
+        });
 
-            const whereClause: any = { brandId };
-            if (dbStartDate && dbEndDate) {
-                whereClause.createdAt = { gte: dbStartDate, lte: dbEndDate };
-            }
+        const dailyStats: Record<string, { totalOrders: number; matched: number; revenue: number; messages: number }> = {};
+        let totalMatched = 0;
+        let totalRevenue = 0;
+        const orderMap: Record<string, { orderName: string; orderNumber: string }[]> = {};
 
-            shopifyOrders = await prisma.shopifyOrder.findMany({
-                where: whereClause,
-                select: {
-                    shopifyOrderId: true,
-                    orderName: true,
-                    orderNumber: true,
-                    phone: true,
-                    createdAt: true,
-                    customerName: true,
-                    totalPrice: true,
-                },
-            });
-        }
-
-        const ordersByPhone = new Map<string, any[]>();
         for (const order of shopifyOrders) {
+            const orderDate = new Date(order.createdAt);
+            const day = orderDate.toISOString().split("T")[0];
+
+            if (!dailyStats[day]) dailyStats[day] = { totalOrders: 0, matched: 0, revenue: 0, messages: 0 };
+            dailyStats[day].totalOrders++;
+
             const norm = normalizePhone(order.phone || "");
-            if (!norm || norm.length < 10) continue;
-            if (!ordersByPhone.has(norm)) ordersByPhone.set(norm, []);
-            ordersByPhone.get(norm)!.push(order);
-        }
-
-        const dailyStats: Record<string, { total: number; converted: number; revenue: number }> = {};
-        const convoDetails: any[] = [];
-        const usedOrderIds = new Set<string>();
-
-        for (const c of filtered) {
-            const norm = normalizePhone(c.phone_number || "");
-            const msgDate = new Date(c.last_message_created);
-            const day = msgDate.toISOString().split("T")[0];
-
-            if (!dailyStats[day]) dailyStats[day] = { total: 0, converted: 0, revenue: 0 };
-            dailyStats[day].total++;
-
-            let matchedOrder: any = null;
-            if (norm && ordersByPhone.has(norm)) {
-                const orders = ordersByPhone.get(norm)!;
+            if (norm && convosByPhone.has(norm)) {
+                const convos = convosByPhone.get(norm)!;
+                let bestConvo: any = null;
                 let bestDiff = Infinity;
-                for (const order of orders) {
-                    if (usedOrderIds.has(order.shopifyOrderId)) continue;
-                    const orderDate = new Date(order.createdAt);
+
+                for (const c of convos) {
+                    if (!c.last_message_created) continue;
+                    const msgDate = new Date(c.last_message_created);
                     const diffMs = orderDate.getTime() - msgDate.getTime();
-                    if (diffMs >= -6 * 60 * 60 * 1000 && diffMs <= 48 * 60 * 60 * 1000) {
+                    if (diffMs >= -6 * 60 * 60 * 1000 && diffMs <= 72 * 60 * 60 * 1000) {
                         const absDiff = Math.abs(diffMs);
                         if (absDiff < bestDiff) {
                             bestDiff = absDiff;
-                            matchedOrder = order;
+                            bestConvo = c;
                         }
                     }
                 }
+
+                if (bestConvo) {
+                    totalMatched++;
+                    totalRevenue += order.totalPrice || 0;
+                    dailyStats[day].matched++;
+                    dailyStats[day].revenue += order.totalPrice || 0;
+                    if (!orderMap[bestConvo.convo_id]) orderMap[bestConvo.convo_id] = [];
+                    orderMap[bestConvo.convo_id].push({
+                        orderName: order.orderName,
+                        orderNumber: order.orderNumber,
+                    });
+                }
             }
+        }
 
-            const detail: any = {
-                convoId: c.convo_id,
-                phone: c.phone_number,
-                name: c.name || "",
-                date: day,
-                lastMessage: c.last_message_created,
-                converted: !!matchedOrder,
-            };
-
-            if (matchedOrder) {
-                usedOrderIds.add(matchedOrder.shopifyOrderId);
-                detail.orderName = matchedOrder.orderName;
-                detail.orderNumber = matchedOrder.orderNumber;
-                detail.orderAmount = matchedOrder.totalPrice;
-                detail.orderDate = matchedOrder.createdAt;
-                dailyStats[day].converted++;
-                dailyStats[day].revenue += matchedOrder.totalPrice || 0;
-            }
-
-            convoDetails.push(detail);
+        for (const c of messagesInRange) {
+            if (!c.last_message_created) continue;
+            const msgDate = new Date(c.last_message_created);
+            const day = msgDate.toISOString().split("T")[0];
+            if (!dailyStats[day]) dailyStats[day] = { totalOrders: 0, matched: 0, revenue: 0, messages: 0 };
+            dailyStats[day].messages++;
         }
 
         const sortedDays = Object.entries(dailyStats)
             .map(([date, stats]) => ({
                 date,
-                total: stats.total,
-                converted: stats.converted,
-                conversionRate: stats.total > 0 ? Math.round((stats.converted / stats.total) * 100) : 0,
+                total: stats.totalOrders,
+                messages: stats.messages,
+                converted: stats.matched,
+                conversionRate: stats.totalOrders > 0 ? Math.round((stats.matched / stats.totalOrders) * 100) : 0,
                 revenue: stats.revenue,
             }))
             .sort((a, b) => b.date.localeCompare(a.date));
 
         const totals = {
-            totalConversations: filtered.length,
-            totalConverted: convoDetails.filter(d => d.converted).length,
-            conversionRate: filtered.length > 0 ? Math.round((convoDetails.filter(d => d.converted).length / filtered.length) * 100) : 0,
-            totalRevenue: convoDetails.filter(d => d.converted).reduce((s, d) => s + (d.orderAmount || 0), 0),
+            totalConversations: messagesInRange.length,
+            totalOrders: shopifyOrders.length,
+            totalConverted: totalMatched,
+            conversionRate: shopifyOrders.length > 0 ? Math.round((totalMatched / shopifyOrders.length) * 100) : 0,
+            totalRevenue,
         };
-
-        const phoneToOrder = new Map<string, { orderName: string; orderNumber: string }>();
-        for (const d of convoDetails) {
-            if (d.converted) {
-                phoneToOrder.set(d.convoId, { orderName: d.orderName, orderNumber: d.orderNumber });
-            }
-        }
 
         return NextResponse.json({
             totals,
             dailyStats: sortedDays,
-            conversations: convoDetails,
-            orderMap: Object.fromEntries(phoneToOrder),
+            orderMap,
         });
     } catch (err: any) {
         console.error("WhatsApp analytics error:", err);
