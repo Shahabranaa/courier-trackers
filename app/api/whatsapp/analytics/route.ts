@@ -88,13 +88,14 @@ export async function GET(req: NextRequest) {
                 createdAt: true,
                 customerName: true,
                 totalPrice: true,
+                createdBy: true,
             },
         });
 
         const dailyStats: Record<string, { totalOrders: number; matched: number; revenue: number; messages: number }> = {};
         let totalMatched = 0;
         let totalRevenue = 0;
-        const orderMap: Record<string, { orderName: string; orderNumber: string }[]> = {};
+        const orderMap: Record<string, { orderName: string; orderNumber: string; createdBy: string }[]> = {};
 
         for (const order of shopifyOrders) {
             const orderDate = new Date(order.createdAt);
@@ -114,6 +115,7 @@ export async function GET(req: NextRequest) {
                 orderMap[convo.convo_id].push({
                     orderName: order.orderName,
                     orderNumber: order.orderNumber,
+                    createdBy: order.createdBy || "",
                 });
             }
         }

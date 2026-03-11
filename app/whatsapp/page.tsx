@@ -860,7 +860,7 @@ export default function WhatsAppPage() {
     const [orderModalConvo, setOrderModalConvo] = useState<Conversation | null>(null);
     const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
     const scanAbortRef = useRef<AbortController | null>(null);
-    const [orderMap, setOrderMap] = useState<Record<string, { orderName: string; orderNumber: string }[]>>({});
+    const [orderMap, setOrderMap] = useState<Record<string, { orderName: string; orderNumber: string; createdBy: string }[]>>({});
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const fetchOrderMap = useCallback(async () => {
@@ -1340,9 +1340,17 @@ export default function WhatsAppPage() {
                                                     {(flags && (flags.hasSignals || flags.needsReply)) || orderMap[convo.convo_id] ? (
                                                         <div className="flex flex-wrap gap-1 mt-1.5">
                                                             {orderMap[convo.convo_id]?.map((o, i) => (
-                                                                <span key={i} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-100 text-emerald-700">
-                                                                    <ShoppingCart className="w-2.5 h-2.5" />
-                                                                    {o.orderName}
+                                                                <span key={i} className="inline-flex items-center gap-0">
+                                                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-l-md text-[10px] font-semibold bg-emerald-100 text-emerald-700">
+                                                                        <ShoppingCart className="w-2.5 h-2.5" />
+                                                                        {o.orderName}
+                                                                    </span>
+                                                                    {o.createdBy && (
+                                                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-r-md text-[10px] font-semibold bg-violet-100 text-violet-700">
+                                                                            <User className="w-2.5 h-2.5" />
+                                                                            {o.createdBy}
+                                                                        </span>
+                                                                    )}
                                                                 </span>
                                                             ))}
                                                             {flags?.cityDetected && (
