@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const WETARSEEL_BASE = "https://bun-prod-new.app.wetarseel.ai";
+const WETARSEEL_BASE = "https://bun.dubai.wetarseel.ai";
 
 export async function GET(req: NextRequest) {
     const brandId = req.headers.get("brand-id");

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
 
-const WETARSEEL_BASE = "https://bun-prod-new.app.wetarseel.ai";
+const WETARSEEL_BASE = "https://bun.dubai.wetarseel.ai";
 
 function normalizePhone(phone: string): string {
     if (!phone) return "";
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const endDate = req.nextUrl.searchParams.get("endDate");
 
     try {
-        const convosUrl = `${WETARSEEL_BASE}/get-conversations?account_id=${brand.wetarseelAccountId}&limit=1000&super_access=true&view_all_chats=true&view_unassigned_chats=true&current_user_id=${brand.wetarseelUserId}&view_not_started_chats=true`;
+        const convosUrl = `${WETARSEEL_BASE}/get-conversations?account_id=${brand.wetarseelAccountId}&use_pg=true&limit=1000&super_access=true&view_all_chats=true&view_unassigned_chats=true&current_user_id=${brand.wetarseelUserId}&view_not_started_chats=true`;
         const convosRes = await fetch(convosUrl, {
             headers: { "Accept": "application/json" },
             next: { revalidate: 0 },

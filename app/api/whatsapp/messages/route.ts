@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const WETARSEEL_BASE = "https://bun-prod-new.app.wetarseel.ai";
+const WETARSEEL_BASE = "https://bun.dubai.wetarseel.ai";
 
 export async function GET(req: NextRequest) {
     const brandId = req.headers.get("brand-id");
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const limit = req.nextUrl.searchParams.get("limit") || "1000";
 
     try {
-        const url = `${WETARSEEL_BASE}/get-conversations?account_id=${brand.wetarseelAccountId}&limit=${limit}&super_access=true&view_all_chats=true&view_unassigned_chats=true&current_user_id=${brand.wetarseelUserId}&view_not_started_chats=true`;
+        const url = `${WETARSEEL_BASE}/get-conversations?account_id=${brand.wetarseelAccountId}&use_pg=true&limit=${limit}&super_access=true&view_all_chats=true&view_unassigned_chats=true&current_user_id=${brand.wetarseelUserId}&view_not_started_chats=true`;
 
         const res = await fetch(url, {
             headers: { "Accept": "application/json" },
