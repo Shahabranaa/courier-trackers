@@ -1,0 +1,4 @@
+ALTER TABLE "Brand"
+ADD COLUMN "leopardsApiKey" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "leopardsApiPassword" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "leopardsEnabled" BOOLEAN NOT NULL DEFAULT true;

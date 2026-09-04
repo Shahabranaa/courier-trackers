@@ -1,0 +1,48 @@
+Project: HubLogistic — Unified Logistics Dashboard
+
+Build a unified logistics dashboard called "HubLogistic" using Next.js 16 (App Router with Turbopack), React 19, Prisma ORM, PostgreSQL, Tailwind CSS v4, and Recharts. The app runs on port 5000 and follows a database-first architecture — all pages load instantly from the database, and external courier APIs are only called when the user clicks "Sync Live Data."
+
+The app manages orders from three courier services (PostEx, Tranzo, Zoom) and Shopify, consolidating everything into one dashboard. It supports multi-brand/multi-tenant — users can create multiple brands in Settings, each with its own API tokens, and switch between them via a sidebar dropdown.
+
+Core Pages & Features:
+Overview Dashboard (/) — Aggregated metrics across all couriers: total orders, delivered, returned, in-transit, cancellations. Revenue summary cards. Recent orders table.
+
+PostEx Portal (/postex) — All PostEx orders with status tracking, city-based delivery rates, monthly snapshot (orders, revenue, delivered, returns, upfront payments). City filter and search.
+
+PostEx Payment Receipts (CPR) (/postex/cpr) — Fetches Cash Payment Receipts from PostEx merchant API (merchant.postex.pk). Uses a separate merchant token (not the integration API token). Merchant ID auto-extracted from JWT. Summary cards (total/approved/closed/paid amounts), date range filter, status filter, receipts table, CSV export.
+
+Tranzo Portal (/tranzo) — All Tranzo orders. Uses api-integration.tranzo.pk with api-token header. Fee calculation uses real API values (delivery_fee, delivery_tax, delivery_fuel_fee, cash_handling_fee).
+
+Tranzo Payment Receipts (/tranzo/invoices) — Fetches invoice logs from Tranzo merchant API (api-merchant.tranzo.pk) using a separate merchant token (from portal.tranzo.pk). Summary cards (total/approved/settled/hold/disputed), status filter, invoices table, CSV export.
+
+Zoom Courier Portal (/zoom) — Filters Shopify orders fulfilled via Zoom (detected by courierPartner or tracking_company containing "Zoom"). Blue-themed UI, city filter, fulfillment rates by city, tracking numbers extracted from Zoom fulfillments.
+
+Shopify Orders (/shopify) — Fetches orders via Shopify Admin API (supports both Direct Access Token and Client Credentials Grant). Daily comparison chart: Shopify orders vs dispatched by courier (PostEx/Tranzo/Zoom/Unfulfilled). Fulfillment tracking, revenue summary, dispatch summary sidebar, daily breakdown table. Pending order remarks with auto-save.
+
+Daily Reports (/daily) — Cross-courier daily report combining PostEx, Tranzo, and Shopify data.
+
+Finance (/finance) — Comprehensive payment tracking:
+
+4 overview cards: PostEx Owed, Tranzo Owed, Shopify Revenue, Total Balance
+Side-by-side courier settlement panels with gross COD, fees, taxes, withholding tax, net amount
+PostEx: deducts upfront payments + CPR payments received (approved/closed/paid status)
+Tranzo: deducts invoice payments received (approved/settled status)
+Monthly revenue comparison bar chart (PostEx vs Tranzo vs Shopify)
+Monthly breakdown tables with expandable daily rows
+Time period toggle (This Month / Last Month / All Time)
+Payment receipts fetched live from courier APIs as source of truth
+Analytics (/analytics) — Order trends (daily/weekly/monthly toggle), peak order days, Pakistan city heatmap (SVG with 44 cities, heat-colored circles), delivery performance insights (avg delivery time by city, return rate analysis, courier comparison PostEx vs Tranzo), customer insights (repeat customers via phone matching, lifetime value, problem customer flagging).
+
+Smart Alerts (/alerts) — Three alert types: stuck-in-transit orders (configurable day threshold), return rate spikes by city, courier performance drops. Expandable cards with detail tables. Configurable thresholds.
+
+Return Discrepancies (/discrepancies) — Cross-references courier orders marked "returned" against Shopify orders to find parcels claimed returned but not cancelled/refunded in Shopify. Matches via orderRefNumber. Summary cards, filterable table, CSV export.
+
+Settings (/settings) — Brand management with API token configuration for all services. Tokens are masked in API responses. Brand cards show connection status for each service.
+
+Key Technical Details:
+Database schema (Prisma): Brand, Order (courier orders), ShopifyOrder models. Orders have fields for courier, statuses, fees, city, dates, tracking. ShopifyOrder has fulfillments JSON, tags, pending remarks, phone, address.
+Token security: Merchant tokens (postexMerchantToken, tranzoMerchantToken) stored in DB, fetched server-side only, masked as "••••••••" in all API responses. PUT route ignores masked placeholder to prevent overwriting.
+Sync architecture: DB-first load on page open. "Sync Live Data" triggers external API calls, upserts to DB, returns diff summary via toast notifications (new orders, status changes, etc.).
+Delivery time tracking: PostEx uses real delivery dates from track-order API. Both couriers avoid using sync timestamps as delivery dates.
+Multi-tenant: All queries are brand-scoped. Brand selection persisted in React context.
+Financial formulas: PostEx owed = net amount − upfront payments − CPR received. Tranzo owed = net amount − invoice payments received.

@@ -1,0 +1,91 @@
+https://api.postex.pk/services/merchant/api/payment/merchant/53117/cpr?size=25&toDate=2026-02-13&fromDate=2026-02-07
+Request Method
+GET
+Status Code
+200 OK
+Remote Address
+104.20.19.78:443
+Referrer Policy
+strict-origin-when-cross-origin
+access-control-allow-credentials
+true
+access-control-allow-headers
+DNT,X-CustomHeader,X-LANG,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-Api-Key,X-Device-Id,Access-Control-Allow-Origin,authorization,skip,token
+access-control-allow-methods
+PUT, GET, POST, OPTIONS, DELETE, PATCH
+access-control-allow-origin
+*
+access-control-max-age
+1728000
+cache-control
+no-cache, no-store, max-age=0, must-revalidate
+cf-cache-status
+DYNAMIC
+cf-ray
+9cd2dd439898c7aa-KHI
+content-encoding
+br
+content-type
+application/json
+date
+Fri, 13 Feb 2026 08:13:04 GMT
+expires
+0
+pragma
+no-cache
+server
+cloudflare
+strict-transport-security
+max-age=31536000 ; includeSubDomains
+vary
+Origin
+vary
+Access-Control-Request-Method
+vary
+Access-Control-Request-Headers
+x-content-type-options
+nosniff
+x-frame-options
+DENY
+x-xss-protection
+1; mode=block
+:authority
+api.postex.pk
+:method
+GET
+:path
+/services/merchant/api/payment/merchant/53117/cpr?size=25&toDate=2026-02-13&fromDate=2026-02-07
+:scheme
+https
+accept
+application/json, text/plain, */*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+en-US,en;q=0.9
+authorization
+Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJzaGFoYWJyYW5hYUBnbWFpbC5jb20iLCJleHAiOjE3NzA5ODcwNzAsInVzZXJEZXRhaWxzIjp7InVzZXJJZCI6NTkzNjksIm1lcmNoYW50SWQiOjUzMTE3LCJ1c2VyVHlwZUlkIjo0fSwiaWF0IjoxNzcwOTY5MDcwfQ.zJn855Likzo2LRnY_6eFaI8X9We8fduBY9xmwcjVJODbbWkGDrvNLSHb9UZrGgFlm7CgGH4Sn8EFvs3m8_GeSQ
+cache-control
+no-cache
+origin
+https://merchant.postex.pk
+pragma
+no-cache
+priority
+u=1, i
+referer
+https://merchant.postex.pk/
+sec-ch-ua
+"Not(A:Brand";v="8", "Chromium";v="144", "Google Chrome";v="144"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"macOS"
+sec-fetch-dest
+empty
+sec-fetch-mode
+cors
+sec-fetch-site
+same-site
+user-agent
+Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36

@@ -1,0 +1,102 @@
+<div class="panel-body">
+                                        <div class="row">
+                                                                                        <div class="traking_results table_shdow">
+                                                <h3>Tracking Results</h3>
+                                            </div>
+                                        </div>
+                                        <div class="traking_results">
+                                            <div class="row inner_shadow_info">
+                                                <div class="col-sm-6">
+                                                    <!-- <h3></h3> -->
+                                                    <div class="sender_info">
+                                                        <h3>Shipping Information:</h3>
+                                                                                                                <p><b>Shipper:</b>
+                                                            organictea.pk</p>
+                                                        <p></p>
+                                                        <p><b>Origin:</b>
+                                                            LAHORE</p>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-6">
+                                                    <div class="sender_info">
+                                                        <h3>Consignee Information</h3>
+                                                        <p><b>Name:</b>
+                                                            Amjad Khan</p>
+                                                        <p><b>Destination:</b>
+                                                            QUETTA</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="traking_results table_shdow">
+                                            <div class="table-responsive">
+                                                <h3>Tracking History </h3>
+                                                <table class="table_info">
+                                                    <tbody><tr>
+                                                        <th>Date</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                                                                                <tr>
+                                                                <td>2026-02-11 18:58:10                                                                </td>
+                                                                <td>Parcel in Transit to Destination</td>
+
+                                                            </tr>
+                                                                                                                    <tr>
+                                                                <td>2026-02-11 19:48:28                                                                </td>
+                                                                <td>Parcel in Transit to Destination</td>
+
+                                                            </tr>
+                                                                                                                    <tr>
+                                                                <td>2026-02-14 01:25:04                                                                </td>
+                                                                <td>Arrived at Station in QUETTA</td>
+
+                                                            </tr>
+                                                                                                                    <tr>
+                                                                <td>2026-02-14 11:59:16                                                                </td>
+                                                                <td>Assigned to courier in QUETTA</td>
+
+                                                            </tr>
+                                                                                                                    <tr>
+                                                                <td>2026-02-14 21:56:00                                                                </td>
+                                                                <td>Delivered</td>
+
+                                                            </tr>
+                                                                                                        </tbody></table>
+                                            </div>
+                                        </div>
+                                                                                        <div class="traking_results">
+                                                    <div class="table-responsive">
+                                                        <h3>Add Comment </h3>
+                                                        <table class="table_info">
+                                                            <form method="POST" action="add_comment.php"></form>
+                                                                <input type="hidden" name="track_code" value="LE7524642592">
+                                                                <tbody><tr>
+                                                                    <td>
+                                                                        <div class="form-group">
+                                                                            <label>Subject</label>
+                                                                            <input type="text" name="subject" class="form-control" placeholder="Enter Comment Subject" required="true">
+                                                                        </div>
+                                                                        <div class="form-group">
+                                                                            <label>Message</label>
+                                                                            <textarea class="form-control" name="message" placeholder="Enter Message..." required="true"></textarea>
+                                                                        </div>
+                                                                        <input type="submit" name="submit" class="btn btn-info btn_comment" style="color: #fff !important;" value="Add Comment">
+                                                                    </td>
+                                                                </tr>
+                                                            
+                                                        </tbody></table>
+                                                    </div>
+                                                </div>
+                                                <div class="traking_results table_shdow">
+                                                    <div class="table-responsive">
+                                                        <h3>Comments History </h3>
+                                                        <table class="table_info">
+                                                            <tbody><tr>
+                                                                <th>Send By</th>
+                                                                <th>Message</th>
+                                                                <th>Date</th>
+                                                            </tr>
+                                                                                                                    </tbody></table>
+                                                    </div>
+                                                </div>
+                                                                            </div>

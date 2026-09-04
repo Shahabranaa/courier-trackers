@@ -1,0 +1,1033 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import DashboardLayout from "@/components/DashboardLayout";
+import { useBrand } from "@/components/providers/BrandContext";
+import {
+    DollarSign, TrendingUp, TrendingDown, Wallet, RefreshCw, ChevronDown, ChevronRight,
+    AlertCircle, ArrowUpRight, ArrowDownRight, Package, Truck, ShoppingBag,
+    Calendar, BarChart3, Receipt, Percent, Activity, Target, PiggyBank
+} from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+
+interface MonthData {
+    month: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    returnedOrders: number;
+    grossAmount: number;
+    fees: number;
+    taxes: number;
+    withholdingTax: number;
+    upfrontPayments: number;
+    netAmount: number;
+    days: DayData[];
+}
+
+interface DayData {
+    date: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    returnedOrders: number;
+    grossAmount: number;
+    fees: number;
+    taxes: number;
+    withholdingTax: number;
+    upfrontPayments: number;
+    netAmount: number;
+}
+
+interface CourierData {
+    totals: {
+        totalOrders: number;
+        deliveredOrders: number;
+        returnedOrders: number;
+        grossAmount: number;
+        fees: number;
+        taxes: number;
+        withholdingTax: number;
+        upfrontPayments: number;
+        netAmount: number;
+    };
+    monthly: MonthData[];
+    paymentsReceived?: {
+        total: number;
+        monthly: Array<{ month: string; amount: number }>;
+    };
+}
+
+interface CPRReceipt {
+    netAmount: string;
+    cashPaymentReceiptStatus: string;
+    cashPaymentReceiptStatusId: number;
+    createDatetime: string;
+}
+
+interface TranzoInvoice {
+    net_amount: string;
+    invoice_status: string;
+    created_at: string;
+}
+
+type TimePeriod = "current" | "previous" | "all";
+
+export default function FinancePage() {
+    const { selectedBrand } = useBrand();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
+
+    const [postexData, setPostexData] = useState<CourierData | null>(null);
+    const [tranzoData, setTranzoData] = useState<CourierData | null>(null);
+    const [tcsData, setTcsData] = useState<CourierData | null>(null);
+    const [leopardsData, setLeopardsData] = useState<CourierData | null>(null);
+    const [shopifyData, setShopifyData] = useState<{ totalRevenue: number; totalOrders: number; monthly: any[] } | null>(null);
+
+    const [postexReceiptsLoading, setPostexReceiptsLoading] = useState(false);
+    const [tranzoReceiptsLoading, setTranzoReceiptsLoading] = useState(false);
+
+    const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
+
+    const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
+
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthKey = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}`;
+
+    const fetchFinanceData = async () => {
+        if (!selectedBrand) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch("/api/finance", {
+                headers: { "brand-id": sanitizeHeader(selectedBrand.id) }
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to fetch finance data");
+            setPostexData(data.postex);
+            setTranzoData(data.tranzo);
+            setTcsData(data.tcs);
+            setLeopardsData(data.leopards);
+            setShopifyData(data.shopify);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const [allCprReceipts, setAllCprReceipts] = useState<CPRReceipt[]>([]);
+
+    const fetchPostexReceipts = async () => {
+        if (!selectedBrand) return;
+        setPostexReceiptsLoading(true);
+        try {
+            const res = await fetch("/api/postex/cpr", {
+                headers: { "brand-id": sanitizeHeader(selectedBrand.id) }
+            });
+            const data = await res.json();
+            if (res.ok && data.receipts) {
+                setAllCprReceipts(data.receipts);
+            }
+        } catch (err) {
+            console.error("Failed to fetch PostEx receipts:", err);
+        } finally {
+            setPostexReceiptsLoading(false);
+        }
+    };
+
+    const [allTranzoInvoices, setAllTranzoInvoices] = useState<TranzoInvoice[]>([]);
+
+    const fetchTranzoReceipts = async () => {
+        if (!selectedBrand) return;
+        setTranzoReceiptsLoading(true);
+        try {
+            const res = await fetch("/api/tranzo/invoices", {
+                headers: { "brand-id": sanitizeHeader(selectedBrand.id) }
+            });
+            const data = await res.json();
+            if (res.ok && data.results) {
+                setAllTranzoInvoices(data.results);
+            }
+        } catch (err) {
+            console.error("Failed to fetch Tranzo invoices:", err);
+        } finally {
+            setTranzoReceiptsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedBrand) {
+            fetchFinanceData();
+            fetchPostexReceipts();
+            fetchTranzoReceipts();
+        }
+    }, [selectedBrand]);
+
+    const filterMonthly = (monthly: MonthData[] | undefined): MonthData[] => {
+        if (!monthly) return [];
+        if (timePeriod === "current") return monthly.filter(m => m.month === currentMonthKey);
+        if (timePeriod === "previous") return monthly.filter(m => m.month === prevMonthKey);
+        return monthly;
+    };
+
+    const sumMonthly = (monthly: MonthData[]) => {
+        return monthly.reduce((acc, m) => ({
+            totalOrders: acc.totalOrders + m.totalOrders,
+            deliveredOrders: acc.deliveredOrders + m.deliveredOrders,
+            returnedOrders: acc.returnedOrders + m.returnedOrders,
+            grossAmount: acc.grossAmount + m.grossAmount,
+            fees: acc.fees + m.fees,
+            taxes: acc.taxes + m.taxes,
+            withholdingTax: acc.withholdingTax + m.withholdingTax,
+            upfrontPayments: acc.upfrontPayments + m.upfrontPayments,
+            netAmount: acc.netAmount + m.netAmount,
+        }), { totalOrders: 0, deliveredOrders: 0, returnedOrders: 0, grossAmount: 0, fees: 0, taxes: 0, withholdingTax: 0, upfrontPayments: 0, netAmount: 0 });
+    };
+
+    const postexFiltered = filterMonthly(postexData?.monthly);
+    const tranzoFiltered = filterMonthly(tranzoData?.monthly);
+    const tcsFiltered = filterMonthly(tcsData?.monthly);
+    const leopardsFiltered = filterMonthly(leopardsData?.monthly);
+    const postexSum = sumMonthly(postexFiltered);
+    const tranzoSum = sumMonthly(tranzoFiltered);
+    const tcsSum = sumMonthly(tcsFiltered);
+    const leopardsSum = sumMonthly(leopardsFiltered);
+
+    const filteredCprTotal = useMemo(() => {
+        const validStatuses = [2, 3, 4];
+        let filtered = allCprReceipts.filter((r: CPRReceipt) => validStatuses.includes(r.cashPaymentReceiptStatusId));
+
+        if (timePeriod === "current") {
+            filtered = filtered.filter((r: CPRReceipt) => (r.createDatetime || "").startsWith(currentMonthKey));
+        } else if (timePeriod === "previous") {
+            filtered = filtered.filter((r: CPRReceipt) => (r.createDatetime || "").startsWith(prevMonthKey));
+        }
+
+        return filtered.reduce((sum: number, r: CPRReceipt) => sum + parseFloat(r.netAmount || "0"), 0);
+    }, [allCprReceipts, timePeriod, currentMonthKey, prevMonthKey]);
+
+    const postexPaymentsReceived = filteredCprTotal;
+
+    const filteredTranzoTotal = useMemo(() => {
+        let filtered = allTranzoInvoices.filter((inv: TranzoInvoice) => ["Approved", "Settled"].includes(inv.invoice_status));
+
+        if (timePeriod === "current") {
+            filtered = filtered.filter((inv: TranzoInvoice) => (inv.created_at || "").startsWith(currentMonthKey));
+        } else if (timePeriod === "previous") {
+            filtered = filtered.filter((inv: TranzoInvoice) => (inv.created_at || "").startsWith(prevMonthKey));
+        }
+
+        return filtered.reduce((sum: number, inv: TranzoInvoice) => sum + parseFloat(inv.net_amount || "0"), 0);
+    }, [allTranzoInvoices, timePeriod, currentMonthKey, prevMonthKey]);
+
+    const tranzoPaymentsReceived = filteredTranzoTotal;
+
+    const postexOwed = useMemo(() => {
+        return postexSum.netAmount - postexPaymentsReceived;
+    }, [postexSum, postexPaymentsReceived]);
+
+    const tranzoOwed = useMemo(() => {
+        return tranzoSum.netAmount - tranzoPaymentsReceived;
+    }, [tranzoSum, tranzoPaymentsReceived]);
+    const tcsPaymentsReceived = useMemo(() => {
+        const payments = tcsData?.paymentsReceived;
+        if (!payments) return 0;
+        if (timePeriod === "current") return payments.monthly.find((item) => item.month === currentMonthKey)?.amount || 0;
+        if (timePeriod === "previous") return payments.monthly.find((item) => item.month === prevMonthKey)?.amount || 0;
+        return payments.total;
+    }, [tcsData, timePeriod, currentMonthKey, prevMonthKey]);
+    const tcsOwed = tcsSum.netAmount - tcsPaymentsReceived;
+    const leopardsOwed = leopardsSum.netAmount;
+
+    const shopifyRevenue = useMemo(() => {
+        if (!shopifyData?.monthly) return shopifyData?.totalRevenue || 0;
+        if (timePeriod === "current") {
+            const m = shopifyData.monthly.find((m: any) => m.month === currentMonthKey);
+            return m?.revenue || 0;
+        }
+        if (timePeriod === "previous") {
+            const m = shopifyData.monthly.find((m: any) => m.month === prevMonthKey);
+            return m?.revenue || 0;
+        }
+        return shopifyData?.totalRevenue || 0;
+    }, [shopifyData, timePeriod, currentMonthKey, prevMonthKey]);
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+    };
+
+    const formatCurrencyFull = (amount: number) => {
+        return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 2 }).format(amount);
+    };
+
+    const formatMonthLabel = (monthKey: string) => {
+        if (monthKey === "Unknown") return "Unknown";
+        const [year, month] = monthKey.split("-");
+        const d = new Date(parseInt(year), parseInt(month) - 1);
+        return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    };
+
+    const formatDateLabel = (dateStr: string) => {
+        try {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        } catch {
+            return dateStr;
+        }
+    };
+
+    const toggleMonth = (key: string) => {
+        setExpandedMonths(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const chartData = useMemo(() => {
+        if (!postexData?.monthly && !tranzoData?.monthly && !tcsData?.monthly && !leopardsData?.monthly) return [];
+        const allMonths = new Set<string>();
+        postexData?.monthly.forEach(m => allMonths.add(m.month));
+        tranzoData?.monthly.forEach(m => allMonths.add(m.month));
+        tcsData?.monthly.forEach(m => allMonths.add(m.month));
+        leopardsData?.monthly.forEach(m => allMonths.add(m.month));
+
+        const sorted = Array.from(allMonths).filter(m => m !== "Unknown").sort();
+        return sorted.map(month => {
+            const pe = postexData?.monthly.find(m => m.month === month);
+            const tr = tranzoData?.monthly.find(m => m.month === month);
+            const tc = tcsData?.monthly.find(m => m.month === month);
+            const le = leopardsData?.monthly.find(m => m.month === month);
+            const sh = shopifyData?.monthly.find((m: any) => m.month === month);
+            return {
+                month: formatMonthLabel(month),
+                PostEx: pe ? Math.round(pe.netAmount) : 0,
+                Tranzo: tr ? Math.round(tr.netAmount) : 0,
+                TCS: tc ? Math.round(tc.netAmount) : 0,
+                Leopards: le ? Math.round(le.netAmount) : 0,
+                Shopify: sh ? Math.round(sh.revenue) : 0,
+            };
+        });
+    }, [postexData, tranzoData, tcsData, leopardsData, shopifyData]);
+
+    const kpiStats = useMemo(() => {
+        const totalOrders = postexSum.totalOrders + tranzoSum.totalOrders + tcsSum.totalOrders + leopardsSum.totalOrders;
+        const totalGross = postexSum.grossAmount + tranzoSum.grossAmount + tcsSum.grossAmount + leopardsSum.grossAmount;
+        const totalDelivered = postexSum.deliveredOrders + tranzoSum.deliveredOrders + tcsSum.deliveredOrders + leopardsSum.deliveredOrders;
+        const totalReturned = postexSum.returnedOrders + tranzoSum.returnedOrders + tcsSum.returnedOrders + leopardsSum.returnedOrders;
+        const totalFees = postexSum.fees + tranzoSum.fees + tcsSum.fees + leopardsSum.fees;
+        const totalNet = postexSum.netAmount + tranzoSum.netAmount + tcsSum.netAmount + leopardsSum.netAmount;
+        const totalPaymentsReceived = postexPaymentsReceived + tranzoPaymentsReceived + tcsPaymentsReceived;
+
+        return {
+            totalOrders,
+            avgOrderValue: totalOrders > 0 ? totalGross / totalOrders : 0,
+            deliveryRate: totalOrders > 0 ? (totalDelivered / totalOrders) * 100 : 0,
+            returnRate: totalOrders > 0 ? (totalReturned / totalOrders) * 100 : 0,
+            feeRate: totalGross > 0 ? (totalFees / totalGross) * 100 : 0,
+            collectionRate: totalNet > 0 ? (totalPaymentsReceived / totalNet) * 100 : 0,
+        };
+    }, [postexSum, tranzoSum, tcsSum, leopardsSum, postexPaymentsReceived, tranzoPaymentsReceived, tcsPaymentsReceived]);
+
+    const growthIndicators = useMemo(() => {
+        const currentPostex = postexData?.monthly.find(m => m.month === currentMonthKey);
+        const prevPostex = postexData?.monthly.find(m => m.month === prevMonthKey);
+        const currentTranzo = tranzoData?.monthly.find(m => m.month === currentMonthKey);
+        const prevTranzo = tranzoData?.monthly.find(m => m.month === prevMonthKey);
+        const currentTcs = tcsData?.monthly.find(m => m.month === currentMonthKey);
+        const prevTcs = tcsData?.monthly.find(m => m.month === prevMonthKey);
+
+        const curOrders = (currentPostex?.totalOrders || 0) + (currentTranzo?.totalOrders || 0) + (currentTcs?.totalOrders || 0);
+        const prevOrders = (prevPostex?.totalOrders || 0) + (prevTranzo?.totalOrders || 0) + (prevTcs?.totalOrders || 0);
+        const curRevenue = (currentPostex?.grossAmount || 0) + (currentTranzo?.grossAmount || 0) + (currentTcs?.grossAmount || 0);
+        const prevRevenue = (prevPostex?.grossAmount || 0) + (prevTranzo?.grossAmount || 0) + (prevTcs?.grossAmount || 0);
+        const curNet = (currentPostex?.netAmount || 0) + (currentTranzo?.netAmount || 0) + (currentTcs?.netAmount || 0);
+        const prevNet = (prevPostex?.netAmount || 0) + (prevTranzo?.netAmount || 0) + (prevTcs?.netAmount || 0);
+
+        const pct = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev) * 100 : cur > 0 ? 100 : 0;
+
+        return {
+            ordersGrowth: pct(curOrders, prevOrders),
+            revenueGrowth: pct(curRevenue, prevRevenue),
+            netGrowth: pct(curNet, prevNet),
+        };
+    }, [postexData, tranzoData, tcsData, currentMonthKey, prevMonthKey]);
+
+    const revenueSplitData = useMemo(() => {
+        const postexNet = postexSum.netAmount;
+        const tranzoNet = tranzoSum.netAmount;
+        const tcsNet = tcsSum.netAmount;
+        const shopifyRev = shopifyRevenue;
+        const total = postexNet + tranzoNet + tcsNet + shopifyRev;
+        if (total === 0) return [];
+        return [
+            { name: "PostEx", value: Math.round(postexNet), color: "#f97316" },
+            { name: "Tranzo", value: Math.round(tranzoNet), color: "#8b5cf6" },
+            { name: "TCS", value: Math.round(tcsNet), color: "#dc2626" },
+            { name: "Shopify", value: Math.round(shopifyRev), color: "#10b981" },
+        ].filter(d => d.value > 0);
+    }, [postexSum, tranzoSum, tcsSum, shopifyRevenue]);
+
+    const courierComparison = useMemo(() => {
+        const pe = postexSum;
+        const tr = tranzoSum;
+        const tc = tcsSum;
+        const safe = (n: number, d: number) => d > 0 ? (n / d) * 100 : 0;
+        return {
+            postex: {
+                feeRate: safe(pe.fees, pe.grossAmount),
+                taxRate: safe(pe.taxes, pe.grossAmount),
+                withholdingRate: safe(pe.withholdingTax, pe.grossAmount),
+                costPerOrder: pe.totalOrders > 0 ? pe.fees / pe.totalOrders : 0,
+                netMargin: safe(pe.netAmount, pe.grossAmount),
+            },
+            tranzo: {
+                feeRate: safe(tr.fees, tr.grossAmount),
+                taxRate: safe(tr.taxes, tr.grossAmount),
+                withholdingRate: safe(tr.withholdingTax, tr.grossAmount),
+                costPerOrder: tr.totalOrders > 0 ? tr.fees / tr.totalOrders : 0,
+                netMargin: safe(tr.netAmount, tr.grossAmount),
+            },
+            tcs: {
+                feeRate: safe(tc.fees, tc.grossAmount),
+                taxRate: safe(tc.taxes, tc.grossAmount),
+                withholdingRate: safe(tc.withholdingTax, tc.grossAmount),
+                costPerOrder: tc.totalOrders > 0 ? tc.fees / tc.totalOrders : 0,
+                netMargin: safe(tc.netAmount, tc.grossAmount),
+            },
+        };
+    }, [postexSum, tranzoSum, tcsSum]);
+
+    const paymentTimelineData = useMemo(() => {
+        const monthMap: Record<string, { month: string; PostEx: number; Tranzo: number }> = {};
+
+        const validCpr = allCprReceipts.filter(r => [2, 3, 4].includes(r.cashPaymentReceiptStatusId));
+        for (const r of validCpr) {
+            const dt = r.createDatetime || "";
+            let mk = "Unknown";
+            try {
+                const d = new Date(dt);
+                if (!isNaN(d.getTime())) mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            } catch {}
+            if (mk === "Unknown") continue;
+            if (!monthMap[mk]) monthMap[mk] = { month: mk, PostEx: 0, Tranzo: 0 };
+            monthMap[mk].PostEx += parseFloat(r.netAmount || "0");
+        }
+
+        const validInv = allTranzoInvoices.filter(inv => ["Approved", "Settled"].includes(inv.invoice_status));
+        for (const inv of validInv) {
+            const dt = inv.created_at || "";
+            let mk = "Unknown";
+            try {
+                const d = new Date(dt);
+                if (!isNaN(d.getTime())) mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            } catch {}
+            if (mk === "Unknown") continue;
+            if (!monthMap[mk]) monthMap[mk] = { month: mk, PostEx: 0, Tranzo: 0 };
+            monthMap[mk].Tranzo += parseFloat(inv.net_amount || "0");
+        }
+
+        return Object.values(monthMap)
+            .sort((a, b) => a.month.localeCompare(b.month))
+            .map(d => ({ ...d, month: formatMonthLabel(d.month), PostEx: Math.round(d.PostEx), Tranzo: Math.round(d.Tranzo) }));
+    }, [allCprReceipts, allTranzoInvoices]);
+
+    if (!selectedBrand) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-gray-500">
+                        <AlertCircle size={48} className="mx-auto mb-4 text-gray-300" />
+                        <p className="text-lg font-medium">No brand selected</p>
+                        <p className="text-sm">Please select or create a brand in Settings</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
+    return (
+        <DashboardLayout>
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl text-white shadow-lg">
+                            <Wallet size={24} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">Finance</h1>
+                            <p className="text-sm text-gray-500">Payment tracking & courier settlements</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="flex bg-gray-100 rounded-xl p-1">
+                            {([["current", "This Month"], ["previous", "Last Month"], ["all", "All Time"]] as [TimePeriod, string][]).map(([key, label]) => (
+                                <button
+                                    key={key}
+                                    onClick={() => setTimePeriod(key)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${timePeriod === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => { fetchFinanceData(); fetchPostexReceipts(); fetchTranzoReceipts(); }}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 shadow-md transition-all"
+                        >
+                            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
+                        <AlertCircle size={20} className="text-red-500 shrink-0" />
+                        <p className="text-sm text-red-700">{error}</p>
+                    </div>
+                )}
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <RefreshCw size={24} className="animate-spin text-gray-300" />
+                        <span className="ml-3 text-gray-500">Loading financial data...</span>
+                    </div>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+                            <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-2xl p-5 relative overflow-hidden">
+                                <div className="absolute top-3 right-3 p-2 bg-white/60 rounded-lg">
+                                    <Truck size={18} className="text-orange-500" />
+                                </div>
+                                <p className="text-xs font-semibold text-orange-600 uppercase tracking-wider mb-1">PostEx Owes You</p>
+                                <p className={`text-2xl font-bold ${postexOwed >= 0 ? "text-orange-800" : "text-red-600"}`}>
+                                    {formatCurrency(postexOwed)}
+                                </p>
+                                <div className="flex items-center gap-1 mt-2 text-xs text-orange-600">
+                                    {postexOwed >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                                    <span>Net: {formatCurrency(postexData?.totals.netAmount || 0)} - CPR: {formatCurrency(postexPaymentsReceived)}</span>
+                                </div>
+                                {postexReceiptsLoading && <p className="text-[10px] text-orange-400 mt-1">Fetching receipts...</p>}
+                            </div>
+
+                            <div className="bg-gradient-to-br from-purple-50 to-violet-100 border border-purple-200 rounded-2xl p-5 relative overflow-hidden">
+                                <div className="absolute top-3 right-3 p-2 bg-white/60 rounded-lg">
+                                    <Package size={18} className="text-purple-500" />
+                                </div>
+                                <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-1">Tranzo Owes You</p>
+                                <p className={`text-2xl font-bold ${tranzoOwed >= 0 ? "text-purple-800" : "text-red-600"}`}>
+                                    {formatCurrency(tranzoOwed)}
+                                </p>
+                                <div className="flex items-center gap-1 mt-2 text-xs text-purple-600">
+                                    {tranzoOwed >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                                    <span>Net: {formatCurrency(tranzoData?.totals.netAmount || 0)} | Received: {formatCurrency(tranzoPaymentsReceived)}</span>
+                                </div>
+                                {tranzoReceiptsLoading && <p className="text-[10px] text-purple-400 mt-1">Fetching invoices...</p>}
+                            </div>
+
+                            <div className="bg-gradient-to-br from-red-50 to-rose-100 border border-red-200 rounded-2xl p-5 relative overflow-hidden">
+                                <div className="absolute top-3 right-3 p-2 bg-white/60 rounded-lg"><Truck size={18} className="text-red-600" /></div>
+                                <p className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">TCS Owes You</p>
+                                <p className={`text-2xl font-bold ${tcsOwed >= 0 ? "text-red-800" : "text-red-600"}`}>{formatCurrency(tcsOwed)}</p>
+                                <p className="text-xs text-red-600 mt-2">Net {formatCurrency(tcsSum.netAmount)} · Paid {formatCurrency(tcsPaymentsReceived)}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-teal-50 to-emerald-100 border border-teal-200 rounded-2xl p-5 relative overflow-hidden">
+                                <div className="absolute top-3 right-3 p-2 bg-white/60 rounded-lg"><Truck size={18} className="text-teal-600" /></div>
+                                <p className="text-xs font-semibold text-teal-600 uppercase tracking-wider mb-1">Leopards Owes You</p>
+                                <p className={`text-2xl font-bold ${leopardsOwed >= 0 ? "text-teal-800" : "text-red-600"}`}>{formatCurrency(leopardsOwed)}</p>
+                                <p className="text-xs text-teal-600 mt-2">Net {formatCurrency(leopardsSum.netAmount)} · Settlement data in Leopards Payments</p>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-100 border border-green-200 rounded-2xl p-5 relative overflow-hidden">
+                                <div className="absolute top-3 right-3 p-2 bg-white/60 rounded-lg">
+                                    <ShoppingBag size={18} className="text-green-500" />
+                                </div>
+                                <p className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-1">Shopify Revenue</p>
+                                <p className="text-2xl font-bold text-green-800">{formatCurrency(shopifyRevenue)}</p>
+                                <p className="text-xs text-green-600 mt-2">{shopifyData?.totalOrders || 0} total orders</p>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-teal-50 to-cyan-100 border border-teal-200 rounded-2xl p-5 relative overflow-hidden">
+                                <div className="absolute top-3 right-3 p-2 bg-white/60 rounded-lg">
+                                    <DollarSign size={18} className="text-teal-500" />
+                                </div>
+                                <p className="text-xs font-semibold text-teal-600 uppercase tracking-wider mb-1">Total Owed To You</p>
+                                <p className={`text-2xl font-bold ${(postexOwed + tranzoOwed + tcsOwed + leopardsOwed) >= 0 ? "text-teal-800" : "text-red-600"}`}>
+                                    {formatCurrency(postexOwed + tranzoOwed + tcsOwed + leopardsOwed)}
+                                </p>
+                                <p className="text-xs text-teal-600 mt-2">Combined courier balance</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className="mx-auto w-8 h-8 flex items-center justify-center bg-blue-100 rounded-lg mb-2">
+                                    <Package size={16} className="text-blue-600" />
+                                </div>
+                                <p className="text-lg font-bold text-gray-900">{kpiStats.totalOrders.toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Total Orders</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className="mx-auto w-8 h-8 flex items-center justify-center bg-teal-100 rounded-lg mb-2">
+                                    <DollarSign size={16} className="text-teal-600" />
+                                </div>
+                                <p className="text-lg font-bold text-gray-900">{formatCurrency(kpiStats.avgOrderValue)}</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Avg Order Value</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className={`mx-auto w-8 h-8 flex items-center justify-center rounded-lg mb-2 ${kpiStats.deliveryRate >= 80 ? "bg-green-100" : kpiStats.deliveryRate >= 60 ? "bg-amber-100" : "bg-red-100"}`}>
+                                    <Target size={16} className={kpiStats.deliveryRate >= 80 ? "text-green-600" : kpiStats.deliveryRate >= 60 ? "text-amber-600" : "text-red-600"} />
+                                </div>
+                                <p className={`text-lg font-bold ${kpiStats.deliveryRate >= 80 ? "text-green-700" : kpiStats.deliveryRate >= 60 ? "text-amber-700" : "text-red-700"}`}>{kpiStats.deliveryRate.toFixed(1)}%</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Delivery Rate</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className={`mx-auto w-8 h-8 flex items-center justify-center rounded-lg mb-2 ${kpiStats.returnRate > 10 ? "bg-red-100" : "bg-gray-100"}`}>
+                                    <TrendingDown size={16} className={kpiStats.returnRate > 10 ? "text-red-600" : "text-gray-600"} />
+                                </div>
+                                <p className={`text-lg font-bold ${kpiStats.returnRate > 10 ? "text-red-700" : "text-gray-900"}`}>{kpiStats.returnRate.toFixed(1)}%</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Return Rate</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className="mx-auto w-8 h-8 flex items-center justify-center bg-amber-100 rounded-lg mb-2">
+                                    <Percent size={16} className="text-amber-600" />
+                                </div>
+                                <p className="text-lg font-bold text-gray-900">{kpiStats.feeRate.toFixed(1)}%</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Fee Rate</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+                                <div className="mx-auto w-8 h-8 flex items-center justify-center bg-emerald-100 rounded-lg mb-2">
+                                    <PiggyBank size={16} className="text-emerald-600" />
+                                </div>
+                                <p className="text-lg font-bold text-emerald-700">{kpiStats.collectionRate.toFixed(1)}%</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Collection Rate</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Activity size={16} className="text-gray-600" />
+                                <h3 className="font-semibold text-gray-900 text-sm">Month-over-Month Growth</h3>
+                                <span className="text-xs text-gray-400 ml-1">(current vs previous month)</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                {[
+                                    { label: "Orders", value: growthIndicators.ordersGrowth },
+                                    { label: "Revenue", value: growthIndicators.revenueGrowth },
+                                    { label: "Net Amount", value: growthIndicators.netGrowth },
+                                ].map(item => (
+                                    <div key={item.label} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                                        <div className={`p-1.5 rounded-lg ${item.value >= 0 ? "bg-green-100" : "bg-red-100"}`}>
+                                            {item.value >= 0 ? <ArrowUpRight size={16} className="text-green-600" /> : <ArrowDownRight size={16} className="text-red-600" />}
+                                        </div>
+                                        <div>
+                                            <p className={`text-sm font-bold ${item.value >= 0 ? "text-green-700" : "text-red-700"}`}>
+                                                {item.value >= 0 ? "+" : ""}{item.value.toFixed(1)}%
+                                            </p>
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">{item.label}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {revenueSplitData.length > 0 && (
+                                <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-2 bg-indigo-100 rounded-lg">
+                                            <BarChart3 size={18} className="text-indigo-600" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900">Revenue Split</h3>
+                                    </div>
+                                    <div className="h-64">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={revenueSplitData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={90}
+                                                    innerRadius={50}
+                                                    dataKey="value"
+                                                    label={({ name, percent }: any) => `${name || ''} ${((percent || 0) * 100).toFixed(0)}%`}
+                                                    labelLine={true}
+                                                >
+                                                    {revenueSplitData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip formatter={(value: any) => formatCurrency(Number(value || 0))} />
+                                                <Legend wrapperStyle={{ fontSize: "12px" }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-gray-100 rounded-lg">
+                                        <Activity size={18} className="text-gray-600" />
+                                    </div>
+                                    <h3 className="font-bold text-gray-900">Courier Cost Comparison</h3>
+                                </div>
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-gray-200">
+                                            <th className="text-left py-2.5 text-gray-500 font-semibold text-xs uppercase tracking-wider">Metric</th>
+                                            <th className="text-right py-2.5 text-orange-600 font-semibold text-xs uppercase tracking-wider">PostEx</th>
+                                            <th className="text-right py-2.5 text-purple-600 font-semibold text-xs uppercase tracking-wider">Tranzo</th>
+                                             <th className="text-right py-2.5 text-red-600 font-semibold text-xs uppercase tracking-wider">TCS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {[
+                                            { label: "Fee Rate", pe: courierComparison.postex.feeRate, tr: courierComparison.tranzo.feeRate, tc: courierComparison.tcs.feeRate, fmt: "pct", lower: true },
+                                            { label: "Tax Rate", pe: courierComparison.postex.taxRate, tr: courierComparison.tranzo.taxRate, tc: courierComparison.tcs.taxRate, fmt: "pct", lower: true },
+                                            { label: "Withholding Tax", pe: courierComparison.postex.withholdingRate, tr: courierComparison.tranzo.withholdingRate, tc: courierComparison.tcs.withholdingRate, fmt: "pct", lower: true },
+                                            { label: "Cost Per Order", pe: courierComparison.postex.costPerOrder, tr: courierComparison.tranzo.costPerOrder, tc: courierComparison.tcs.costPerOrder, fmt: "cur", lower: true },
+                                            { label: "Net Margin", pe: courierComparison.postex.netMargin, tr: courierComparison.tranzo.netMargin, tc: courierComparison.tcs.netMargin, fmt: "pct", lower: false },
+                                        ].map(row => {
+                                            const best = row.lower ? Math.min(row.pe, row.tr, row.tc) : Math.max(row.pe, row.tr, row.tc);
+                                            const peBetter = row.pe === best;
+                                            const trBetter = row.tr === best;
+                                            const tcBetter = row.tc === best;
+                                            const allZero = row.pe === 0 && row.tr === 0 && row.tc === 0;
+                                            return (
+                                                <tr key={row.label}>
+                                                    <td className="py-2.5 text-gray-700 font-medium">{row.label}</td>
+                                                     <td className={`py-2.5 text-right font-semibold ${!allZero && peBetter ? "text-green-600" : "text-gray-900"}`}>
+                                                        {row.fmt === "pct" ? `${row.pe.toFixed(2)}%` : formatCurrency(row.pe)}
+                                                         {!allZero && peBetter && <span className="ml-1 text-green-500 text-[10px]">✓</span>}
+                                                    </td>
+                                                     <td className={`py-2.5 text-right font-semibold ${!allZero && trBetter ? "text-green-600" : "text-gray-900"}`}>
+                                                        {row.fmt === "pct" ? `${row.tr.toFixed(2)}%` : formatCurrency(row.tr)}
+                                                         {!allZero && trBetter && <span className="ml-1 text-green-500 text-[10px]">✓</span>}
+                                                     </td>
+                                                     <td className={`py-2.5 text-right font-semibold ${!allZero && tcBetter ? "text-green-600" : "text-gray-900"}`}>
+                                                         {row.fmt === "pct" ? `${row.tc.toFixed(2)}%` : formatCurrency(row.tc)}
+                                                         {!allZero && tcBetter && <span className="ml-1 text-green-500 text-[10px]">✓</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {paymentTimelineData.length > 0 && (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-emerald-100 rounded-lg">
+                                        <Receipt size={18} className="text-emerald-600" />
+                                    </div>
+                                    <h3 className="font-bold text-gray-900">Payment Collection Timeline</h3>
+                                </div>
+                                <div className="h-72">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={paymentTimelineData} barGap={4}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                                            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+                                            <Tooltip
+                                                formatter={(value: any) => formatCurrency(Number(value || 0))}
+                                                contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                                            />
+                                            <Legend wrapperStyle={{ fontSize: "12px" }} />
+                                            <Bar dataKey="PostEx" stackId="a" fill="#f97316" radius={[0, 0, 0, 0]} />
+                                            <Bar dataKey="Tranzo" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-orange-100 rounded-lg">
+                                        <Truck size={18} className="text-orange-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-900">PostEx Settlement</h3>
+                                        <p className="text-xs text-gray-500">{timePeriod === "current" ? "This month" : timePeriod === "previous" ? "Last month" : "All time"}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-gray-600">Gross Order Value (COD)</span>
+                                        <span className="font-semibold text-gray-900">{formatCurrencyFull(postexSum.grossAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-red-500">(-) Delivery Fees</span>
+                                        <span className="font-semibold text-red-600">-{formatCurrencyFull(postexSum.fees)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-red-500">(-) Taxes</span>
+                                        <span className="font-semibold text-red-600">-{formatCurrencyFull(postexSum.taxes)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-red-500">(-) Withholding Tax (4%)</span>
+                                        <span className="font-semibold text-red-600">-{formatCurrencyFull(postexSum.withholdingTax)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-200 bg-gray-50 -mx-6 px-6">
+                                        <span className="text-sm font-bold text-gray-900">Net Amount Owed</span>
+                                        <span className="font-bold text-gray-900">{formatCurrencyFull(postexSum.netAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-emerald-600">CPR Payments Received</span>
+                                        <span className="font-semibold text-emerald-600">{formatCurrencyFull(postexPaymentsReceived)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-3 bg-orange-50 -mx-6 px-6 rounded-b-xl">
+                                        <span className="text-sm font-bold text-orange-800">Balance Owed</span>
+                                        <span className={`text-lg font-bold ${postexOwed >= 0 ? "text-orange-800" : "text-red-600"}`}>{formatCurrencyFull(postexOwed)}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                                    <div className="bg-gray-50 rounded-xl p-3">
+                                        <p className="text-lg font-bold text-gray-900">{postexSum.totalOrders}</p>
+                                        <p className="text-[10px] text-gray-500 uppercase tracking-wider">Total Orders</p>
+                                    </div>
+                                    <div className="bg-green-50 rounded-xl p-3">
+                                        <p className="text-lg font-bold text-green-700">{postexSum.deliveredOrders}</p>
+                                        <p className="text-[10px] text-green-600 uppercase tracking-wider">Delivered</p>
+                                    </div>
+                                    <div className="bg-red-50 rounded-xl p-3">
+                                        <p className="text-lg font-bold text-red-700">{postexSum.returnedOrders}</p>
+                                        <p className="text-[10px] text-red-600 uppercase tracking-wider">Returned</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-purple-100 rounded-lg">
+                                        <Package size={18} className="text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-900">Tranzo Settlement</h3>
+                                        <p className="text-xs text-gray-500">{timePeriod === "current" ? "This month" : timePeriod === "previous" ? "Last month" : "All time"}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-gray-600">Gross Order Value (COD)</span>
+                                        <span className="font-semibold text-gray-900">{formatCurrencyFull(tranzoSum.grossAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-red-500">(-) Delivery Fees</span>
+                                        <span className="font-semibold text-red-600">-{formatCurrencyFull(tranzoSum.fees)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-red-500">(-) Taxes</span>
+                                        <span className="font-semibold text-red-600">-{formatCurrencyFull(tranzoSum.taxes)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-200 bg-gray-50 -mx-6 px-6">
+                                        <span className="text-sm font-bold text-gray-900">Net Amount Owed</span>
+                                        <span className="font-bold text-gray-900">{formatCurrencyFull(tranzoSum.netAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                        <span className="text-sm text-emerald-600">Invoice Payments Received</span>
+                                        <span className="font-semibold text-emerald-600">{formatCurrencyFull(tranzoPaymentsReceived)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-3 bg-purple-50 -mx-6 px-6 rounded-b-xl">
+                                        <span className="text-sm font-bold text-purple-800">Balance Owed</span>
+                                        <span className={`text-lg font-bold ${tranzoOwed >= 0 ? "text-purple-800" : "text-red-600"}`}>{formatCurrencyFull(tranzoOwed)}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                                    <div className="bg-gray-50 rounded-xl p-3">
+                                        <p className="text-lg font-bold text-gray-900">{tranzoSum.totalOrders}</p>
+                                        <p className="text-[10px] text-gray-500 uppercase tracking-wider">Total Orders</p>
+                                    </div>
+                                    <div className="bg-green-50 rounded-xl p-3">
+                                        <p className="text-lg font-bold text-green-700">{tranzoSum.deliveredOrders}</p>
+                                        <p className="text-[10px] text-green-600 uppercase tracking-wider">Delivered</p>
+                                    </div>
+                                    <div className="bg-red-50 rounded-xl p-3">
+                                        <p className="text-lg font-bold text-red-700">{tranzoSum.returnedOrders}</p>
+                                        <p className="text-[10px] text-red-600 uppercase tracking-wider">Returned</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-red-200 rounded-2xl p-6">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2 bg-red-100 rounded-lg"><Truck size={18} className="text-red-600" /></div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900">TCS Settlement</h3>
+                                    <p className="text-xs text-gray-500">{timePeriod === "current" ? "This month" : timePeriod === "previous" ? "Last month" : "All time"}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-3">
+                                <div className="flex justify-between py-2 border-b border-gray-100"><span className="text-sm text-gray-600">Gross COD</span><span className="font-semibold">{formatCurrencyFull(tcsSum.grossAmount)}</span></div>
+                                <div className="flex justify-between py-2 border-b border-gray-100"><span className="text-sm text-red-500">Shipping & fees</span><span className="font-semibold text-red-600">-{formatCurrencyFull(tcsSum.fees)}</span></div>
+                                <div className="flex justify-between py-2 border-b border-gray-100"><span className="text-sm text-red-500">Taxes & withholding</span><span className="font-semibold text-red-600">-{formatCurrencyFull(tcsSum.taxes + tcsSum.withholdingTax)}</span></div>
+                                <div className="flex justify-between py-2 border-b border-gray-100"><span className="text-sm font-medium">Net payable</span><span className="font-bold">{formatCurrencyFull(tcsSum.netAmount)}</span></div>
+                                <div className="flex justify-between py-2 border-b border-gray-100"><span className="text-sm text-emerald-600">Payments received</span><span className="font-semibold text-emerald-600">{formatCurrencyFull(tcsPaymentsReceived)}</span></div>
+                                <div className="flex justify-between py-2 border-b border-gray-100"><span className="text-sm font-bold text-red-800">Balance owed</span><span className="font-bold text-red-800">{formatCurrencyFull(tcsOwed)}</span></div>
+                            </div>
+                            <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+                                <div className="bg-gray-50 rounded-xl p-3"><p className="text-lg font-bold text-gray-900">{tcsSum.totalOrders}</p><p className="text-[10px] text-gray-500 uppercase tracking-wider">Total Orders</p></div>
+                                <div className="bg-green-50 rounded-xl p-3"><p className="text-lg font-bold text-green-700">{tcsSum.deliveredOrders}</p><p className="text-[10px] text-green-600 uppercase tracking-wider">Delivered</p></div>
+                                <div className="bg-red-50 rounded-xl p-3"><p className="text-lg font-bold text-red-700">{tcsSum.returnedOrders}</p><p className="text-[10px] text-red-600 uppercase tracking-wider">Returned</p></div>
+                            </div>
+                        </div>
+
+                        {chartData.length > 1 && (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-teal-100 rounded-lg">
+                                        <BarChart3 size={18} className="text-teal-600" />
+                                    </div>
+                                    <h3 className="font-bold text-gray-900">Monthly Revenue Comparison</h3>
+                                </div>
+                                <div className="h-80">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} barGap={4}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                                            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+                                            <Tooltip
+                                                formatter={(value: any) => formatCurrency(Number(value || 0))}
+                                                contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                                            />
+                                            <Legend wrapperStyle={{ fontSize: "12px" }} />
+                                            <Bar dataKey="PostEx" fill="#f97316" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="Tranzo" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                             <Bar dataKey="TCS" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="Shopify" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                                <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                                    <Truck size={16} className="text-orange-500" />
+                                    <h3 className="font-semibold text-gray-900">PostEx Monthly Breakdown</h3>
+                                </div>
+                                {postexFiltered.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-400 text-sm">No data for this period</div>
+                                ) : (
+                                    <div className="divide-y divide-gray-100">
+                                        {postexFiltered.map(m => (
+                                            <div key={`pe-${m.month}`}>
+                                                <button
+                                                    onClick={() => toggleMonth(`pe-${m.month}`)}
+                                                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        {expandedMonths[`pe-${m.month}`] ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+                                                        <div className="text-left">
+                                                            <p className="font-semibold text-gray-900">{formatMonthLabel(m.month)}</p>
+                                                            <p className="text-xs text-gray-500">{m.totalOrders} orders / {m.deliveredOrders} delivered</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-gray-900">{formatCurrency(m.netAmount)}</p>
+                                                        <p className="text-xs text-gray-500">Net amount</p>
+                                                    </div>
+                                                </button>
+                                                {expandedMonths[`pe-${m.month}`] && (
+                                                    <div className="bg-gray-50 border-t border-gray-100">
+                                                        <table className="w-full text-xs">
+                                                            <thead>
+                                                                <tr className="text-gray-500 uppercase tracking-wider">
+                                                                    <th className="px-4 py-2 text-left font-semibold">Date</th>
+                                                                    <th className="px-4 py-2 text-center font-semibold">Orders</th>
+                                                                    <th className="px-4 py-2 text-right font-semibold">Gross</th>
+                                                                    <th className="px-4 py-2 text-right font-semibold">Fees</th>
+                                                                    <th className="px-4 py-2 text-right font-semibold">Net</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-100">
+                                                                {m.days.map((d: DayData) => (
+                                                                    <tr key={d.date} className="hover:bg-white transition-colors">
+                                                                        <td className="px-4 py-2.5 text-gray-700 font-medium">{formatDateLabel(d.date)}</td>
+                                                                        <td className="px-4 py-2.5 text-center text-gray-600">{d.totalOrders}</td>
+                                                                        <td className="px-4 py-2.5 text-right text-gray-600">{formatCurrency(d.grossAmount)}</td>
+                                                                        <td className="px-4 py-2.5 text-right text-red-500">-{formatCurrency(d.fees + d.taxes + d.withholdingTax)}</td>
+                                                                        <td className="px-4 py-2.5 text-right font-semibold text-gray-900">{formatCurrency(d.netAmount)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                                <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                                    <Package size={16} className="text-purple-500" />
+                                    <h3 className="font-semibold text-gray-900">Tranzo Monthly Breakdown</h3>
+                                </div>
+                                {tranzoFiltered.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-400 text-sm">No data for this period</div>
+                                ) : (
+                                    <div className="divide-y divide-gray-100">
+                                        {tranzoFiltered.map(m => (
+                                            <div key={`tr-${m.month}`}>
+                                                <button
+                                                    onClick={() => toggleMonth(`tr-${m.month}`)}
+                                                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        {expandedMonths[`tr-${m.month}`] ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+                                                        <div className="text-left">
+                                                            <p className="font-semibold text-gray-900">{formatMonthLabel(m.month)}</p>
+                                                            <p className="text-xs text-gray-500">{m.totalOrders} orders / {m.deliveredOrders} delivered</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-gray-900">{formatCurrency(m.netAmount)}</p>
+                                                        <p className="text-xs text-gray-500">Net amount</p>
+                                                    </div>
+                                                </button>
+                                                {expandedMonths[`tr-${m.month}`] && (
+                                                    <div className="bg-gray-50 border-t border-gray-100">
+                                                        <table className="w-full text-xs">
+                                                            <thead>
+                                                                <tr className="text-gray-500 uppercase tracking-wider">
+                                                                    <th className="px-4 py-2 text-left font-semibold">Date</th>
+                                                                    <th className="px-4 py-2 text-center font-semibold">Orders</th>
+                                                                    <th className="px-4 py-2 text-right font-semibold">Gross</th>
+                                                                    <th className="px-4 py-2 text-right font-semibold">Fees</th>
+                                                                    <th className="px-4 py-2 text-right font-semibold">Net</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-100">
+                                                                {m.days.map((d: DayData) => (
+                                                                    <tr key={d.date} className="hover:bg-white transition-colors">
+                                                                        <td className="px-4 py-2.5 text-gray-700 font-medium">{formatDateLabel(d.date)}</td>
+                                                                        <td className="px-4 py-2.5 text-center text-gray-600">{d.totalOrders}</td>
+                                                                        <td className="px-4 py-2.5 text-right text-gray-600">{formatCurrency(d.grossAmount)}</td>
+                                                                        <td className="px-4 py-2.5 text-right text-red-500">-{formatCurrency(d.fees + d.taxes)}</td>
+                                                                        <td className="px-4 py-2.5 text-right font-semibold text-gray-900">{formatCurrency(d.netAmount)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+        </DashboardLayout>
+    );
+}

@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+model Order {
+  trackingNumber    String   @id
+  brandId           String   @default("default")
+  courier           String   @default("PostEx")
+  orderRefNumber    String
+  invoicePayment    Float
+  customerName      String
+  customerPhone     String
+  deliveryAddress   String
+  transactionDate   String
+  orderDetail       String
+  orderType         String
+  orderDate         String
+  orderAmount       Float
+  orderStatus       String
+  transactionStatus String
+  cityName          String?
+
+  // New fields from Track Delivery
+  transactionTax    Float?
+  transactionFee    Float?
+  upfrontPayment    Float?
+  actualWeight      Float?
+  lastStatus        String?
+  lastStatusTime    DateTime?
+  reversalTax       Float?
+  reversalFee       Float?
+  salesWithholdingTax Float?
+  netAmount         Float?
+
+  trackingStatus    TrackingStatus?
+  paymentStatus     PaymentStatus?
+
+  source        String   @default("synced")
+  lastFetchedAt DateTime @default(now())
+
+  @@index([brandId, orderDate])
+  @@index([brandId, courier])
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  passwordHash  String
+  name          String
+  role          UserRole     @default(USER)
+  isActive      Boolean      @default(true)
+  lastLoginAt   DateTime?
+  adminNotes    String       @default("")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  brands        Brand[]
+  brandAccess   UserBrand[]
+}
+
+model UserBrand {
+  id        String   @id @default(cuid())
+  userId    String
+  brandId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, brandId])
+  @@index([userId])
+  @@index([brandId])
+}
+
+model Brand {
+  id                   String  @id @default(cuid())
+  name                 String
+  userId               String?
+  user                 User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiToken             String  @default("")
+  tranzoToken          String  @default("")
+  tranzoApiToken       String  @default("")
+  proxyUrl             String  @default("")
+  shopifyStore          String  @default("")
+  shopifyAccessToken    String  @default("")
+  shopifyClientId       String  @default("")
+  shopifyClientSecret   String  @default("")
+  postexMerchantId     String  @default("")
+  postexMerchantToken  String  @default("")
+  tranzoMerchantToken  String  @default("")
+  tcsBearerToken       String  @default("")
+  tcsApiUsername       String  @default("")
+  tcsApiPassword       String  @default("")
+  tcsCustomerNumber    String  @default("")
+  wetarseelAccountId   String  @default("")
+  wetarseelUserId      String  @default("")
+  wetarseelAuthToken   String  @default("")
+  leopardsApiKey      String  @default("")
+  leopardsApiPassword String  @default("")
+  isActive             Boolean   @default(true)
+  adminNotes           String    @default("")
+  postexEnabled        Boolean   @default(true)
+  tranzoEnabled        Boolean   @default(true)
+  zoomEnabled          Boolean   @default(true)
+  shopifyEnabled       Boolean   @default(true)
+  leopardsEnabled      Boolean   @default(true)
+  selectedPackage      String?
+  packageRequestedAt   DateTime?
+  activatedAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  userAccess           UserBrand[]
+  employees            Employee[]
+  employeeAccess       EmployeeBrand[]
+  whatsappMessages     WhatsAppMessage[]
+
+  @@index([userId])
+}
+
+model Employee {
+  id          String          @id @default(cuid())
+  username    String          @unique
+  name        String
+  brandId     String
+  brand       Brand           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandAccess EmployeeBrand[]
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([brandId])
+}
+
+model EmployeeBrand {
+  id         String   @id @default(cuid())
+  employeeId String
+  brandId    String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, brandId])
+  @@index([employeeId])
+  @@index([brandId])
+}
+
+model ShopifyOrder {
+  shopifyOrderId    String   @id
+  brandId           String
+  orderNumber       String
+  orderName         String
+  email             String   @default("")
+  customerName      String   @default("")
+  createdAt         String
+  financialStatus   String   @default("")
+  fulfillmentStatus String   @default("")
+  totalPrice        Float    @default(0)
+  currency          String   @default("PKR")
+  lineItems         String   @default("[]")
+  fulfillments      String   @default("[]")
+  trackingNumbers   String   @default("[]")
+  courierPartner    String   @default("")
+  phone             String   @default("")
+  shippingAddress   String   @default("")
+  shippingCity      String   @default("")
+  tags              String   @default("")
+  pendingRemark     String   @default("")
+  source            String   @default("")
+  createdBy         String   @default("")
+  lastFetchedAt     DateTime @default(now())
+
+  @@index([brandId, createdAt])
+}
+
+model PostexCpr {
+  cprId             Int      @id
+  brandId           String
+  merchantId        String   @default("")
+  merchantName      String   @default("")
+  cprNumber         String   @default("")
+  statusId          Int      @default(0)
+  status            String   @default("")
+  netAmount         Float    @default(0)
+  createDatetime    String   @default("")
+  approveDate       String   @default("")
+  lastFetchedAt     DateTime @default(now())
+
+  @@index([brandId])
+  @@index([brandId, createDatetime])
+}
+
+model TranzoInvoice {
+  id                Int      @id @default(autoincrement())
+  invoiceId         Int
+  brandId           String
+  invoiceNumber     String   @default("")
+  invoiceType       String   @default("")
+  merchant          String   @default("")
+  merchantStore     String?
+  totalOrders       Int      @default(0)
+  netAmount         Float    @default(0)
+  invoiceStatus     String   @default("")
+  createdAt         String   @default("")
+  createdBy         String   @default("")
+  approvedAt        String?
+  approvedBy        String?
+  holdAt            String?
+  holdBy            String?
+  settledAt         String?
+  settledBy         String?
+  disputedAt        String?
+  disputedBy        String?
+  lastFetchedAt     DateTime @default(now())
+
+  @@unique([brandId, invoiceId])
+  @@index([brandId])
+  @@index([brandId, createdAt])
+}
+
+model TrackingStatus {
+  trackingNumber String @id
+  data           String // JSON string
+  updatedAt      DateTime @updatedAt
+  
+  order          Order    @relation(fields: [trackingNumber], references: [trackingNumber], onDelete: Cascade)
+}
+
+model PaymentStatus {
+  trackingNumber String @id
+  data           String // JSON string
+  updatedAt      DateTime @updatedAt
+  
+  order          Order    @relation(fields: [trackingNumber], references: [trackingNumber], onDelete: Cascade)
+}
+
+model WhatsAppSession {
+  id            String   @id @default("default")
+  sessionData   String   @default("")
+  phone         String   @default("")
+  status        String   @default("disconnected")
+  qrCode        String   @default("")
+  lastConnected DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WhatsAppMessage {
+  id                String   @id @default(cuid())
+  brandId           String
+  remoteJid         String
+  senderName        String   @default("")
+  senderPhone       String   @default("")
+  message           String
+  messageType       String   @default("text")
+  timestamp         DateTime
+  isFromMe          Boolean  @default(false)
+  isOrderDetected   Boolean  @default(false)
+  parsedOrder       String   @default("")
+  orderCreated      Boolean  @default(false)
+  shopifyOrderId    String   @default("")
+  whatsappMessageId String   @unique
+  createdAt         DateTime @default(now())
+
+  brand             Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, timestamp])
+}
