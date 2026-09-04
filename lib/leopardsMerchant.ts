@@ -110,11 +110,11 @@ export function normalizeLeopardsTracking(trackingNumber: string, raw: unknown) 
   const history = Array.isArray(historyValue) ? historyValue.filter((item): item is JsonRecord => Boolean(item && typeof item === "object")) : rows;
   const events = history.map((item) => ({
     status: leopardsString(item, "Staus", "status", "status_name", "activity", "status_reamrks", "remarks", "current_status"),
-    date: leopardsString(item, "Activity Date", "activity_date", "date", "datetime", "date_time", "created_at", "status_date"),
+    date: leopardsString(item, "Activity_datetime", "Activity Date", "activity_date", "date", "datetime", "date_time", "created_at", "status_date"),
     details: leopardsString(item, "Reason", "location", "city", "station", "status_reamrks", "remarks"),
   })).filter((item) => item.status || item.date);
-  const latest = events[0] || { status: leopardsString(shipment, "booked_packet_status", "status", "current_status", "packet_status") || "No update", date: leopardsString(shipment, "activity_date", "last_status_time", "status_date", "updated_at"), details: leopardsString(shipment, "destination_city_name", "city", "destination") };
-  const status = latest.status || "No update";
+  const latest = events.at(-1) || { status: "", date: leopardsString(shipment, "activity_date", "last_status_time", "status_date", "updated_at"), details: leopardsString(shipment, "destination_city_name", "city", "destination") };
+  const status = leopardsString(shipment, "booked_packet_status", "status", "current_status", "packet_status") || latest.status || "No update";
   const lower = status.toLowerCase();
   return { trackingNumber, currentStatus: status, statusCategory: lower.includes("deliver") ? "delivered" : lower.includes("return") ? "returned" : lower.includes("cancel") ? "cancelled" : lower.includes("book") || lower.includes("transit") || lower.includes("dispatch") ? "in_process" : "other", currentCity: leopardsString(shipment, "destination_city_name", "destination_city", "city", "destination", "last_location") || latest.details, lastStatusTime: latest.date || null, activityHistory: events, raw };
 }

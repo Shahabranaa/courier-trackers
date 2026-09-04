@@ -25,7 +25,7 @@ export default function CityStats({
 
             const trackingNo = order.trackingNumber || "";
             const liveStatus = trackingStatuses[trackingNo]?.currentStatus;
-            const dbStatus = order.transactionStatus || order.orderStatus || "";
+            const dbStatus = order.lastStatus || order.transactionStatus || order.orderStatus || "";
             const status = (liveStatus || dbStatus).toLowerCase();
 
             if (status.includes("delivered") || status.includes("completed")) {
