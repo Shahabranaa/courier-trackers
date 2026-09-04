@@ -503,7 +503,7 @@ export default function AnalyticsPage() {
                           boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                           padding: "12px",
                         }}
-                        labelFormatter={(val) => viewMode === "daily" ? formatFullDate(val) : val}
+                        labelFormatter={(val) => viewMode === "daily" ? formatFullDate(String(val ?? "")) : String(val ?? "")}
                         formatter={(value, name) => {
                           const labels: Record<string, string> = { postex: "PostEx", tranzo: "Tranzo", zoom: "Zoom", other: "Unfulfilled/Other" };
                           const nameStr = String(name ?? "");
