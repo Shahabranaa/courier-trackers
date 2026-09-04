@@ -45,11 +45,12 @@ export default function SettingsPage() {
         shopifyClientId: "",
         shopifyClientSecret: "",
         wetarseelAccountId: "",
-        wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", leopardsEnabled: false
+        wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "",
+        postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", tcsBearerToken: "", tcsApiUsername: "", tcsApiPassword: "", tcsCustomerNumber: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", leopardsEnabled: false });
+        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", tcsBearerToken: "", tcsApiUsername: "", tcsApiPassword: "", tcsCustomerNumber: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true });
         setIsAdding(false);
         setEditId(null);
         setTestResult(null);
@@ -122,7 +123,12 @@ export default function SettingsPage() {
             wetarseelUserId: brand.wetarseelUserId || "",
             leopardsApiKey: brand.leopardsApiKey || "",
             leopardsApiPassword: brand.leopardsApiPassword || "",
-            leopardsEnabled: Boolean(brand.leopardsEnabled)
+            postexEnabled: brand.postexEnabled !== false,
+            tranzoEnabled: brand.tranzoEnabled !== false,
+            zoomEnabled: brand.zoomEnabled !== false,
+            tcsEnabled: brand.tcsEnabled !== false,
+            shopifyEnabled: brand.shopifyEnabled !== false,
+            leopardsEnabled: brand.leopardsEnabled !== false
         });
         setIsAdding(true);
     };
@@ -172,6 +178,36 @@ export default function SettingsPage() {
                                     placeholder="e.g. Organic Tea Company"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                 />
+                            </div>
+
+                            <div className="col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <div className="mb-3">
+                                    <h4 className="text-sm font-semibold text-gray-900">Active courier APIs</h4>
+                                    <p className="text-xs text-gray-500 mt-1">Only enabled couriers appear in the left navigation for this brand.</p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {([
+                                        ["postexEnabled", "PostEx"],
+                                        ["tranzoEnabled", "Tranzo"],
+                                        ["zoomEnabled", "Zoom"],
+                                        ["tcsEnabled", "TCS"],
+                                        ["leopardsEnabled", "Leopards"],
+                                    ] as const).map(([key, label]) => (
+                                        <label key={key} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 cursor-pointer">
+                                            <span className="text-sm font-medium text-gray-700">{label}</span>
+                                            <span className="relative inline-flex h-6 w-11 shrink-0">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formData[key]}
+                                                    onChange={e => setFormData({ ...formData, [key]: e.target.checked })}
+                                                    className="peer sr-only"
+                                                />
+                                                <span className="absolute inset-0 rounded-full bg-gray-300 transition-colors peer-checked:bg-indigo-600" />
+                                                <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
 
                             <div>
@@ -312,11 +348,6 @@ export default function SettingsPage() {
                                 <input type="password" value={formData.leopardsApiPassword} onChange={e => setFormData({ ...formData, leopardsApiPassword: e.target.value })} placeholder="Uses secure project secret when empty" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none transition-all font-mono text-sm" />
                                 <p className="text-xs text-gray-400 mt-1">Leave empty to use the secure project secrets, or save brand-specific credentials here.</p>
                             </div>
-                            <label className="col-span-2 flex items-center gap-3 rounded-lg border border-teal-100 bg-teal-50/50 px-4 py-3 cursor-pointer">
-                                <input type="checkbox" checked={formData.leopardsEnabled} onChange={e => setFormData({ ...formData, leopardsEnabled: e.target.checked })} className="h-4 w-4 rounded border-teal-300 text-teal-600 focus:ring-teal-500" />
-                                <span><span className="block text-sm font-semibold text-teal-900">Enable Leopards integration</span><span className="block text-xs text-teal-700">Allow portal sync and live tracking for this brand.</span></span>
-                            </label>
-
                             <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
                                 <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-green-500"></span> Shopify Integration

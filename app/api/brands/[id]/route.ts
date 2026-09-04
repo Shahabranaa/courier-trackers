@@ -5,7 +5,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, leopardsEnabled, isActive, selectedPackage } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, isActive, selectedPackage } = body;
 
         const shouldUpdateAccessToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
         const shouldUpdateSecret = shopifyClientSecret !== undefined && shopifyClientSecret !== "••••••••";
@@ -40,6 +40,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...((wetarseelAuthToken !== undefined && wetarseelAuthToken !== "••••••••") && { wetarseelAuthToken }),
                 ...(shouldUpdateLeopardsKey && { leopardsApiKey }),
                 ...(shouldUpdateLeopardsPassword && { leopardsApiPassword }),
+                ...(postexEnabled !== undefined && { postexEnabled: Boolean(postexEnabled) }),
+                ...(tranzoEnabled !== undefined && { tranzoEnabled: Boolean(tranzoEnabled) }),
+                ...(zoomEnabled !== undefined && { zoomEnabled: Boolean(zoomEnabled) }),
+                ...(tcsEnabled !== undefined && { tcsEnabled: Boolean(tcsEnabled) }),
+                ...(shopifyEnabled !== undefined && { shopifyEnabled: Boolean(shopifyEnabled) }),
                 ...(leopardsEnabled !== undefined && { leopardsEnabled: Boolean(leopardsEnabled) }),
                 ...(isActive !== undefined && { isActive, ...(isActive ? { activatedAt: new Date() } : {}) }),
                 ...(selectedPackage !== undefined && { selectedPackage, packageRequestedAt: new Date() })

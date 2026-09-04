@@ -110,6 +110,7 @@ model Brand {
   postexEnabled        Boolean   @default(true)
   tranzoEnabled        Boolean   @default(true)
   zoomEnabled          Boolean   @default(true)
+  tcsEnabled           Boolean   @default(true)
   shopifyEnabled       Boolean   @default(true)
   leopardsEnabled      Boolean   @default(true)
   selectedPackage      String?

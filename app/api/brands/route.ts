@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, leopardsEnabled } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -86,6 +86,11 @@ export async function POST(req: NextRequest) {
                 wetarseelAuthToken: wetarseelAuthToken || "",
                 leopardsApiKey: leopardsApiKey || "",
                 leopardsApiPassword: leopardsApiPassword || "",
+                ...(postexEnabled !== undefined && { postexEnabled: Boolean(postexEnabled) }),
+                ...(tranzoEnabled !== undefined && { tranzoEnabled: Boolean(tranzoEnabled) }),
+                ...(zoomEnabled !== undefined && { zoomEnabled: Boolean(zoomEnabled) }),
+                ...(tcsEnabled !== undefined && { tcsEnabled: Boolean(tcsEnabled) }),
+                ...(shopifyEnabled !== undefined && { shopifyEnabled: Boolean(shopifyEnabled) }),
                 ...(leopardsEnabled !== undefined && { leopardsEnabled: Boolean(leopardsEnabled) }),
                 isActive: isAdminCreator,
                 activatedAt: isAdminCreator ? new Date() : null

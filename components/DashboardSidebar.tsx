@@ -6,6 +6,9 @@ import { LayoutDashboard, Truck, Package, Settings, LogOut, ChevronLeft, Chevron
 import { useState } from "react";
 import { useBrand } from "./providers/BrandContext";
 import { useAuth } from "./providers/AuthContext";
+import type { Brand } from "@/lib/types";
+
+type CourierToggleKey = keyof Pick<Brand, "postexEnabled" | "tranzoEnabled" | "zoomEnabled" | "tcsEnabled" | "leopardsEnabled">;
 
 export default function DashboardSidebar() {
     const pathname = usePathname();
@@ -21,6 +24,7 @@ export default function DashboardSidebar() {
             name: "PostEx Portal",
             href: "/postex",
             icon: Truck,
+            courierToggle: "postexEnabled" as CourierToggleKey,
             children: [
                 { name: "All Orders", href: "/postex" },
                 { name: "Critical Orders", href: "/postex/critical" },
@@ -31,6 +35,7 @@ export default function DashboardSidebar() {
             name: "Tranzo Portal",
             href: "/tranzo",
             icon: Package,
+            courierToggle: "tranzoEnabled" as CourierToggleKey,
             children: [
                 { name: "All Orders", href: "/tranzo" },
                 { name: "Payment Receipts", href: "/tranzo/invoices" },
@@ -40,6 +45,7 @@ export default function DashboardSidebar() {
             name: "Zoom Portal",
             href: "/zoom",
             icon: Zap,
+            courierToggle: "zoomEnabled" as CourierToggleKey,
             children: [
                 { name: "Shopify View", href: "/zoom" },
                 { name: "All Orders", href: "/zoom/orders" },
@@ -49,6 +55,7 @@ export default function DashboardSidebar() {
             name: "TCS Portal",
             href: "/tcs",
             icon: Truck,
+            courierToggle: "tcsEnabled" as CourierToggleKey,
             children: [
                 { name: "All Orders", href: "/tcs" },
                 { name: "Payments", href: "/tcs/payments" },
@@ -58,6 +65,7 @@ export default function DashboardSidebar() {
             name: "Leopards Portal",
             href: "/leopards",
             icon: Truck,
+            courierToggle: "leopardsEnabled" as CourierToggleKey,
             children: [
                 { name: "All Orders", href: "/leopards" },
                 { name: "Payments", href: "/leopards/payments" },
@@ -172,7 +180,7 @@ export default function DashboardSidebar() {
 
             {/* Navigation */}
             <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-                {navItems.map((item) => {
+                {navItems.filter(item => !item.courierToggle || selectedBrand?.[item.courierToggle] !== false).map((item) => {
                     const isActive = pathname === item.href || (item.children && item.children.some(child => pathname === child.href));
                     const isExpanded = expandedGroups[item.href] || false;
                     const Icon = item.icon;
