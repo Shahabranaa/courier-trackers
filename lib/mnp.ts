@@ -146,8 +146,25 @@ export async function getMnpLocationId(input: MnpCredentials = {}) {
   return locationId;
 }
 
-export const getMnpQsrReport = (monthNumber: number, year: number, locationID: string, input: MnpCredentials = {}) =>
-  request("Reports/QSR_Report", { UserName: credentials(input).username, Password: credentials(input).password, MonthNumber: monthNumber, year, locationID }, input, "POST", false);
+function isEmptyReportError(error: unknown, reportName: "QSR" | "Payment") {
+  if (!(error instanceof Error)) return false;
+  return new RegExp(`no\\s+${reportName}\\s+report\\s+record`, "i").test(error.message);
+}
+
+export async function getMnpQsrReport(monthNumber: number, year: number, locationID: string, input: MnpCredentials = {}) {
+  try {
+    return await request(
+      "Reports/QSR_Report",
+      { UserName: credentials(input).username, Password: credentials(input).password, MonthNumber: monthNumber, year, locationID },
+      input,
+      "POST",
+      false,
+    );
+  } catch (error) {
+    if (isEmptyReportError(error, "QSR")) return [];
+    throw error;
+  }
+}
 
 export async function getMnpPaymentReport(dateFrom: string, dateTo: string, locationID: string, input: MnpCredentials = {}) {
   try {
@@ -159,8 +176,7 @@ export async function getMnpPaymentReport(dateFrom: string, dateTo: string, loca
       false,
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (/no payment report record/i.test(message)) return [];
+    if (isEmptyReportError(error, "Payment")) return [];
     throw error;
   }
 }

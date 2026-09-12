@@ -34,8 +34,13 @@ export async function GET(req: NextRequest) {
     const last = new Date(`${endDate}T00:00:00.000Z`);
     const locationID = params.get("locationID")?.trim() || await getMnpLocationId(config.credentials);
     const reports: unknown[] = [];
+    let requestedMonths = 0;
+    let emptyMonths = 0;
     for (let cursor = new Date(first); cursor <= last; cursor.setUTCMonth(cursor.getUTCMonth() + 1)) {
-      reports.push(await getMnpQsrReport(cursor.getUTCMonth() + 1, cursor.getUTCFullYear(), locationID, config.credentials));
+      requestedMonths += 1;
+      const report = await getMnpQsrReport(cursor.getUTCMonth() + 1, cursor.getUTCFullYear(), locationID, config.credentials);
+      if (mnpRows(report).length === 0) emptyMonths += 1;
+      reports.push(report);
     }
     const incoming = reports.flatMap((raw) => mnpRows(raw))
       .map((row) => normalizeMnpOrder(row, brandId, startDate))
@@ -48,7 +53,15 @@ export async function GET(req: NextRequest) {
       });
     }
     const dist = await prisma.order.findMany({ where, include: { trackingStatus: true, paymentStatus: true }, orderBy: { orderDate: "desc" } });
-    return NextResponse.json({ dist, source: "live", count: dist.length, syncSummary: { totalFetched: incoming.length, saved: incoming.length } });
+    return NextResponse.json({
+      dist,
+      source: "live",
+      count: dist.length,
+      syncSummary: { totalFetched: incoming.length, saved: incoming.length, requestedMonths, emptyMonths },
+      emptyReason: incoming.length === 0
+        ? "M&P returned no QSR records for the selected date range and location."
+        : null,
+    });
   } catch (error) {
     const dist = await prisma.order.findMany({ where, include: { trackingStatus: true, paymentStatus: true }, orderBy: { orderDate: "desc" } });
     return NextResponse.json({ dist, source: "local_fallback", count: dist.length, error: error instanceof Error ? error.message : "M&P order sync failed" });
