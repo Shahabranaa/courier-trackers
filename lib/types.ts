@@ -76,6 +76,13 @@ export interface Brand {
   shopifyEnabled?: boolean;
   leopardsEnabled?: boolean;
   mnpEnabled?: boolean;
+  courierCredentials?: {
+    postex: boolean;
+    tranzo: boolean;
+    tcs: boolean;
+    leopards: boolean;
+    mnp: boolean;
+  };
   isActive?: boolean;
   selectedPackage?: string | null;
   packageRequestedAt?: string | null;

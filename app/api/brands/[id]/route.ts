@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
+import { getCourierCredentialStatus } from "@/lib/courierCredentials";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -84,6 +85,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
              mnpUsername: brand.mnpUsername ? "••••••••" : "",
              mnpPassword: brand.mnpPassword ? "••••••••" : "",
              mnpAccountNo: brand.mnpAccountNo ? "••••••••" : ""
+              , courierCredentials: getCourierCredentialStatus(brand)
         });
     } catch (error: any) {
         console.error("Failed to update brand:", error.message);

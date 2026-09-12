@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
+import { getCourierCredentialStatus } from "@/lib/courierCredentials";
 
 export async function GET() {
     try {
@@ -38,6 +39,7 @@ export async function GET() {
              mnpUsername: b.mnpUsername ? "••••••••" : "",
              mnpPassword: b.mnpPassword ? "••••••••" : "",
              mnpAccountNo: b.mnpAccountNo ? "••••••••" : "",
+            courierCredentials: getCourierCredentialStatus(b),
             isActive: b.isActive,
             selectedPackage: b.selectedPackage,
             packageRequestedAt: b.packageRequestedAt,
@@ -118,6 +120,7 @@ export async function POST(req: NextRequest) {
              , mnpUsername: brand.mnpUsername ? "••••••••" : ""
              , mnpPassword: brand.mnpPassword ? "••••••••" : ""
              , mnpAccountNo: brand.mnpAccountNo ? "••••••••" : ""
+             , courierCredentials: getCourierCredentialStatus(brand)
         }, { status: 201 });
     } catch (error: any) {
         console.error("Failed to create brand:", error.message);

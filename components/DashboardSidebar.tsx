@@ -9,6 +9,7 @@ import { useAuth } from "./providers/AuthContext";
 import type { Brand } from "@/lib/types";
 
 type CourierToggleKey = keyof Pick<Brand, "postexEnabled" | "tranzoEnabled" | "zoomEnabled" | "tcsEnabled" | "leopardsEnabled" | "mnpEnabled">;
+type CourierCredentialKey = keyof NonNullable<Brand["courierCredentials"]>;
 
 export default function DashboardSidebar() {
     const pathname = usePathname();
@@ -25,6 +26,7 @@ export default function DashboardSidebar() {
             href: "/postex",
             icon: Truck,
             courierToggle: "postexEnabled" as CourierToggleKey,
+            courierCredential: "postex" as CourierCredentialKey,
             children: [
                 { name: "All Orders", href: "/postex" },
                 { name: "Critical Orders", href: "/postex/critical" },
@@ -36,6 +38,7 @@ export default function DashboardSidebar() {
             href: "/tranzo",
             icon: Package,
             courierToggle: "tranzoEnabled" as CourierToggleKey,
+            courierCredential: "tranzo" as CourierCredentialKey,
             children: [
                 { name: "All Orders", href: "/tranzo" },
                 { name: "Payment Receipts", href: "/tranzo/invoices" },
@@ -56,6 +59,7 @@ export default function DashboardSidebar() {
             href: "/tcs",
             icon: Truck,
             courierToggle: "tcsEnabled" as CourierToggleKey,
+            courierCredential: "tcs" as CourierCredentialKey,
             children: [
                 { name: "All Orders", href: "/tcs" },
                 { name: "Payments", href: "/tcs/payments" },
@@ -66,6 +70,7 @@ export default function DashboardSidebar() {
             href: "/leopards",
             icon: Truck,
             courierToggle: "leopardsEnabled" as CourierToggleKey,
+            courierCredential: "leopards" as CourierCredentialKey,
             children: [
                 { name: "All Orders", href: "/leopards" },
                 { name: "Payments", href: "/leopards/payments" },
@@ -76,6 +81,7 @@ export default function DashboardSidebar() {
             href: "/mnp",
             icon: Truck,
             courierToggle: "mnpEnabled" as CourierToggleKey,
+            courierCredential: "mnp" as CourierCredentialKey,
             children: [
                 { name: "All Orders", href: "/mnp" },
                 { name: "Payments", href: "/mnp/payments" },
@@ -191,7 +197,11 @@ export default function DashboardSidebar() {
 
             {/* Navigation */}
             <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-                {navItems.filter(item => !item.courierToggle || selectedBrand?.[item.courierToggle] !== false).map((item) => {
+                {navItems.filter(item => {
+                    if (item.courierToggle && selectedBrand?.[item.courierToggle] === false) return false;
+                    if (item.courierCredential && selectedBrand?.courierCredentials?.[item.courierCredential] !== true) return false;
+                    return true;
+                }).map((item) => {
                     const isActive = pathname === item.href || (item.children && item.children.some(child => pathname === child.href));
                     const isExpanded = expandedGroups[item.href] || false;
                     const Icon = item.icon;
