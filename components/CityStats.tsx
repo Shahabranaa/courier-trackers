@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Order, TrackingStatus } from "@/lib/types";
+import { normalizePakistanCity } from "@/lib/cities";
 
 export default function CityStats({
     orders,
@@ -16,7 +17,7 @@ export default function CityStats({
         const cityData: Record<string, { total: number; delivered: number }> = {};
 
         orders.forEach((order) => {
-            const city = order.cityName || "Unknown";
+            const city = normalizePakistanCity(order.cityName) || "UNKNOWN";
             if (!cityData[city]) {
                 cityData[city] = { total: 0, delivered: 0 };
             }

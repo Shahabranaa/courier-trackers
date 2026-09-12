@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { normalizePakistanCity } from "@/lib/cities";
 
 const BASE_URL = "https://mnpcourier.com/mycodapi/api/";
 const TRACKING_URL = "https://tracking.mulphilog.com.pk/api/CNTracking";
@@ -248,7 +249,7 @@ export function normalizeMnpTracking(trackingNumber: string, raw: unknown) {
     trackingNumber,
     currentStatus: status,
     statusCategory: lower.includes("deliver") ? "delivered" : lower.includes("return") || lower.includes("rto") ? "returned" : lower.includes("cancel") ? "cancelled" : lower.includes("book") || lower.includes("transit") || lower.includes("dispatch") ? "in_process" : "other",
-    currentCity: mnpString(shipment, "DestinationCity", "destinationCity", "Location"),
+    currentCity: normalizePakistanCity(mnpString(shipment, "DestinationCity", "destinationCity", "Location")),
     lastStatusTime: latest.date ? parseDate(latest.date) : null,
     activityHistory: history,
     shipment: {
@@ -299,7 +300,7 @@ export function normalizeMnpOrder(row: JsonRecord, brandId: string, fallbackDate
     customerName: mnpString(row, "consignee", "Consignee", "consigneeName") || "M&P Customer",
     customerPhone: mnpString(row, "ContactNo", "consigneeMobNo", "phone"),
     deliveryAddress: mnpString(row, "DeliveryAddress", "consigneeAddress", "address"),
-    cityName: mnpString(row, "DESTINATION", "DestinationCity", "destinationCity") || null,
+    cityName: normalizePakistanCity(mnpString(row, "DESTINATION", "DestinationCity", "destinationCity")) || null,
     transactionDate: parseDate(date), orderDate: parseDate(date),
     orderDetail: "M&P shipment", orderType: "COD", orderStatus: status, transactionStatus: status, lastStatus: status,
     actualWeight: mnpNumber(row, "WEIGHT", "Weight", "weight"),

@@ -9,6 +9,7 @@ import OrderCharts from "@/components/OrderCharts";
 import CityStats from "@/components/CityStats";
 import { AlertCircle, Calendar, Download, Filter, Package, RefreshCw, Search, Truck, Wallet, type LucideIcon } from "lucide-react";
 import type { Order, PaymentStatus, TrackingStatus } from "@/lib/types";
+import { normalizePakistanCity } from "@/lib/cities";
 
 type MnpPayment = PaymentStatus & {
   trackingNumber: string;
@@ -20,6 +21,10 @@ const delivered = (o: Order) => /\bdeliver(ed|y)?\b|\bok\b|\bcompleted\b/.test(s
 const returned = (o: Order) => /\breturn|\brto\b|\bro\b|\brs\b/.test(statusText(o));
 const cancelled = (o: Order) => /\bcancel|void/.test(statusText(o));
 const money = (value: number) => `Rs. ${Math.round(value || 0).toLocaleString("en-PK")}`;
+const normalizeOrderCities = (orders: Order[]) => orders.map((order) => ({
+  ...order,
+  cityName: normalizePakistanCity(order.cityName) || "UNKNOWN",
+}));
 
 export default function MnpPage() {
   const { selectedBrand } = useBrand();
@@ -62,7 +67,7 @@ export default function MnpPage() {
       const response = await fetch(`/api/mnp/orders?${params}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load M&P orders");
-      let nextOrders = data.dist || [];
+       let nextOrders = normalizeOrderCities(data.dist || []);
       setOrders(nextOrders); setSource(data.source || "local");
       const saved: Record<string, TrackingStatus> = {};
       (data.dist || []).forEach((order: Order & { trackingStatus?: { data?: string | TrackingStatus } }) => {
@@ -90,7 +95,7 @@ export default function MnpPage() {
         const refreshed = await fetch(`/api/mnp/orders?${new URLSearchParams({ brandId: selectedBrand.id, ...range })}`);
         const refreshedData = await refreshed.json();
         if (refreshed.ok) {
-          nextOrders = refreshedData.dist || nextOrders;
+          nextOrders = refreshedData.dist ? normalizeOrderCities(refreshedData.dist) : nextOrders;
           setOrders(nextOrders);
         }
       }
