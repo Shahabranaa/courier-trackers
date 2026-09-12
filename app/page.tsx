@@ -283,7 +283,8 @@ export default function UnifiedDashboard() {
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
       const status = (o.transactionStatus || o.orderStatus || o.lastStatus || "").toLowerCase();
       if (status.includes("cancel") || status.includes("void")) return;
-      const net = parseFloat(o.netAmount || "0");
+      const isDelivered = /deliver|completed|\bok\b/.test(status) && !/not delivered|undelivered/.test(status);
+      const net = isDelivered ? parseFloat(o.netAmount || o.orderAmount || o.invoicePayment || "0") : 0;
       dailyMap[day].mnpOrders++; dailyMap[day].mnpNet += net;
       dailyMap[day].totalOrders++; dailyMap[day].totalNet += net;
       totOrders++; totNet += net;

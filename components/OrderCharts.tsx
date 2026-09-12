@@ -17,10 +17,12 @@ export default function OrderCharts({
     orders,
     trackingStatuses,
     courier = "PostEx",
+    earningsFallbackToOrderAmount = false,
 }: {
     orders: Order[];
     trackingStatuses: Record<string, TrackingStatus | null>;
-        courier?: "PostEx" | "TCS" | "M&P";
+    courier?: "PostEx" | "TCS" | "M&P";
+    earningsFallbackToOrderAmount?: boolean;
 }) {
     const getStatusCategory = (status: string, savedCategory?: string) => {
         if (savedCategory) return savedCategory;
@@ -173,8 +175,12 @@ export default function OrderCharts({
 
             if (!earnings[date]) earnings[date] = 0;
 
-            // Net Amount should already be calculated in the order object
-            earnings[date] += (order.netAmount || 0);
+            const netAmount = order.netAmount || (
+                earningsFallbackToOrderAmount && isDelivered
+                    ? order.orderAmount || order.invoicePayment || 0
+                    : 0
+            );
+            earnings[date] += netAmount;
         });
 
         return Object.entries(earnings)
@@ -184,7 +190,7 @@ export default function OrderCharts({
             }))
             .sort((a, b) => a.date.localeCompare(b.date));
 
-    }, [orders, trackingStatuses, aggregationMode]);
+    }, [orders, trackingStatuses, aggregationMode, earningsFallbackToOrderAmount]);
 
 
     // Calculate Summary Stats
