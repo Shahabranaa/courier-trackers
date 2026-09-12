@@ -31,8 +31,11 @@ export async function GET(req: NextRequest) {
       const locationID = params.get("locationID")?.trim() || await getMnpLocationId(config.credentials);
       const reports = await getMnpPaymentReports(startDate, endDate, locationID, config.credentials);
       const payments = reports.flatMap((raw) => mnpRows(raw).map((row) => normalizeMnpPayment(row)));
-      const saved = await Promise.all(payments.map((payment) => saveMnpPaymentStatus(payment)));
-      return NextResponse.json({ payments, source: "live", count: payments.length, persisted: saved.filter(Boolean).length });
+      let persisted = 0;
+      for (const payment of payments) {
+        if (await saveMnpPaymentStatus(payment)) persisted += 1;
+      }
+      return NextResponse.json({ payments, source: "live", count: payments.length, persisted });
     }
     const orders = await prisma.order.findMany({ where, select: { trackingNumber: true } });
     const saved = orders.length ? await prisma.paymentStatus.findMany({ where: { trackingNumber: { in: orders.map((order) => order.trackingNumber) } } }) : [];

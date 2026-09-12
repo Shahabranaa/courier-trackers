@@ -30,10 +30,11 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await trackMnpBulk(orders.map((order) => order.trackingNumber), config.credentials);
     const rows = mnpRows(raw);
-    const statuses = await Promise.all(orders.map(async (order) => {
+    const statuses = [];
+    for (const order of orders) {
       const row = rows.find((item) => String(item.ConsignmentNumber || item.consignmentNumber || "").trim() === order.trackingNumber);
-      return saveMnpTrackingResult(order.trackingNumber, row || raw);
-    }));
+      statuses.push(await saveMnpTrackingResult(order.trackingNumber, row || raw));
+    }
     return NextResponse.json(statuses);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to track M&P consignments" }, { status: 502 });
