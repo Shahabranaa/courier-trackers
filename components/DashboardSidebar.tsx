@@ -8,7 +8,7 @@ import { useBrand } from "./providers/BrandContext";
 import { useAuth } from "./providers/AuthContext";
 import type { Brand } from "@/lib/types";
 
-type CourierToggleKey = keyof Pick<Brand, "postexEnabled" | "tranzoEnabled" | "zoomEnabled" | "tcsEnabled" | "leopardsEnabled">;
+type CourierToggleKey = keyof Pick<Brand, "postexEnabled" | "tranzoEnabled" | "zoomEnabled" | "tcsEnabled" | "leopardsEnabled" | "mnpEnabled">;
 
 export default function DashboardSidebar() {
     const pathname = usePathname();
@@ -72,6 +72,16 @@ export default function DashboardSidebar() {
             ],
         },
         {
+            name: "M&P Portal",
+            href: "/mnp",
+            icon: Truck,
+            courierToggle: "mnpEnabled" as CourierToggleKey,
+            children: [
+                { name: "All Orders", href: "/mnp" },
+                { name: "Payments", href: "/mnp/payments" },
+            ],
+        },
+        {
             name: "Shopify Orders",
             href: "/shopify",
             icon: ShoppingBag,
@@ -97,6 +107,7 @@ export default function DashboardSidebar() {
         "/shopify": true,
         "/tcs": true,
         "/leopards": true,
+        "/mnp": true,
     });
 
     const toggleGroup = (href: string) => {

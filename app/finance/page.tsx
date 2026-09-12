@@ -81,6 +81,7 @@ export default function FinancePage() {
     const [tranzoData, setTranzoData] = useState<CourierData | null>(null);
     const [tcsData, setTcsData] = useState<CourierData | null>(null);
     const [leopardsData, setLeopardsData] = useState<CourierData | null>(null);
+    const [mnpData, setMnpData] = useState<CourierData | null>(null);
     const [shopifyData, setShopifyData] = useState<{ totalRevenue: number; totalOrders: number; monthly: any[] } | null>(null);
 
     const [postexReceiptsLoading, setPostexReceiptsLoading] = useState(false);
@@ -109,6 +110,7 @@ export default function FinancePage() {
             setTranzoData(data.tranzo);
             setTcsData(data.tcs);
             setLeopardsData(data.leopards);
+            setMnpData(data.mnp);
             setShopifyData(data.shopify);
         } catch (err: any) {
             setError(err.message);
@@ -190,10 +192,12 @@ export default function FinancePage() {
     const tranzoFiltered = filterMonthly(tranzoData?.monthly);
     const tcsFiltered = filterMonthly(tcsData?.monthly);
     const leopardsFiltered = filterMonthly(leopardsData?.monthly);
+    const mnpFiltered = filterMonthly(mnpData?.monthly);
     const postexSum = sumMonthly(postexFiltered);
     const tranzoSum = sumMonthly(tranzoFiltered);
     const tcsSum = sumMonthly(tcsFiltered);
     const leopardsSum = sumMonthly(leopardsFiltered);
+    const mnpSum = sumMonthly(mnpFiltered);
 
     const filteredCprTotal = useMemo(() => {
         const validStatuses = [2, 3, 4];
@@ -283,12 +287,13 @@ export default function FinancePage() {
     };
 
     const chartData = useMemo(() => {
-        if (!postexData?.monthly && !tranzoData?.monthly && !tcsData?.monthly && !leopardsData?.monthly) return [];
+        if (!postexData?.monthly && !tranzoData?.monthly && !tcsData?.monthly && !leopardsData?.monthly && !mnpData?.monthly) return [];
         const allMonths = new Set<string>();
         postexData?.monthly.forEach(m => allMonths.add(m.month));
         tranzoData?.monthly.forEach(m => allMonths.add(m.month));
         tcsData?.monthly.forEach(m => allMonths.add(m.month));
         leopardsData?.monthly.forEach(m => allMonths.add(m.month));
+        mnpData?.monthly.forEach(m => allMonths.add(m.month));
 
         const sorted = Array.from(allMonths).filter(m => m !== "Unknown").sort();
         return sorted.map(month => {
@@ -296,6 +301,7 @@ export default function FinancePage() {
             const tr = tranzoData?.monthly.find(m => m.month === month);
             const tc = tcsData?.monthly.find(m => m.month === month);
             const le = leopardsData?.monthly.find(m => m.month === month);
+            const mn = mnpData?.monthly.find(m => m.month === month);
             const sh = shopifyData?.monthly.find((m: any) => m.month === month);
             return {
                 month: formatMonthLabel(month),
@@ -303,18 +309,19 @@ export default function FinancePage() {
                 Tranzo: tr ? Math.round(tr.netAmount) : 0,
                 TCS: tc ? Math.round(tc.netAmount) : 0,
                 Leopards: le ? Math.round(le.netAmount) : 0,
+                "M&P": mn ? Math.round(mn.netAmount) : 0,
                 Shopify: sh ? Math.round(sh.revenue) : 0,
             };
         });
-    }, [postexData, tranzoData, tcsData, leopardsData, shopifyData]);
+    }, [postexData, tranzoData, tcsData, leopardsData, mnpData, shopifyData]);
 
     const kpiStats = useMemo(() => {
-        const totalOrders = postexSum.totalOrders + tranzoSum.totalOrders + tcsSum.totalOrders + leopardsSum.totalOrders;
-        const totalGross = postexSum.grossAmount + tranzoSum.grossAmount + tcsSum.grossAmount + leopardsSum.grossAmount;
-        const totalDelivered = postexSum.deliveredOrders + tranzoSum.deliveredOrders + tcsSum.deliveredOrders + leopardsSum.deliveredOrders;
-        const totalReturned = postexSum.returnedOrders + tranzoSum.returnedOrders + tcsSum.returnedOrders + leopardsSum.returnedOrders;
-        const totalFees = postexSum.fees + tranzoSum.fees + tcsSum.fees + leopardsSum.fees;
-        const totalNet = postexSum.netAmount + tranzoSum.netAmount + tcsSum.netAmount + leopardsSum.netAmount;
+        const totalOrders = postexSum.totalOrders + tranzoSum.totalOrders + tcsSum.totalOrders + leopardsSum.totalOrders + mnpSum.totalOrders;
+        const totalGross = postexSum.grossAmount + tranzoSum.grossAmount + tcsSum.grossAmount + leopardsSum.grossAmount + mnpSum.grossAmount;
+        const totalDelivered = postexSum.deliveredOrders + tranzoSum.deliveredOrders + tcsSum.deliveredOrders + leopardsSum.deliveredOrders + mnpSum.deliveredOrders;
+        const totalReturned = postexSum.returnedOrders + tranzoSum.returnedOrders + tcsSum.returnedOrders + leopardsSum.returnedOrders + mnpSum.returnedOrders;
+        const totalFees = postexSum.fees + tranzoSum.fees + tcsSum.fees + leopardsSum.fees + mnpSum.fees;
+        const totalNet = postexSum.netAmount + tranzoSum.netAmount + tcsSum.netAmount + leopardsSum.netAmount + mnpSum.netAmount;
         const totalPaymentsReceived = postexPaymentsReceived + tranzoPaymentsReceived + tcsPaymentsReceived;
 
         return {
@@ -325,7 +332,7 @@ export default function FinancePage() {
             feeRate: totalGross > 0 ? (totalFees / totalGross) * 100 : 0,
             collectionRate: totalNet > 0 ? (totalPaymentsReceived / totalNet) * 100 : 0,
         };
-    }, [postexSum, tranzoSum, tcsSum, leopardsSum, postexPaymentsReceived, tranzoPaymentsReceived, tcsPaymentsReceived]);
+    }, [postexSum, tranzoSum, tcsSum, leopardsSum, mnpSum, postexPaymentsReceived, tranzoPaymentsReceived, tcsPaymentsReceived]);
 
     const growthIndicators = useMemo(() => {
         const currentPostex = postexData?.monthly.find(m => m.month === currentMonthKey);

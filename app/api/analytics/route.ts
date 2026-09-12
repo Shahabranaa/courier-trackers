@@ -12,6 +12,7 @@ function detectCourier(courierPartner: string | null, fulfillments: string | nul
   if (partner.includes("zoom")) return "zoom";
   if (partner.includes("postex") || partner.includes("post ex")) return "postex";
   if (partner.includes("tranzo")) return "tranzo";
+  if (partner.includes("m&p") || partner.includes("mnp") || partner.includes("mulphilog")) return "mnp";
 
   try {
     const list = JSON.parse(fulfillments || "[]");
@@ -21,6 +22,7 @@ function detectCourier(courierPartner: string | null, fulfillments: string | nul
         if (tc.includes("zoom")) return "zoom";
         if (tc.includes("postex") || tc.includes("post ex")) return "postex";
         if (tc.includes("tranzo")) return "tranzo";
+        if (tc.includes("m&p") || tc.includes("mnp") || tc.includes("mulphilog")) return "mnp";
       }
     }
   } catch {}
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const dailyMap: Record<string, { total: number; postex: number; tranzo: number; zoom: number; other: number; revenue: number }> = {};
+    const dailyMap: Record<string, { total: number; postex: number; tranzo: number; zoom: number; mnp: number; other: number; revenue: number }> = {};
     const dayOfWeekCounts: Record<string, number> = {};
     const cityMap: Record<string, { count: number; revenue: number }> = {};
 
@@ -99,7 +101,7 @@ export async function GET(req: NextRequest) {
     for (const order of currentShopifyOrders) {
       const date = toDateString(order.createdAt);
       if (!dailyMap[date]) {
-        dailyMap[date] = { total: 0, postex: 0, tranzo: 0, zoom: 0, other: 0, revenue: 0 };
+        dailyMap[date] = { total: 0, postex: 0, tranzo: 0, zoom: 0, mnp: 0, other: 0, revenue: 0 };
       }
       dailyMap[date].total++;
       dailyMap[date].revenue += order.totalPrice || 0;
@@ -107,7 +109,7 @@ export async function GET(req: NextRequest) {
       const status = (order.fulfillmentStatus || "").toLowerCase();
       if (status === "fulfilled") {
         const courier = detectCourier(order.courierPartner, order.fulfillments);
-        dailyMap[date][courier === "postex" ? "postex" : courier === "tranzo" ? "tranzo" : courier === "zoom" ? "zoom" : "other"]++;
+        dailyMap[date][courier === "postex" ? "postex" : courier === "tranzo" ? "tranzo" : courier === "zoom" ? "zoom" : courier === "mnp" ? "mnp" : "other"]++;
       } else {
         dailyMap[date].other++;
       }

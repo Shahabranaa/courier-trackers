@@ -17,6 +17,8 @@ interface DailyStat {
   tcsNet: number;
   leopardsOrders: number;
   leopardsNet: number;
+  mnpOrders: number;
+  mnpNet: number;
   zoomOrders: number;
   zoomNet: number;
   totalOrders: number;
@@ -32,6 +34,7 @@ export default function UnifiedDashboard() {
   const [tranzoData, setTranzoData] = useState<any[]>([]);
   const [tcsData, setTcsData] = useState<any[]>([]);
   const [leopardsData, setLeopardsData] = useState<any[]>([]);
+  const [mnpData, setMnpData] = useState<any[]>([]);
   const [zoomData, setZoomData] = useState<any[]>([]);
 
   const [tokensMissing, setTokensMissing] = useState(false);
@@ -56,6 +59,7 @@ export default function UnifiedDashboard() {
     setTranzoData([]);
     setTcsData([]);
     setLeopardsData([]);
+    setMnpData([]);
     setZoomData([]);
     setTokensMissing(false);
 
@@ -144,6 +148,14 @@ export default function UnifiedDashboard() {
           return { type: "leopards", data: [] };
         }));
       }
+      if (!forceSync || selectedBrand.mnpEnabled) {
+        const mnpParams = new URLSearchParams({ brandId: selectedBrand.id, startDate, endDate });
+        if (forceSync) mnpParams.set("force", "true");
+        promises.push(fetch(`/api/mnp/orders?${mnpParams}`).then(async r => {
+          if (r.ok) { const data = await r.json(); return { type: "mnp", data: data.dist || [] }; }
+          return { type: "mnp", data: [] };
+        }));
+      }
 
       const zoomUrl = `/api/zoom/orders?startDate=${startDate}&endDate=${endDate}`;
       promises.push(
@@ -165,6 +177,7 @@ export default function UnifiedDashboard() {
         if (res.type === 'tranzo') setTranzoData(res.data);
         if (res.type === 'tcs') setTcsData(res.data);
         if (res.type === 'leopards') setLeopardsData(res.data);
+        if (res.type === 'mnp') setMnpData(res.data);
         if (res.type === 'zoom') setZoomData(res.data);
       });
 
@@ -189,7 +202,7 @@ export default function UnifiedDashboard() {
     };
 
     const initDay = (day: string): DailyStat => ({
-      date: day, postexOrders: 0, postexNet: 0, tranzoOrders: 0, tranzoNet: 0, tcsOrders: 0, tcsNet: 0, leopardsOrders: 0, leopardsNet: 0, zoomOrders: 0, zoomNet: 0, totalOrders: 0, totalNet: 0
+      date: day, postexOrders: 0, postexNet: 0, tranzoOrders: 0, tranzoNet: 0, tcsOrders: 0, tcsNet: 0, leopardsOrders: 0, leopardsNet: 0, mnpOrders: 0, mnpNet: 0, zoomOrders: 0, zoomNet: 0, totalOrders: 0, totalNet: 0
     });
 
     postexData.forEach(o => {
@@ -265,6 +278,17 @@ export default function UnifiedDashboard() {
       else if (returned) { const fee = parseFloat(o.transactionFee || "0"); dailyMap[day].leopardsNet -= fee; dailyMap[day].totalNet -= fee; totNet -= fee; }
     });
 
+    mnpData.forEach(o => {
+      const day = getDay(o.orderDate || o.transactionDate);
+      if (!dailyMap[day]) dailyMap[day] = initDay(day);
+      const status = (o.transactionStatus || o.orderStatus || o.lastStatus || "").toLowerCase();
+      if (status.includes("cancel") || status.includes("void")) return;
+      const net = parseFloat(o.netAmount || "0");
+      dailyMap[day].mnpOrders++; dailyMap[day].mnpNet += net;
+      dailyMap[day].totalOrders++; dailyMap[day].totalNet += net;
+      totOrders++; totNet += net;
+    });
+
     zoomData.forEach(o => {
       const day = getDay(o.createdAt || o.orderDate);
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
@@ -297,7 +321,7 @@ export default function UnifiedDashboard() {
       totalNet: totNet,
       dailyStats: sortedDays,
     };
-  }, [postexData, tranzoData, tcsData, leopardsData, zoomData]);
+  }, [postexData, tranzoData, tcsData, leopardsData, mnpData, zoomData]);
 
   const chartData = useMemo(() => {
     return [...dailyStats].sort((a, b) => a.date.localeCompare(b.date));
@@ -352,6 +376,13 @@ export default function UnifiedDashboard() {
       else if (/return|\brto\b|\bro\b|\brs\b/.test(status)) returned++;
       else inTransit++;
     });
+    mnpData.forEach(o => {
+      const status = (o.transactionStatus || o.orderStatus || o.lastStatus || "").toLowerCase();
+      if (/cancel|void/.test(status)) return;
+      if (/deliver|completed|\bok\b/.test(status)) { delivered++; deliveredRevenue += parseFloat(o.netAmount || o.invoicePayment || o.orderAmount || "0"); }
+      else if (/return|\brto\b|\bro\b|\brs\b/.test(status)) returned++;
+      else inTransit++;
+    });
 
     zoomData.forEach(o => {
       const fStatus = (o.fulfillmentStatus || "").toLowerCase();
@@ -375,7 +406,7 @@ export default function UnifiedDashboard() {
     const avgOrderValue = delivered > 0 ? deliveredRevenue / delivered : 0;
 
     return { delivered, returned, inTransit, total, deliveryRate, returnRate, inTransitRate, avgOrderValue };
-  }, [postexData, tranzoData, tcsData, leopardsData, zoomData]);
+  }, [postexData, tranzoData, tcsData, leopardsData, mnpData, zoomData]);
 
   const formatRs = (v: number) => `Rs. ${Math.round(v).toLocaleString()}`;
 
@@ -447,6 +478,7 @@ export default function UnifiedDashboard() {
                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${zoomData.length > 0 ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-400"}`}>Zoom</span>
                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${tcsData.length > 0 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-400"}`}>TCS</span>
                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${leopardsData.length > 0 ? "bg-teal-100 text-teal-700" : "bg-gray-100 text-gray-400"}`}>Leopards</span>
+                   <span className={`px-2 py-1 rounded-md text-xs font-bold ${mnpData.length > 0 ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-400"}`}>M&amp;P</span>
                 </div>
               </div>
               <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -542,6 +574,7 @@ export default function UnifiedDashboard() {
                   <Bar dataKey="tranzoOrders" name="Tranzo" stackId="a" fill="#8b5cf6" radius={[0, 0, 0, 0]} />
                    <Bar dataKey="tcsOrders" name="TCS" stackId="a" fill="#dc2626" radius={[0, 0, 0, 0]} />
                    <Bar dataKey="leopardsOrders" name="Leopards" stackId="a" fill="#14b8a6" radius={[0, 0, 0, 0]} />
+                   <Bar dataKey="mnpOrders" name="M&P" stackId="a" fill="#f97316" radius={[0, 0, 0, 0]} />
                   <Bar dataKey="zoomOrders" name="Zoom" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -603,6 +636,9 @@ export default function UnifiedDashboard() {
             <Link href="/leopards" className="block bg-gradient-to-br from-teal-50 to-white p-5 rounded-2xl border border-teal-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
               <div className="flex justify-between items-center"><div className="flex items-center gap-3"><div className="p-2.5 bg-white text-teal-600 rounded-xl shadow-sm"><Truck className="w-5 h-5" /></div><div><h3 className="font-bold text-gray-900">Leopards</h3><p className="text-xs text-gray-500">{leopardsData.length} orders</p></div></div><ArrowRight className="w-4 h-4 text-teal-300 group-hover:text-teal-600 transition-colors" /></div>
             </Link>
+            <Link href="/mnp" className="block bg-gradient-to-br from-orange-50 to-white p-5 rounded-2xl border border-orange-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+              <div className="flex justify-between items-center"><div className="flex items-center gap-3"><div className="p-2.5 bg-white text-orange-600 rounded-xl shadow-sm"><Truck className="w-5 h-5" /></div><div><h3 className="font-bold text-gray-900">M&amp;P</h3><p className="text-xs text-gray-500">{mnpData.length} orders</p></div></div><ArrowRight className="w-4 h-4 text-orange-300 group-hover:text-orange-600 transition-colors" /></div>
+            </Link>
           </div>
         </div>
 
@@ -634,6 +670,7 @@ export default function UnifiedDashboard() {
                    <th className="text-center border-l border-gray-100" colSpan={2}>
                      <div className="flex items-center justify-center gap-1.5 py-2"><div className="w-2.5 h-2.5 rounded-full bg-teal-500"></div><span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Leopards</span></div>
                    </th>
+                    <th className="text-center border-l border-gray-100" colSpan={2}><div className="flex items-center justify-center gap-1.5 py-2"><div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div><span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">M&amp;P</span></div></th>
                   <th className="text-center border-l border-gray-100" colSpan={2}>
                     <div className="flex items-center justify-center gap-1.5 py-2">
                       <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
@@ -648,6 +685,8 @@ export default function UnifiedDashboard() {
                   <th className="px-5 py-2 text-left text-[10px] font-medium text-gray-400 uppercase"></th>
                   <th className="px-3 py-2 text-center text-[10px] font-medium text-gray-400 uppercase border-l border-gray-100">Orders</th>
                   <th className="px-3 py-2 text-right text-[10px] font-medium text-gray-400 uppercase">Net</th>
+                   <th className="px-3 py-2 text-center text-[10px] font-medium text-gray-400 uppercase border-l border-gray-100">Orders</th>
+                   <th className="px-3 py-2 text-right text-[10px] font-medium text-gray-400 uppercase">Net</th>
                    <th className="px-3 py-2 text-center text-[10px] font-medium text-gray-400 uppercase border-l border-gray-100">Orders</th>
                    <th className="px-3 py-2 text-right text-[10px] font-medium text-gray-400 uppercase">Net</th>
                    <th className="px-3 py-2 text-center text-[10px] font-medium text-gray-400 uppercase border-l border-gray-100">Orders</th>
@@ -692,8 +731,10 @@ export default function UnifiedDashboard() {
                        {day.leopardsOrders > 0 ? <span className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.leopardsOrders}</span> : <span className="text-gray-300">-</span>}
                      </td>
                      <td className="px-3 py-3.5 whitespace-nowrap text-right text-xs font-mono text-gray-600">
-                       {day.leopardsNet !== 0 ? formatRs(day.leopardsNet) : <span className="text-gray-300">-</span>}
+                        {day.leopardsNet !== 0 ? formatRs(day.leopardsNet) : <span className="text-gray-300">-</span>}
                      </td>
+                     <td className="px-3 py-3.5 whitespace-nowrap text-center text-sm border-l border-gray-50">{day.mnpOrders > 0 ? <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.mnpOrders}</span> : <span className="text-gray-300">-</span>}</td>
+                     <td className="px-3 py-3.5 whitespace-nowrap text-right text-xs font-mono text-gray-600">{day.mnpNet !== 0 ? formatRs(day.mnpNet) : <span className="text-gray-300">-</span>}</td>
                     <td className="px-3 py-3.5 whitespace-nowrap text-center text-sm border-l border-gray-50">
                       {day.zoomOrders > 0 ? <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-xs font-bold">{day.zoomOrders}</span> : <span className="text-gray-300">-</span>}
                     </td>
@@ -729,6 +770,8 @@ export default function UnifiedDashboard() {
                      <td className="px-3 py-4 text-right text-xs font-mono text-red-700">
                        {formatRs(dailyStats.reduce((s, d) => s + d.tcsNet, 0))}
                      </td>
+                     <td className="px-3 py-4 text-center text-sm text-orange-700 border-l border-gray-100">{dailyStats.reduce((s, d) => s + d.mnpOrders, 0) || '-'}</td>
+                     <td className="px-3 py-4 text-right text-xs font-mono text-orange-700">{formatRs(dailyStats.reduce((s, d) => s + d.mnpNet, 0))}</td>
                     <td className="px-3 py-4 text-center text-sm text-blue-700 border-l border-gray-100">
                       {dailyStats.reduce((s, d) => s + d.zoomOrders, 0) || '-'}
                     </td>
@@ -745,7 +788,7 @@ export default function UnifiedDashboard() {
                 )}
                 {dailyStats.length === 0 && (
                   <tr>
-                     <td colSpan={11} className="px-6 py-16 text-center text-gray-500">
+                     <td colSpan={15} className="px-6 py-16 text-center text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <div className="bg-gray-100 p-3 rounded-full"><Calendar className="w-6 h-6 text-gray-400" /></div>
                         <p>No data available for this month.</p>

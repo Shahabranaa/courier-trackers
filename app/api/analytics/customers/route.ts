@@ -97,6 +97,7 @@ export async function GET(req: NextRequest) {
       if (partner.includes("postex") || partner.includes("post ex")) c.couriers.add("PostEx");
       else if (partner.includes("tranzo")) c.couriers.add("Tranzo");
       else if (partner.includes("zoom")) c.couriers.add("Zoom");
+       else if (partner.includes("m&p") || partner.includes("mnp") || partner.includes("mulphilog")) c.couriers.add("M&P");
       else {
         try {
           const fulfillments = JSON.parse(order.fulfillments || "[]");
@@ -106,6 +107,7 @@ export async function GET(req: NextRequest) {
               if (tc.includes("postex") || tc.includes("post ex")) c.couriers.add("PostEx");
               else if (tc.includes("tranzo")) c.couriers.add("Tranzo");
               else if (tc.includes("zoom")) c.couriers.add("Zoom");
+              else if (tc.includes("m&p") || tc.includes("mnp") || tc.includes("mulphilog")) c.couriers.add("M&P");
             }
           }
         } catch {}

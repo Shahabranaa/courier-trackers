@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
         const tranzoOrders = allOrders.filter(o => o.courier === "Tranzo");
         const tcsOrders = allOrders.filter(o => o.courier === "TCS");
         const leopardsOrders = allOrders.filter(o => o.courier === "Leopards");
+        const mnpOrders = allOrders.filter(o => o.courier === "M&P");
         const tcsPaymentRows = tcsOrders.length ? await prisma.paymentStatus.findMany({
             where: { trackingNumber: { in: tcsOrders.map((order) => order.trackingNumber) } },
             select: { data: true },
@@ -65,6 +66,7 @@ export async function GET(req: NextRequest) {
             const os = (o.orderStatus || "").toLowerCase();
             const ls = (o.lastStatus || "").toLowerCase();
             if (o.courier === "TCS" && ["ok", "delivered", "transferred", "payment transferred"].includes(s)) return true;
+            if (o.courier === "M&P" && ["ok", "delivered", "transferred", "payment transferred"].includes(s)) return true;
             return [s, os, ls].some((value) => (value.includes("deliver") && !value.includes("not delivered") && !value.includes("undelivered")) || value.includes("completed")) || s.includes("transferred");
         };
 
@@ -73,6 +75,7 @@ export async function GET(req: NextRequest) {
             const os = (o.orderStatus || "").toLowerCase();
             const ls = (o.lastStatus || "").toLowerCase();
             if (o.courier === "TCS" && ["rs", "ro"].includes(s)) return true;
+            if (o.courier === "M&P" && ["rs", "ro", "rto"].includes(s)) return true;
             return [s, os, ls].some((value) => value.includes("return") || value === "rto" || value === "ro" || value === "rs");
         };
 
@@ -173,6 +176,7 @@ export async function GET(req: NextRequest) {
         const tranzoMonthly = groupByMonth(tranzoOrders);
         const tcsMonthly = groupByMonth(tcsOrders);
         const leopardsMonthly = groupByMonth(leopardsOrders);
+        const mnpMonthly = groupByMonth(mnpOrders);
 
         const postexTotals = {
             totalOrders: postexOrders.length,
@@ -231,6 +235,21 @@ export async function GET(req: NextRequest) {
                 return s;
             }, 0),
         };
+        const mnpTotals = {
+            totalOrders: mnpOrders.length,
+            deliveredOrders: mnpOrders.filter(isDelivered).length,
+            returnedOrders: mnpOrders.filter(isReturn).length,
+            grossAmount: mnpOrders.reduce((s, o) => s + (o.invoicePayment || o.orderAmount || 0), 0),
+            fees: mnpOrders.reduce((s, o) => s + (o.transactionFee || 0), 0),
+            taxes: mnpOrders.reduce((s, o) => s + (o.transactionTax || 0), 0),
+            withholdingTax: mnpOrders.reduce((s, o) => s + (o.salesWithholdingTax || 0), 0),
+            upfrontPayments: 0,
+            netAmount: mnpOrders.reduce((s, o) => {
+                if (isDelivered(o)) return s + (o.netAmount || o.orderAmount || o.invoicePayment || 0);
+                if (isReturn(o)) return s - (o.transactionFee || 0);
+                return s;
+            }, 0),
+        };
 
         const shopifyRevenue = shopifyOrders.reduce((s, o) => s + (o.totalPrice || 0), 0);
         const shopifyOrderCount = shopifyOrders.length;
@@ -274,6 +293,10 @@ export async function GET(req: NextRequest) {
             leopards: {
                 totals: leopardsTotals,
                 monthly: leopardsMonthly,
+            },
+            mnp: {
+                totals: mnpTotals,
+                monthly: mnpMonthly,
             },
             shopify: {
                 totalRevenue: shopifyRevenue,

@@ -90,6 +90,7 @@ const COURIER_COLORS: Record<string, string> = {
   Zoom: "#3b82f6",
   TCS: "#dc2626",
   Leopards: "#14b8a6",
+  "M&P": "#f97316",
 };
 
 const PAKISTAN_CITIES: Record<string, { x: number; y: number; province: string }> = {
@@ -1047,7 +1048,7 @@ export default function AnalyticsPage() {
                           <CheckCircle className="w-5 h-5 text-green-600" />
                           Courier Delivery Rate Comparison
                         </h3>
-                        <p className="text-sm text-gray-500 mt-1">Side-by-side delivery performance across all couriers, including TCS</p>
+                        <p className="text-sm text-gray-500 mt-1">Side-by-side delivery performance across all connected couriers</p>
                       </div>
                       <div className="text-xs text-gray-400">
                         {perfData.courierComparison.reduce((s, c) => s + c.total, 0).toLocaleString()} total orders

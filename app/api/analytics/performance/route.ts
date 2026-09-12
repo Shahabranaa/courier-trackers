@@ -108,6 +108,7 @@ export async function GET(req: NextRequest) {
       Tranzo: { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
       TCS: { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
       Leopards: { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
+      "M&P": { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
     };
 
     const returnByCity: Record<string, {

@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 
-export type CourierKey = "postex" | "tranzo" | "zoom" | "tcs" | "shopify" | "leopards";
+export type CourierKey = "postex" | "tranzo" | "zoom" | "tcs" | "shopify" | "leopards" | "mnp";
 
 export async function checkCourierEnabled(brandId: string, courier: CourierKey): Promise<boolean> {
   if (!brandId || brandId === "default") return true;
@@ -14,6 +14,7 @@ export async function checkCourierEnabled(brandId: string, courier: CourierKey):
         tcsEnabled: true,
         shopifyEnabled: true,
         leopardsEnabled: true,
+        mnpEnabled: true,
       },
     });
     if (!brand) return true;
@@ -24,6 +25,7 @@ export async function checkCourierEnabled(brandId: string, courier: CourierKey):
       tcs: brand.tcsEnabled,
       shopify: brand.shopifyEnabled,
       leopards: brand.leopardsEnabled,
+      mnp: brand.mnpEnabled,
     };
     return map[courier];
   } catch {

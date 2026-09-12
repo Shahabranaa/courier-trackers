@@ -35,6 +35,9 @@ export async function GET() {
             wetarseelAuthToken: b.wetarseelAuthToken ? "••••••••" : "",
             leopardsApiKey: b.leopardsApiKey ? "••••••••" : "",
             leopardsApiPassword: b.leopardsApiPassword ? "••••••••" : "",
+             mnpUsername: b.mnpUsername ? "••••••••" : "",
+             mnpPassword: b.mnpPassword ? "••••••••" : "",
+             mnpAccountNo: b.mnpAccountNo ? "••••••••" : "",
             isActive: b.isActive,
             selectedPackage: b.selectedPackage,
             packageRequestedAt: b.packageRequestedAt,
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -86,12 +89,16 @@ export async function POST(req: NextRequest) {
                 wetarseelAuthToken: wetarseelAuthToken || "",
                 leopardsApiKey: leopardsApiKey || "",
                 leopardsApiPassword: leopardsApiPassword || "",
+                mnpUsername: mnpUsername || "",
+                mnpPassword: mnpPassword || "",
+                mnpAccountNo: mnpAccountNo || "",
                 ...(postexEnabled !== undefined && { postexEnabled: Boolean(postexEnabled) }),
                 ...(tranzoEnabled !== undefined && { tranzoEnabled: Boolean(tranzoEnabled) }),
                 ...(zoomEnabled !== undefined && { zoomEnabled: Boolean(zoomEnabled) }),
                 ...(tcsEnabled !== undefined && { tcsEnabled: Boolean(tcsEnabled) }),
                 ...(shopifyEnabled !== undefined && { shopifyEnabled: Boolean(shopifyEnabled) }),
                 ...(leopardsEnabled !== undefined && { leopardsEnabled: Boolean(leopardsEnabled) }),
+                ...(mnpEnabled !== undefined && { mnpEnabled: Boolean(mnpEnabled) }),
                 isActive: isAdminCreator,
                 activatedAt: isAdminCreator ? new Date() : null
             }
@@ -107,7 +114,10 @@ export async function POST(req: NextRequest) {
             tcsApiPassword: brand.tcsApiPassword ? "••••••••" : "",
             wetarseelAuthToken: brand.wetarseelAuthToken ? "••••••••" : ""
             , leopardsApiKey: brand.leopardsApiKey ? "••••••••" : ""
-            , leopardsApiPassword: brand.leopardsApiPassword ? "••••••••" : ""
+             , leopardsApiPassword: brand.leopardsApiPassword ? "••••••••" : ""
+             , mnpUsername: brand.mnpUsername ? "••••••••" : ""
+             , mnpPassword: brand.mnpPassword ? "••••••••" : ""
+             , mnpAccountNo: brand.mnpAccountNo ? "••••••••" : ""
         }, { status: 201 });
     } catch (error: any) {
         console.error("Failed to create brand:", error.message);

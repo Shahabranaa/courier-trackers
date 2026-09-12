@@ -18,7 +18,7 @@ export default function OrdersTable({
     paymentStatuses: Record<string, any>;
     loading: boolean;
     refreshTracking: (trackingNumber: string, force?: boolean) => void;
-    courier?: "PostEx" | "TCS" | "Leopards";
+    courier?: "PostEx" | "TCS" | "Leopards" | "M&P";
 }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -336,8 +336,10 @@ export default function OrdersTable({
                                                 <a
                                                     href={courier === "TCS"
                                                         ? `https://www.tcsexpress.com/track/${trackingNo}`
-                                                        : courier === "Leopards"
+                                    : courier === "Leopards"
                                                             ? `https://www.leopardscourier.com/leopards-tracking`
+                                        : courier === "M&P"
+                                            ? `https://mulphilog.com/track`
                                                             : `https://postex.pk/tracking?trackingNumber=${trackingNo}`}
                                                     target="_blank"
                                                     rel="noreferrer"

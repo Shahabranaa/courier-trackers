@@ -44,13 +44,14 @@ export default function SettingsPage() {
         shopifyAccessToken: "",
         shopifyClientId: "",
         shopifyClientSecret: "",
-        wetarseelAccountId: "",
+         wetarseelAccountId: "",
         wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "",
-        postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true
+         mnpUsername: "", mnpPassword: "", mnpAccountNo: "",
+         postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true
     });
 
     const resetForm = () => {
-        setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", tcsBearerToken: "", tcsApiUsername: "", tcsApiPassword: "", tcsCustomerNumber: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true });
+         setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", tcsBearerToken: "", tcsApiUsername: "", tcsApiPassword: "", tcsCustomerNumber: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", mnpUsername: "", mnpPassword: "", mnpAccountNo: "", postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true });
         setIsAdding(false);
         setEditId(null);
         setTestResult(null);
@@ -123,12 +124,16 @@ export default function SettingsPage() {
             wetarseelUserId: brand.wetarseelUserId || "",
             leopardsApiKey: brand.leopardsApiKey || "",
             leopardsApiPassword: brand.leopardsApiPassword || "",
+             mnpUsername: brand.mnpUsername || "",
+             mnpPassword: brand.mnpPassword || "",
+             mnpAccountNo: brand.mnpAccountNo || "",
             postexEnabled: brand.postexEnabled !== false,
             tranzoEnabled: brand.tranzoEnabled !== false,
             zoomEnabled: brand.zoomEnabled !== false,
             tcsEnabled: brand.tcsEnabled !== false,
             shopifyEnabled: brand.shopifyEnabled !== false,
-            leopardsEnabled: brand.leopardsEnabled !== false
+             leopardsEnabled: brand.leopardsEnabled !== false,
+             mnpEnabled: brand.mnpEnabled !== false
         });
         setIsAdding(true);
     };
@@ -192,6 +197,7 @@ export default function SettingsPage() {
                                         ["zoomEnabled", "Zoom"],
                                         ["tcsEnabled", "TCS"],
                                         ["leopardsEnabled", "Leopards"],
+                                         ["mnpEnabled", "M&P"],
                                     ] as const).map(([key, label]) => (
                                         <label key={key} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 cursor-pointer">
                                             <span className="text-sm font-medium text-gray-700">{label}</span>
@@ -347,6 +353,25 @@ export default function SettingsPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Leopards API Password</label>
                                 <input type="password" value={formData.leopardsApiPassword} onChange={e => setFormData({ ...formData, leopardsApiPassword: e.target.value })} placeholder="Uses secure project secret when empty" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none transition-all font-mono text-sm" />
                                 <p className="text-xs text-gray-400 mt-1">Leave empty to use the secure project secrets, or save brand-specific credentials here.</p>
+                            </div>
+                            <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-orange-500"></span> M&amp;P Courier
+                                </h4>
+                                <p className="text-xs text-gray-400 mb-4">Credentials for M&amp;P order sync, bulk tracking, and COD payment reconciliation.</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">M&amp;P Username</label>
+                                <input type="text" value={formData.mnpUsername} onChange={e => setFormData({ ...formData, mnpUsername: e.target.value })} placeholder="M&P API username" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition-all font-mono text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">M&amp;P Password</label>
+                                <input type="password" value={formData.mnpPassword} onChange={e => setFormData({ ...formData, mnpPassword: e.target.value })} placeholder="Leave unchanged to keep saved secret" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition-all font-mono text-sm" />
+                                <p className="text-xs text-gray-400 mt-1">Saved secrets remain masked. Enter a new value only when rotating credentials.</p>
+                            </div>
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">M&amp;P Account Number</label>
+                                <input type="text" value={formData.mnpAccountNo} onChange={e => setFormData({ ...formData, mnpAccountNo: e.target.value })} placeholder="M&P account or customer number" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition-all font-mono text-sm" />
                             </div>
                             <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
                                 <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">

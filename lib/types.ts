@@ -66,12 +66,16 @@ export interface Brand {
   wetarseelAuthToken?: string;
   leopardsApiKey?: string;
   leopardsApiPassword?: string;
+  mnpUsername?: string;
+  mnpPassword?: string;
+  mnpAccountNo?: string;
   postexEnabled?: boolean;
   tranzoEnabled?: boolean;
   zoomEnabled?: boolean;
   tcsEnabled?: boolean;
   shopifyEnabled?: boolean;
   leopardsEnabled?: boolean;
+  mnpEnabled?: boolean;
   isActive?: boolean;
   selectedPackage?: string | null;
   packageRequestedAt?: string | null;

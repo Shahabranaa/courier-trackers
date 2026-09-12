@@ -20,7 +20,7 @@ export default function OrderCharts({
 }: {
     orders: Order[];
     trackingStatuses: Record<string, TrackingStatus | null>;
-    courier?: "PostEx" | "TCS";
+        courier?: "PostEx" | "TCS" | "M&P";
 }) {
     const getStatusCategory = (status: string, savedCategory?: string) => {
         if (savedCategory) return savedCategory;
