@@ -35,7 +35,15 @@ export async function GET(req: NextRequest) {
       for (const payment of payments) {
         if (await saveMnpPaymentStatus(payment)) persisted += 1;
       }
-      return NextResponse.json({ payments, source: "live", count: payments.length, persisted });
+      return NextResponse.json({
+        payments,
+        source: "live",
+        count: payments.length,
+        persisted,
+        emptyReason: payments.length === 0
+          ? "M&P returned no payment report records for the selected month and location."
+          : null,
+      });
     }
     const orders = await prisma.order.findMany({ where, select: { trackingNumber: true } });
     const saved = orders.length ? await prisma.paymentStatus.findMany({ where: { trackingNumber: { in: orders.map((order) => order.trackingNumber) } } }) : [];

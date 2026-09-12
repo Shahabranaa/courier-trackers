@@ -31,6 +31,7 @@ export default function MnpPaymentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emptyReason, setEmptyReason] = useState<string | null>(null);
   const [source, setSource] = useState("local");
 
   const dateRange = useMemo(() => {
@@ -43,6 +44,7 @@ export default function MnpPaymentsPage() {
     if (!selectedBrand) return;
     setLoading(true);
     setError(null);
+    setEmptyReason(null);
     try {
       const params = new URLSearchParams({ brandId: selectedBrand.id, ...dateRange });
       if (force) params.set("force", "true");
@@ -51,6 +53,7 @@ export default function MnpPaymentsPage() {
       if (!response.ok) throw new Error(data.error || "Unable to load M&P payments");
       setPayments(Array.isArray(data.payments) ? data.payments : []);
       setSource(data.source || "local");
+      setEmptyReason(typeof data.emptyReason === "string" ? data.emptyReason : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load M&P payments");
     } finally {
@@ -129,7 +132,7 @@ export default function MnpPaymentsPage() {
               <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr>{["Tracking Number", "Payment ID", "Payment Date", "RR Amount", "Invoice Amount", "Net Payable", "Instrument Mode", "Instrument Number"].map((heading) => <th key={heading} className="px-5 py-4">{heading}</th>)}</tr></thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredPayments.map((payment, index) => <tr key={`${payment.paymentId ?? "payment"}-${payment.trackingNumber ?? index}`} className="hover:bg-orange-50/30"><td className="px-5 py-4 font-mono text-xs text-blue-600">{payment.trackingNumber || "-"}</td><td className="px-5 py-4 text-gray-700">{payment.paymentId || "-"}</td><td className="px-5 py-4 text-gray-600">{formatDate(payment.paymentDate)}</td><td className="px-5 py-4 text-right">{formatCurrency(amount(payment.rrAmount))}</td><td className="px-5 py-4 text-right">{formatCurrency(amount(payment.invoiceAmount))}</td><td className="px-5 py-4 text-right font-bold text-emerald-700">{formatCurrency(amount(payment.netPayable))}</td><td className="px-5 py-4 text-gray-700">{payment.instrumentMode || "-"}</td><td className="px-5 py-4 font-mono text-xs text-gray-600">{payment.instrumentNumber || "-"}</td></tr>)}
-                {!loading && filteredPayments.length === 0 && <tr><td colSpan={8} className="px-5 py-16 text-center text-gray-400">No M&amp;P payment report records found for this month.</td></tr>}
+                {!loading && filteredPayments.length === 0 && <tr><td colSpan={8} className="px-5 py-16 text-center text-gray-400">{emptyReason || "No M&P payment report records found for this month."}</td></tr>}
                 {loading && <tr><td colSpan={8} className="px-5 py-16 text-center text-gray-400">Loading M&amp;P payment report…</td></tr>}
               </tbody>
             </table>
