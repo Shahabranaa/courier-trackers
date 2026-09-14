@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await fetchZoomCatalog());
+    return NextResponse.json(await fetchZoomCatalog(brandId));
   } catch (error: any) {
     console.error("Zoom catalog fetch error:", error);
     return NextResponse.json({ error: error.message || "Failed to load Zoom catalog" }, { status: 502 });

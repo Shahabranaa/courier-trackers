@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "Zoom access is disabled for this brand." }, { status: 403 });
         }
 
-        const allOrders = await fetchZoomOrders();
+        const allOrders = await fetchZoomOrders(brandId);
         const start = new Date(`${startDate}T00:00:00`);
         const end = new Date(`${endDate}T23:59:59.999`);
         const orders = allOrders.filter(order => {

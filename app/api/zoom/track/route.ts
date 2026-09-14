@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "Zoom access is disabled for this brand." }, { status: 403 });
         }
 
-        return NextResponse.json(await fetchZoomTracking(trackingNumber));
+        return NextResponse.json(await fetchZoomTracking(trackingNumber, brandId));
     } catch (err: any) {
         console.error("Zoom tracking API error:", err);
         return NextResponse.json({ error: err.message || "Failed to fetch tracking info" }, { status: 502 });

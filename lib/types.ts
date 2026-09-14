@@ -69,6 +69,7 @@ export interface Brand {
   mnpUsername?: string;
   mnpPassword?: string;
   mnpAccountNo?: string;
+  zoomAuthKey?: string;
   postexEnabled?: boolean;
   tranzoEnabled?: boolean;
   zoomEnabled?: boolean;

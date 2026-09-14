@@ -108,6 +108,7 @@ model Brand {
   mnpUsername         String            @default("")
   mnpPassword         String            @default("")
   mnpAccountNo        String            @default("")
+  zoomAuthKey         String            @default("")
   isActive            Boolean           @default(true)
   adminNotes          String            @default("")
   postexEnabled       Boolean           @default(true)

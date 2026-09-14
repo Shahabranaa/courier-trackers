@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const orders = await fetchZoomOrders();
+    const orders = await fetchZoomOrders(brandId);
     const synced = await persistZoomOrders(brandId, orders);
     return NextResponse.json({
       success: true,

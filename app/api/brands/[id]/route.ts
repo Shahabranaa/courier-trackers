@@ -18,7 +18,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             }
         }
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled, isActive, selectedPackage } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, zoomAuthKey, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled, isActive, selectedPackage } = body;
 
         const shouldUpdateAccessToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
         const shouldUpdateSecret = shopifyClientSecret !== undefined && shopifyClientSecret !== "••••••••";
@@ -31,6 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const shouldUpdateMnpUsername = mnpUsername !== undefined && mnpUsername !== "••••••••";
         const shouldUpdateMnpPassword = mnpPassword !== undefined && mnpPassword !== "••••••••";
         const shouldUpdateMnpAccountNo = mnpAccountNo !== undefined && mnpAccountNo !== "••••••••";
+        const shouldUpdateZoomAuthKey = zoomAuthKey !== undefined && zoomAuthKey !== "••••••••";
 
         const brand = await prisma.brand.update({
             where: { id },
@@ -59,6 +60,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(shouldUpdateMnpUsername && { mnpUsername }),
                 ...(shouldUpdateMnpPassword && { mnpPassword }),
                 ...(shouldUpdateMnpAccountNo && { mnpAccountNo }),
+                ...(shouldUpdateZoomAuthKey && { zoomAuthKey }),
                 ...(postexEnabled !== undefined && { postexEnabled: Boolean(postexEnabled) }),
                 ...(tranzoEnabled !== undefined && { tranzoEnabled: Boolean(tranzoEnabled) }),
                 ...(zoomEnabled !== undefined && { zoomEnabled: Boolean(zoomEnabled) }),
@@ -85,6 +87,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
              mnpUsername: brand.mnpUsername ? "••••••••" : "",
              mnpPassword: brand.mnpPassword ? "••••••••" : "",
              mnpAccountNo: brand.mnpAccountNo ? "••••••••" : ""
+              , zoomAuthKey: brand.zoomAuthKey ? "••••••••" : ""
               , courierCredentials: getCourierCredentialStatus(brand)
         });
     } catch (error: any) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import { Plus, Trash2, Edit2, Check, X, Building2, Key, Globe, Loader2, CheckCircle, AlertCircle, Zap } from "lucide-react";
@@ -47,11 +47,12 @@ export default function SettingsPage() {
          wetarseelAccountId: "",
         wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "",
          mnpUsername: "", mnpPassword: "", mnpAccountNo: "",
+         zoomAuthKey: "",
          postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true
     });
 
     const resetForm = () => {
-         setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", tcsBearerToken: "", tcsApiUsername: "", tcsApiPassword: "", tcsCustomerNumber: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", mnpUsername: "", mnpPassword: "", mnpAccountNo: "", postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true });
+         setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", tcsBearerToken: "", tcsApiUsername: "", tcsApiPassword: "", tcsCustomerNumber: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", mnpUsername: "", mnpPassword: "", mnpAccountNo: "", zoomAuthKey: "", postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true });
         setIsAdding(false);
         setEditId(null);
         setTestResult(null);
@@ -60,22 +61,6 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
-    const [zoomKeyConfigured, setZoomKeyConfigured] = useState<boolean | null>(null);
-
-    useEffect(() => {
-        let active = true;
-        fetch("/api/zoom/config")
-            .then(res => res.ok ? res.json() : null)
-            .then(data => {
-                if (active && data) setZoomKeyConfigured(Boolean(data.configured));
-            })
-            .catch(() => {
-                if (active) setZoomKeyConfigured(null);
-            });
-        return () => {
-            active = false;
-        };
-    }, []);
 
     const handleTestShopify = async (brandIdOverride?: string) => {
         setTesting(true);
@@ -143,6 +128,7 @@ export default function SettingsPage() {
              mnpUsername: brand.mnpUsername || "",
              mnpPassword: brand.mnpPassword || "",
              mnpAccountNo: brand.mnpAccountNo || "",
+             zoomAuthKey: brand.zoomAuthKey || "",
             postexEnabled: brand.postexEnabled !== false,
             tranzoEnabled: brand.tranzoEnabled !== false,
             zoomEnabled: brand.zoomEnabled !== false,
@@ -189,23 +175,17 @@ export default function SettingsPage() {
                         <div className="min-w-0">
                             <h3 className="font-semibold text-blue-950">Zoom API setup</h3>
                             <p className="mt-1 text-sm leading-6 text-blue-900">
-                                Zoom uses one secure project-level key shared by your brands. Add it in the Replit
-                                <strong> Secrets</strong> tool as <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">ZOOM_AUTH_KEY</code>.
+                                Each brand can save its own Zoom API key in the Zoom field below. The key is stored
+                                on the server and is never sent back to the browser.
                             </p>
                             <p className="mt-2 text-xs text-blue-700">
-                                Do not paste the key into a brand field or expose it in the browser. After adding it,
-                                keep the Zoom toggle enabled for each brand that should use the Zoom portal.
+                                A project-level <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">ZOOM_AUTH_KEY</code>
+                                may still be used as a fallback when a brand key is not set. Keep the Zoom toggle enabled
+                                for each brand that should use the Zoom portal.
                             </p>
                             <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-blue-800">
-                                <span className={`h-2 w-2 rounded-full ${
-                                    zoomKeyConfigured === true ? "bg-emerald-500" :
-                                    zoomKeyConfigured === false ? "bg-amber-500" : "bg-gray-400"
-                                }`} />
-                                {zoomKeyConfigured === true
-                                    ? "Zoom key detected"
-                                    : zoomKeyConfigured === false
-                                        ? "Zoom key not detected yet"
-                                        : "Sign in to check Zoom key status"}
+                                <span className={`h-2 w-2 rounded-full ${testBrand?.courierCredentials?.zoom ? "bg-emerald-500" : "bg-amber-500"}`} />
+                                {testBrand ? (testBrand.courierCredentials?.zoom ? "Zoom key detected" : "Add a Zoom key for this brand") : "Add a brand to configure Zoom"}
                             </div>
                         </div>
                     </div>
@@ -229,6 +209,23 @@ export default function SettingsPage() {
                                     placeholder="e.g. Organic Tea Company"
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                 />
+                            </div>
+
+                            <div className="col-span-2 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-blue-600"></span> Zoom API Key
+                                </label>
+                                <input
+                                    type="password"
+                                    value={formData.zoomAuthKey}
+                                    onChange={e => setFormData({ ...formData, zoomAuthKey: e.target.value })}
+                                    placeholder="Enter this brand's Zoom auth key"
+                                    className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-sm bg-white"
+                                />
+                                <p className="text-xs text-blue-700 mt-1">
+                                    This key is saved for this brand and takes priority over the shared project fallback.
+                                    Leave the masked value unchanged when editing an existing brand.
+                                </p>
                             </div>
 
                             <div className="col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-4">

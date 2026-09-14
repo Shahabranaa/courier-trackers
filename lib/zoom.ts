@@ -64,8 +64,14 @@ export type ZoomTrackingEvent = {
   created: string;
 };
 
-function authKey() {
-  const key = process.env.ZOOM_AUTH_KEY?.trim();
+async function authKey(brandId?: string) {
+  const brandKey = brandId
+    ? (await prisma.brand.findUnique({
+      where: { id: brandId },
+      select: { zoomAuthKey: true },
+    }))?.zoomAuthKey?.trim()
+    : "";
+  const key = brandKey || process.env.ZOOM_AUTH_KEY?.trim();
   if (!key) throw new Error("Zoom API authentication is not configured");
   return key;
 }
@@ -137,19 +143,22 @@ export function normalizeZoomOrder(order: ZoomApiOrder): ZoomOrder {
   };
 }
 
-export async function fetchZoomOrders() {
+export async function fetchZoomOrders(brandId?: string) {
   const data = await zoomRequest<ZoomApiOrder[]>("GetOrderList.php", {
     method: "POST",
-    body: JSON.stringify({ auth_key: authKey() }),
+    body: JSON.stringify({ auth_key: await authKey(brandId) }),
   });
   if (!Array.isArray(data)) throw new Error("Zoom order list response was not an array");
   return data.map(normalizeZoomOrder).filter(order => order.trackingNumber);
 }
 
-export async function fetchZoomTracking(trackingNumber: string) {
+export async function fetchZoomTracking(trackingNumber: string, brandId?: string) {
   const tracking = trackingNumber.trim();
   if (!tracking) throw new Error("Tracking number is required");
-  const body = JSON.stringify({ tracking_no: tracking });
+  const body = JSON.stringify({
+    tracking_no: tracking,
+    auth_key: await authKey(brandId),
+  });
   const [current, history] = await Promise.all([
     zoomRequest<{ response?: number; status?: string }>("currentStatus.php", {
       method: "POST",
@@ -178,11 +187,12 @@ export async function fetchZoomTracking(trackingNumber: string) {
   };
 }
 
-export async function fetchZoomCatalog() {
+export async function fetchZoomCatalog(brandId?: string) {
+  const key = await authKey(brandId);
   const [products, statuses, cities] = await Promise.all([
     zoomRequest<Record<string, unknown>>("ProductAndService.php", {
       method: "POST",
-      body: JSON.stringify({ auth_key: authKey() }),
+      body: JSON.stringify({ auth_key: key }),
     }),
     zoomRequest<{ response?: number; data?: unknown[] }>("GetStatusList.php"),
     zoomRequest<{ response?: number; data?: unknown[] }>("GetCitiesList.php"),

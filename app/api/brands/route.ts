@@ -39,6 +39,7 @@ export async function GET() {
              mnpUsername: b.mnpUsername ? "••••••••" : "",
              mnpPassword: b.mnpPassword ? "••••••••" : "",
              mnpAccountNo: b.mnpAccountNo ? "••••••••" : "",
+             zoomAuthKey: b.zoomAuthKey ? "••••••••" : "",
             courierCredentials: getCourierCredentialStatus(b),
             isActive: b.isActive,
             selectedPackage: b.selectedPackage,
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, zoomAuthKey, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
                 mnpUsername: mnpUsername || "",
                 mnpPassword: mnpPassword || "",
                 mnpAccountNo: mnpAccountNo || "",
+                zoomAuthKey: zoomAuthKey || "",
                 ...(postexEnabled !== undefined && { postexEnabled: Boolean(postexEnabled) }),
                 ...(tranzoEnabled !== undefined && { tranzoEnabled: Boolean(tranzoEnabled) }),
                 ...(zoomEnabled !== undefined && { zoomEnabled: Boolean(zoomEnabled) }),
@@ -120,6 +122,7 @@ export async function POST(req: NextRequest) {
              , mnpUsername: brand.mnpUsername ? "••••••••" : ""
              , mnpPassword: brand.mnpPassword ? "••••••••" : ""
              , mnpAccountNo: brand.mnpAccountNo ? "••••••••" : ""
+             , zoomAuthKey: brand.zoomAuthKey ? "••••••••" : ""
              , courierCredentials: getCourierCredentialStatus(brand)
         }, { status: 201 });
     } catch (error: any) {
