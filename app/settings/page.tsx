@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useBrand } from "@/components/providers/BrandContext";
 import { Plus, Trash2, Edit2, Check, X, Building2, Key, Globe, Loader2, CheckCircle, AlertCircle, Zap } from "lucide-react";
@@ -60,6 +60,22 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<TestResult | null>(null);
+    const [zoomKeyConfigured, setZoomKeyConfigured] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        fetch("/api/zoom/config")
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (active && data) setZoomKeyConfigured(Boolean(data.configured));
+            })
+            .catch(() => {
+                if (active) setZoomKeyConfigured(null);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const handleTestShopify = async (brandIdOverride?: string) => {
         setTesting(true);
@@ -163,6 +179,36 @@ export default function SettingsPage() {
                             <Plus className="w-4 h-4" /> Add Brand
                         </button>
                     )}
+                </div>
+
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                    <div className="flex items-start gap-3">
+                        <div className="mt-0.5 rounded-lg bg-blue-100 p-2 text-blue-700">
+                            <Key className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="font-semibold text-blue-950">Zoom API setup</h3>
+                            <p className="mt-1 text-sm leading-6 text-blue-900">
+                                Zoom uses one secure project-level key shared by your brands. Add it in the Replit
+                                <strong> Secrets</strong> tool as <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">ZOOM_AUTH_KEY</code>.
+                            </p>
+                            <p className="mt-2 text-xs text-blue-700">
+                                Do not paste the key into a brand field or expose it in the browser. After adding it,
+                                keep the Zoom toggle enabled for each brand that should use the Zoom portal.
+                            </p>
+                            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-blue-800">
+                                <span className={`h-2 w-2 rounded-full ${
+                                    zoomKeyConfigured === true ? "bg-emerald-500" :
+                                    zoomKeyConfigured === false ? "bg-amber-500" : "bg-gray-400"
+                                }`} />
+                                {zoomKeyConfigured === true
+                                    ? "Zoom key detected"
+                                    : zoomKeyConfigured === false
+                                        ? "Zoom key not detected yet"
+                                        : "Sign in to check Zoom key status"}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Form Area */}
