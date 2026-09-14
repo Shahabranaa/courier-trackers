@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { scrapeLeopardsTracking } from "@/lib/leopards";
+import { checkCourierEnabled } from "@/lib/courierAccess";
+import { fetchZoomTracking } from "@/lib/zoom";
 
 export async function GET(req: NextRequest) {
     const user = await getAuthUser();
@@ -16,24 +17,15 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const trackingData = await scrapeLeopardsTracking(trackingNumber);
-
-        if (!trackingData) {
-            return NextResponse.json({ error: "No tracking data found for this tracking number." }, { status: 404 });
+        const brandId = req.headers.get("brand-id");
+        if (!brandId) return NextResponse.json({ error: "brand-id header is required" }, { status: 400 });
+        if (!(await checkCourierEnabled(brandId, "zoom"))) {
+            return NextResponse.json({ error: "Zoom access is disabled for this brand." }, { status: 403 });
         }
 
-        return NextResponse.json({
-            trackingNumber,
-            shipper: trackingData.shipper,
-            origin: trackingData.origin,
-            consigneeName: trackingData.consigneeName,
-            destination: trackingData.destination,
-            currentStatus: trackingData.currentStatus,
-            lastUpdate: trackingData.lastUpdate,
-            trackingHistory: trackingData.trackingHistory,
-        });
+        return NextResponse.json(await fetchZoomTracking(trackingNumber));
     } catch (err: any) {
-        console.error("Leopards tracking scrape error:", err);
-        return NextResponse.json({ error: err.message || "Failed to fetch tracking info" }, { status: 500 });
+        console.error("Zoom tracking API error:", err);
+        return NextResponse.json({ error: err.message || "Failed to fetch tracking info" }, { status: 502 });
     }
 }

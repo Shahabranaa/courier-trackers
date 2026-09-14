@@ -291,24 +291,22 @@ export default function UnifiedDashboard() {
     });
 
     zoomData.forEach(o => {
-      const day = getDay(o.createdAt || o.orderDate);
+      const day = getDay(o.orderDate);
       if (!dailyMap[day]) dailyMap[day] = initDay(day);
-      const fStatus = (o.fulfillmentStatus || "").toLowerCase();
-      const finStatus = (o.financialStatus || "").toLowerCase();
-      const tags = (o.tags || "").toLowerCase();
-      const isReturned = finStatus === "refunded" || finStatus === "voided" || tags.includes("return");
-      const isFulfilled = fStatus === "fulfilled";
+      const status = (o.status || "").toLowerCase();
+      const isReturned = /return|cancel|refused/.test(status);
+      const isFulfilled = status.includes("delivered") && !/undelivered|un delivered|not delivered/.test(status);
       dailyMap[day].zoomOrders += 1;
       dailyMap[day].totalOrders += 1;
       totOrders++;
-      const price = parseFloat(o.totalPrice || "0");
+      const price = parseFloat(o.collectionAmount || "0");
+      const fee = parseFloat(o.deliveryCharges || "0");
       if (isReturned) {
-        const fee = 150;
         dailyMap[day].zoomNet -= fee;
         dailyMap[day].totalNet -= fee;
         totNet -= fee;
       } else if (isFulfilled) {
-        const net = price - 150 - (price * 0.04);
+        const net = price - fee;
         dailyMap[day].zoomNet += net;
         dailyMap[day].totalNet += net;
         totNet += net;
@@ -386,15 +384,14 @@ export default function UnifiedDashboard() {
     });
 
     zoomData.forEach(o => {
-      const fStatus = (o.fulfillmentStatus || "").toLowerCase();
-      const finStatus = (o.financialStatus || "").toLowerCase();
-      const tags = (o.tags || "").toLowerCase();
-      const isReturned = finStatus === "refunded" || finStatus === "voided" || tags.includes("return");
+      const status = (o.status || "").toLowerCase();
+      const isReturned = /return|cancel|refused/.test(status);
+      const isFulfilled = status.includes("delivered") && !/undelivered|un delivered|not delivered/.test(status);
       if (isReturned) {
         returned++;
-      } else if (fStatus === "fulfilled") {
+      } else if (isFulfilled) {
         delivered++;
-        deliveredRevenue += parseFloat(o.totalPrice || "0");
+        deliveredRevenue += parseFloat(o.collectionAmount || "0");
       } else {
         inTransit++;
       }

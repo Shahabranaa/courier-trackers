@@ -20,6 +20,7 @@ export function getCourierCredentialStatus(brand: CourierCredentialSource) {
     || (present(process.env.TCS_CLIENT_ID) && present(process.env.TCS_CLIENT_SECRET));
 
   return {
+    zoom: present(process.env.ZOOM_AUTH_KEY),
     postex: present(brand.apiToken),
     tranzo: present(brand.tranzoApiToken),
     tcs: present(brand.tcsCustomerNumber)

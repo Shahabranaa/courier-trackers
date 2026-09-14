@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth";
+import { checkCourierEnabled } from "@/lib/courierAccess";
+import { fetchZoomOrders } from "@/lib/zoom";
 
 export async function GET(req: NextRequest) {
+    const user = await getAuthUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const brandId = req.headers.get("brand-id");
     const startDate = searchParams.get("startDate");
@@ -16,88 +21,23 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const allOrders = await prisma.shopifyOrder.findMany({
-            where: {
-                brandId,
-                AND: [
-                    { createdAt: { gte: startDate + "T00:00:00.000Z" } },
-                    { createdAt: { lte: endDate + "T23:59:59.999Z" } }
-                ]
-            },
-            orderBy: { createdAt: "desc" }
-        });
+        if (!(await checkCourierEnabled(brandId, "zoom"))) {
+            return NextResponse.json({ error: "Zoom access is disabled for this brand." }, { status: 403 });
+        }
 
-        const orders = allOrders
-            .map(order => {
-                const zoomTrackingNumbers: string[] = [];
-                let isZoomOrder = false;
-
-                try {
-                    const fulfillments = JSON.parse(order.fulfillments || "[]");
-                    if (Array.isArray(fulfillments)) {
-                        for (const f of fulfillments) {
-                            if (f.tracking_company && f.tracking_company.toLowerCase().includes("zoom")) {
-                                isZoomOrder = true;
-                                if (f.tracking_numbers && Array.isArray(f.tracking_numbers)) {
-                                    zoomTrackingNumbers.push(...f.tracking_numbers);
-                                } else if (f.tracking_number) {
-                                    zoomTrackingNumbers.push(f.tracking_number);
-                                }
-                            }
-                        }
-                    }
-                } catch {}
-
-                if (!isZoomOrder && order.courierPartner && order.courierPartner.toLowerCase().includes("zoom")) {
-                    isZoomOrder = true;
-                    try {
-                        const allTracking = JSON.parse(order.trackingNumbers || "[]");
-                        if (Array.isArray(allTracking)) {
-                            zoomTrackingNumbers.push(...allTracking);
-                        }
-                    } catch {}
-                }
-
-                return isZoomOrder ? { ...order, zoomTrackingNumbers } : null;
-            })
-            .filter((o): o is NonNullable<typeof o> => o !== null);
-
-        const stats = {
-            total: orders.length,
-            totalRevenue: 0,
-            fulfilled: 0,
-            unfulfilled: 0,
-            partial: 0,
-        };
-
-        const cityData: Record<string, { total: number; delivered: number }> = {};
-
-        orders.forEach(order => {
-            stats.totalRevenue += order.totalPrice;
-            const status = (order.fulfillmentStatus || "unfulfilled").toLowerCase();
-            if (status === "fulfilled") stats.fulfilled++;
-            else if (status === "partial") stats.partial++;
-            else stats.unfulfilled++;
-
-            const city = order.shippingCity || "Unknown";
-            if (!cityData[city]) cityData[city] = { total: 0, delivered: 0 };
-            cityData[city].total++;
-            if (status === "fulfilled") cityData[city].delivered++;
+        const allOrders = await fetchZoomOrders();
+        const start = new Date(`${startDate}T00:00:00`);
+        const end = new Date(`${endDate}T23:59:59.999`);
+        const orders = allOrders.filter(order => {
+            const date = new Date(order.orderDate.replace(" ", "T"));
+            return Number.isNaN(date.getTime()) || (date >= start && date <= end);
         });
 
         return NextResponse.json({
-            source: "local",
+            source: "zoom-api",
+            apiCount: allOrders.length,
             count: orders.length,
             orders,
-            stats,
-            cityStats: Object.entries(cityData)
-                .map(([city, data]) => ({
-                    city,
-                    total: data.total,
-                    delivered: data.delivered,
-                    rate: data.total > 0 ? (data.delivered / data.total) * 100 : 0
-                }))
-                .sort((a, b) => b.total - a.total)
         });
     } catch (error: any) {
         console.error("Zoom orders fetch failed:", error.message);

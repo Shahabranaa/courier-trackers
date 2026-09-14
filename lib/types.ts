@@ -77,6 +77,7 @@ export interface Brand {
   leopardsEnabled?: boolean;
   mnpEnabled?: boolean;
   courierCredentials?: {
+    zoom: boolean;
     postex: boolean;
     tranzo: boolean;
     tcs: boolean;

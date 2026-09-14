@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
 
-const ZOOM_DELIVERY_FEE = 150;
-const ZOOM_COMMISSION_RATE = 0.04;
-
 function isZoomDelivered(status: string): boolean {
     const s = (status || "").toLowerCase();
     return s.includes("delivered") && !s.includes("un delivered") && !s.includes("undelivered") && !s.includes("not delivered");
@@ -24,7 +21,7 @@ export async function POST(req: NextRequest) {
     try {
         const orders = await prisma.order.findMany({
             where: { brandId, courier: "Zoom" },
-            select: { trackingNumber: true, orderAmount: true, transactionStatus: true, netAmount: true },
+            select: { trackingNumber: true, orderAmount: true, transactionStatus: true, transactionFee: true, netAmount: true },
         });
 
         let updated = 0;
@@ -34,15 +31,17 @@ export async function POST(req: NextRequest) {
         for (let i = 0; i < orders.length; i += batchSize) {
             const batch = orders.slice(i, i + batchSize);
             const updates = batch.map(order => {
-                const orderAmount = order.orderAmount || 0;
-                const commission = orderAmount * ZOOM_COMMISSION_RATE;
                 const delivered = isZoomDelivered(order.transactionStatus || "");
-                const correctNet = delivered ? orderAmount - ZOOM_DELIVERY_FEE - commission : -ZOOM_DELIVERY_FEE;
+            const correctNet = delivered
+                ? (order.orderAmount || 0) - (order.transactionFee || 0)
+                : (order.transactionStatus || "").toLowerCase().includes("return")
+                    ? -(order.transactionFee || 0)
+                    : 0;
 
                 if (Math.abs((order.netAmount || 0) - correctNet) < 0.01) return null;
 
-                return { trackingNumber: order.trackingNumber, correctNet, commission };
-            }).filter(Boolean) as { trackingNumber: string; correctNet: number; commission: number }[];
+                return { trackingNumber: order.trackingNumber, correctNet };
+            }).filter(Boolean) as { trackingNumber: string; correctNet: number }[];
 
             if (updates.length > 0) {
                 const results = await Promise.allSettled(
@@ -51,8 +50,6 @@ export async function POST(req: NextRequest) {
                             where: { trackingNumber: u.trackingNumber },
                             data: {
                                 netAmount: u.correctNet,
-                                transactionFee: ZOOM_DELIVERY_FEE,
-                                transactionTax: u.commission,
                             },
                         })
                     )

@@ -109,11 +109,15 @@ export default function ZoomOrdersDashboard() {
     };
 
     const fetchTracking = async (trackingNumber: string) => {
+        if (!selectedBrand) return;
+        const brandId = sanitizeHeader(selectedBrand.id);
         setTrackingLoading(trackingNumber);
         setTrackingError(null);
         setTrackingModal({ trackingNumber, shipper: "", origin: "", consigneeName: "", destination: "", currentStatus: "Loading...", lastUpdate: "", trackingHistory: [] });
         try {
-            const res = await fetch(`/api/zoom/track?trackingNumber=${encodeURIComponent(trackingNumber)}`);
+            const res = await fetch(`/api/zoom/track?trackingNumber=${encodeURIComponent(trackingNumber)}`, {
+                headers: { "brand-id": brandId },
+            });
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
                 throw new Error(errData.error || "Failed to fetch tracking");
@@ -189,7 +193,7 @@ export default function ZoomOrdersDashboard() {
 
     const downloadCSV = () => {
         if (filteredOrders.length === 0) return;
-        const headers = ["Date", "Ref", "Tracking", "Customer", "Phone", "City", "Address", "Order Amount", "Delivery Fee", "Commission (4%)", "Net Amount", "Status"];
+        const headers = ["Date", "Ref", "Tracking", "Customer", "Phone", "City", "Address", "Order Amount", "Delivery Fee", "Net Amount", "Status"];
         const rows = filteredOrders.map(o => [
             o.orderDate?.split("T")[0], o.orderRefNumber, o.trackingNumber, o.customerName, o.customerPhone,
             o.cityName, o.deliveryAddress, o.orderAmount, o.transactionFee, o.transactionTax,

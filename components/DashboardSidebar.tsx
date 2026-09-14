@@ -49,6 +49,7 @@ export default function DashboardSidebar() {
             href: "/zoom",
             icon: Zap,
             courierToggle: "zoomEnabled" as CourierToggleKey,
+            courierCredential: "zoom" as CourierCredentialKey,
             children: [
                 { name: "Shopify View", href: "/zoom" },
                 { name: "All Orders", href: "/zoom/orders" },

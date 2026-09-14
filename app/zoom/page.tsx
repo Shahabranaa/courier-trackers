@@ -1,414 +1,405 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Zap, RefreshCw, Calendar, Download, Filter, AlertCircle, Package, CheckCircle, Clock, TrendingUp, X, MapPin, User, Truck, Search } from "lucide-react";
+import {
+    AlertCircle,
+    Calendar,
+    CheckCircle,
+    Clock,
+    Download,
+    Filter,
+    Package,
+    RefreshCw,
+    Search,
+    Truck,
+    X,
+    Zap,
+} from "lucide-react";
 import { useBrand } from "@/components/providers/BrandContext";
+import type { ZoomOrder, ZoomTrackingEvent } from "@/lib/zoom";
 
-interface ZoomOrder {
-    shopifyOrderId: string;
-    brandId: string;
-    orderNumber: string;
-    orderName: string;
-    customerName: string;
-    email: string;
-    createdAt: string;
-    financialStatus: string;
-    fulfillmentStatus: string;
-    totalPrice: number;
-    currency: string;
-    lineItems: string;
-    trackingNumbers: string;
-    courierPartner: string;
-    phone: string;
-    shippingAddress: string;
-    shippingCity: string;
-    tags: string;
-    zoomTrackingNumbers: string[];
+type TrackingDetail = {
+    trackingNumber: string;
+    currentStatus: string;
+    trackingHistory: ZoomTrackingEvent[];
+};
+
+type CatalogSummary = {
+    cities: number;
+    statuses: number;
+    products: number;
+    services: number;
+};
+
+function isDelivered(status: string) {
+    const value = status.toLowerCase();
+    return value.includes("delivered")
+        && !value.includes("undelivered")
+        && !value.includes("un delivered")
+        && !value.includes("not delivered");
 }
 
-interface TrackingDetail {
-    trackingNumber: string;
-    shipper: string;
-    origin: string;
-    consigneeName: string;
-    destination: string;
-    currentStatus: string;
-    lastUpdate: string;
-    trackingHistory: { date: string; status: string }[];
+function isReturned(status: string) {
+    const value = status.toLowerCase();
+    return value.includes("return") || value.includes("cancel") || value.includes("refused");
+}
+
+function formatRs(value: number) {
+    return `Rs. ${Math.round(value).toLocaleString()}`;
+}
+
+function orderDateValue(value: string) {
+    return new Date(value.replace(" ", "T"));
 }
 
 export default function ZoomPortal() {
     const { selectedBrand } = useBrand();
-
     const [orders, setOrders] = useState<ZoomOrder[]>([]);
+    const [apiCount, setApiCount] = useState(0);
+    const [catalog, setCatalog] = useState<CatalogSummary | null>(null);
     const [loading, setLoading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    const [selectedMonth, setSelectedMonth] = useState<string>(
-        new Date().toISOString().slice(0, 7)
-    );
-    const [selectedCity, setSelectedCity] = useState<string>("");
-
+    const [notice, setNotice] = useState<string | null>(null);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [selectedCity, setSelectedCity] = useState("");
+    const [search, setSearch] = useState("");
     const [trackingModal, setTrackingModal] = useState<TrackingDetail | null>(null);
     const [trackingLoading, setTrackingLoading] = useState<string | null>(null);
     const [trackingError, setTrackingError] = useState<string | null>(null);
 
-    const fetchTracking = async (trackingNumber: string) => {
-        setTrackingLoading(trackingNumber);
-        setTrackingError(null);
-        setTrackingModal({ trackingNumber, shipper: "", origin: "", consigneeName: "", destination: "", currentStatus: "Loading...", lastUpdate: "", trackingHistory: [] });
-        try {
-            const res = await fetch(`/api/zoom/track?trackingNumber=${encodeURIComponent(trackingNumber)}`);
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || "Failed to fetch tracking");
-            }
-            const data: TrackingDetail = await res.json();
-            setTrackingModal(data);
-        } catch (err: any) {
-            setTrackingError(err.message);
-        } finally {
-            setTrackingLoading(null);
-        }
-    };
-
-    const sanitizeHeader = (val?: string) => (val || "").replace(/[^\x00-\x7F]/g, "").trim();
-
     const getDateRange = () => {
         const [year, month] = selectedMonth.split("-").map(Number);
-        const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
         const lastDay = new Date(year, month, 0).getDate();
-        const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
-        return { startDate, endDate };
+        return {
+            startDate: `${year}-${String(month).padStart(2, "0")}-01`,
+            endDate: `${year}-${String(month).padStart(2, "0")}-${lastDay}`,
+        };
     };
 
-    useEffect(() => {
-        if (selectedBrand) {
-            loadOrders();
-        } else {
-            setOrders([]);
+    const loadCatalog = async () => {
+        if (!selectedBrand) return;
+        try {
+            const response = await fetch("/api/zoom/catalog", {
+                headers: { "brand-id": selectedBrand.id },
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            const productData = data.products?.products;
+            const serviceData = data.products?.services;
+            setCatalog({
+                cities: data.cities?.length || 0,
+                statuses: data.statuses?.length || 0,
+                products: Array.isArray(productData) ? productData.length : 0,
+                services: Array.isArray(serviceData) ? serviceData.length : 0,
+            });
+        } catch {
+            setCatalog(null);
         }
-    }, [selectedBrand, selectedMonth]);
+    };
 
     const loadOrders = async () => {
         if (!selectedBrand) return;
         setLoading(true);
         setError(null);
-
+        setNotice(null);
         try {
             const { startDate, endDate } = getDateRange();
-            const url = `/api/zoom/orders?startDate=${startDate}&endDate=${endDate}`;
-            const res = await fetch(url, {
-                headers: { "brand-id": sanitizeHeader(selectedBrand.id) }
+            const response = await fetch(`/api/zoom/orders?startDate=${startDate}&endDate=${endDate}`, {
+                headers: { "brand-id": selectedBrand.id },
             });
-
-            if (!res.ok) throw new Error("Failed to load Zoom orders");
-
-            const data = await res.json();
-            setOrders(data.orders || []);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || "Failed to load Zoom orders");
+            setOrders(Array.isArray(data.orders) ? data.orders : []);
+            setApiCount(Number(data.apiCount) || 0);
         } catch (err: any) {
-            setError(err.message);
+            setError(err.message || "Failed to load Zoom orders");
+            setOrders([]);
         } finally {
             setLoading(false);
         }
     };
 
+    const syncOrders = async () => {
+        if (!selectedBrand) return;
+        setSyncing(true);
+        setError(null);
+        setNotice(null);
+        try {
+            const response = await fetch("/api/zoom/sync", {
+                method: "POST",
+                headers: { "brand-id": selectedBrand.id },
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || "Failed to sync Zoom orders");
+            setNotice(`${data.synced || 0} Zoom orders saved to the dashboard.`);
+            await loadOrders();
+        } catch (err: any) {
+            setError(err.message || "Failed to sync Zoom orders");
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const fetchTracking = async (trackingNumber: string) => {
+        if (!selectedBrand) return;
+        setTrackingLoading(trackingNumber);
+        setTrackingError(null);
+        setTrackingModal({ trackingNumber, currentStatus: "Loading...", trackingHistory: [] });
+        try {
+            const response = await fetch(`/api/zoom/track?trackingNumber=${encodeURIComponent(trackingNumber)}`, {
+                headers: { "brand-id": selectedBrand.id },
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || "Failed to fetch tracking");
+            setTrackingModal(data);
+        } catch (err: any) {
+            setTrackingError(err.message || "Failed to fetch tracking");
+        } finally {
+            setTrackingLoading(null);
+        }
+    };
+
+    useEffect(() => {
+        if (!selectedBrand) {
+            setOrders([]);
+            setApiCount(0);
+            return;
+        }
+        void loadOrders();
+        void loadCatalog();
+    }, [selectedBrand, selectedMonth]);
+
     const { cityCounts, uniqueCities } = useMemo(() => {
-        const counts = orders.reduce((acc, order) => {
-            const city = order.shippingCity || "Unknown";
-            acc[city] = (acc[city] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
+        const counts: Record<string, number> = {};
+        for (const order of orders) {
+            const city = order.destination || "Unknown";
+            counts[city] = (counts[city] || 0) + 1;
+        }
         return { cityCounts: counts, uniqueCities: Object.keys(counts).sort() };
     }, [orders]);
 
-    const filteredOrders = orders.filter((o) => {
-        if (selectedCity && (o.shippingCity || "Unknown") !== selectedCity) return false;
-        return true;
-    });
-
-    const ZOOM_DELIVERY_FEE = 150;
-    const ZOOM_COMMISSION_RATE = 0.04;
+    const filteredOrders = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        return orders.filter(order => {
+            if (selectedCity && (order.destination || "Unknown") !== selectedCity) return false;
+            if (!query) return true;
+            return [
+                order.trackingNumber,
+                order.orderId,
+                order.receiverName,
+                order.receiverPhone,
+                order.destination,
+                order.status,
+            ].some(value => value.toLowerCase().includes(query));
+        });
+    }, [orders, search, selectedCity]);
 
     const monthlyStats = useMemo(() => {
-        const stats = { count: 0, grossRevenue: 0, net: 0, fulfilled: 0, unfulfilled: 0, returned: 0 };
-        orders.forEach(o => {
-            stats.count++;
-            stats.grossRevenue += o.totalPrice;
-            const fStatus = (o.fulfillmentStatus || "unfulfilled").toLowerCase();
-            const finStatus = (o.financialStatus || "").toLowerCase();
-            const tags = (o.tags || "").toLowerCase();
-            const isReturned = finStatus === "refunded" || finStatus === "voided" || tags.includes("return");
-
-            if (isReturned) {
+        const stats = {
+            count: orders.length,
+            cod: 0,
+            deliveryCharges: 0,
+            delivered: 0,
+            returned: 0,
+            pending: 0,
+            net: 0,
+        };
+        for (const order of orders) {
+            stats.cod += order.collectionAmount;
+            stats.deliveryCharges += order.deliveryCharges;
+            if (isDelivered(order.status)) {
+                stats.delivered++;
+                stats.net += order.collectionAmount - order.deliveryCharges;
+            } else if (isReturned(order.status)) {
                 stats.returned++;
-                stats.net -= ZOOM_DELIVERY_FEE;
-            } else if (fStatus === "fulfilled") {
-                stats.fulfilled++;
-                const orderNet = o.totalPrice - ZOOM_DELIVERY_FEE - (o.totalPrice * ZOOM_COMMISSION_RATE);
-                stats.net += orderNet;
+                stats.net -= order.deliveryCharges;
             } else {
-                stats.unfulfilled++;
+                stats.pending++;
             }
-        });
+        }
         return stats;
     }, [orders]);
 
-    const fulfillmentRate = monthlyStats.count > 0
-        ? Math.round((monthlyStats.fulfilled / monthlyStats.count) * 100)
-        : 0;
-
     const cityDeliveryStats = useMemo(() => {
         const cityData: Record<string, { total: number; delivered: number }> = {};
-        filteredOrders.forEach(order => {
-            const city = order.shippingCity || "Unknown";
-            if (!cityData[city]) cityData[city] = { total: 0, delivered: 0 };
+        for (const order of filteredOrders) {
+            const city = order.destination || "Unknown";
+            cityData[city] ||= { total: 0, delivered: 0 };
             cityData[city].total++;
-            const status = (order.fulfillmentStatus || "unfulfilled").toLowerCase();
-            if (status === "fulfilled") cityData[city].delivered++;
-        });
+            if (isDelivered(order.status)) cityData[city].delivered++;
+        }
         return Object.entries(cityData)
             .map(([city, data]) => ({
                 city,
-                rate: data.total > 0 ? (data.delivered / data.total) * 100 : 0,
                 total: data.total,
-                delivered: data.delivered
+                delivered: data.delivered,
+                rate: data.total ? (data.delivered / data.total) * 100 : 0,
             }))
             .sort((a, b) => b.total - a.total);
     }, [filteredOrders]);
 
-    const getZoomTracking = (order: ZoomOrder): string => {
-        const nums = order.zoomTrackingNumbers || [];
-        return nums.length > 0 ? nums.join(", ") : "-";
-    };
-
     const downloadCSV = () => {
-        if (filteredOrders.length === 0) return;
-        const headers = ["Date", "Ref", "Tracking", "Customer", "Phone", "City", "Address", "Order Amount", "Delivery Fee", "Commission (4%)", "Net Amount", "Status"];
-        const rows = filteredOrders.map(o => [
-            o.createdAt?.split("T")[0], o.orderName, getZoomTracking(o), o.customerName, o.phone, o.shippingCity, o.shippingAddress, o.totalPrice, "", "", "", o.fulfillmentStatus
+        if (!filteredOrders.length) return;
+        const headers = [
+            "Order date", "Order ID", "Tracking", "Origin", "Destination", "Receiver",
+            "Receiver phone", "COD amount", "Delivery charges", "Weight", "Quantity",
+            "Payment status", "Status", "Status date", "Product", "Instruction",
+        ];
+        const rows = filteredOrders.map(order => [
+            order.orderDate, order.orderId, order.trackingNumber, order.origin, order.destination,
+            order.receiverName, order.receiverPhone, order.collectionAmount, order.deliveryCharges,
+            order.weight, order.quantity, order.paymentStatus, order.status, order.statusDate,
+            order.productDescription, order.specialInstruction,
         ]);
-        const csvContent = [headers.join(","), ...rows.map(row => row.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
+        const csv = [headers, ...rows]
+            .map(row => row.map(value => `"${String(value ?? "").replace(/"/g, "\"\"")}"`).join(","))
+            .join("\n");
         const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", `zoom_orders_${selectedMonth}.csv`);
-        document.body.appendChild(link);
+        link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        link.download = `zoom_orders_${selectedMonth}.csv`;
         link.click();
-        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
     };
 
     return (
         <DashboardLayout>
             <div className="flex flex-col gap-6 p-6 lg:p-10">
-
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-6 border-b border-gray-200">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
                             <Zap className="w-8 h-8 text-blue-600" />
                             Zoom Courier Portal
                         </h1>
-                        <p className="text-gray-500 mt-2">Shopify orders fulfilled by Zoom Courier</p>
+                        <p className="text-gray-500 mt-2">Live orders and tracking from the Zoom COD API</p>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                        <button
-                            onClick={loadOrders}
-                            disabled={loading || !selectedBrand}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-md active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 ml-auto lg:ml-0"
-                        >
-                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                            {loading ? "Loading..." : "Refresh Data"}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <button onClick={loadOrders} disabled={loading || !selectedBrand} className="border border-blue-200 text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
+                            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                            {loading ? "Loading..." : "Refresh API"}
+                        </button>
+                        <button onClick={syncOrders} disabled={syncing || !selectedBrand} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-md flex items-center gap-2 disabled:opacity-50">
+                            <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+                            {syncing ? "Syncing..." : "Sync to Dashboard"}
                         </button>
                     </div>
                 </div>
 
-                {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5" />
-                        <span>{error}</span>
-                    </div>
-                )}
+                {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2"><AlertCircle className="w-5 h-5" /><span>{error}</span></div>}
+                {notice && <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl flex items-center gap-2"><CheckCircle className="w-5 h-5" /><span>{notice}</span></div>}
+                {!selectedBrand && <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl">Please select a brand to view Zoom orders.</div>}
 
-                {!selectedBrand && (
-                    <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-center gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-600" />
-                        <div className="flex-1">
-                            <p className="font-semibold text-sm">No Brand Selected</p>
-                            <p className="text-xs opacity-80 mt-1">Please select a brand from the sidebar to view Zoom orders.</p>
-                        </div>
-                    </div>
-                )}
+                <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+                    <Metric label="This month" value={monthlyStats.count.toLocaleString()} icon={<Package className="w-4 h-4" />} />
+                    <Metric label="COD amount" value={formatRs(monthlyStats.cod)} />
+                    <Metric label="Delivery charges" value={formatRs(monthlyStats.deliveryCharges)} />
+                    <Metric label="Delivered" value={monthlyStats.delivered.toLocaleString()} tone="green" />
+                    <Metric label="Returned" value={monthlyStats.returned.toLocaleString()} tone="red" />
+                    <Metric label="Pending" value={monthlyStats.pending.toLocaleString()} tone="amber" />
+                </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-
                     <div className="lg:col-span-1 space-y-6">
                         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-                            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                <Filter className="w-4 h-4 text-gray-400" /> Filters
-                            </h3>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Month</label>
-                                <div className="relative">
+                            <h3 className="font-bold text-gray-900 flex items-center gap-2"><Filter className="w-4 h-4 text-gray-400" /> Filters</h3>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">
+                                Month
+                                <span className="relative block mt-1.5">
                                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <input
-                                        type="month"
-                                        value={selectedMonth}
-                                        onChange={(e) => setSelectedMonth(e.target.value)}
-                                        className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">City</label>
-                                <select
-                                    value={selectedCity}
-                                    onChange={(e) => setSelectedCity(e.target.value)}
-                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                >
+                                    <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-normal text-gray-700" />
+                                </span>
+                            </label>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">
+                                City
+                                <select value={selectedCity} onChange={e => setSelectedCity(e.target.value)} className="w-full mt-1.5 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-normal text-gray-700">
                                     <option value="">All Cities ({orders.length})</option>
-                                    {uniqueCities.map(c => (
-                                        <option key={c} value={c}>{c} ({cityCounts[c]})</option>
-                                    ))}
+                                    {uniqueCities.map(city => <option key={city} value={city}>{city} ({cityCounts[city]})</option>)}
                                 </select>
-                            </div>
-
-                            <button
-                                onClick={downloadCSV}
-                                disabled={filteredOrders.length === 0}
-                                className="w-full mt-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                                <Download className="w-4 h-4" /> Export CSV
+                            </label>
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">
+                                Search
+                                <span className="relative block mt-1.5">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tracking, order, receiver..." className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-normal text-gray-700" />
+                                </span>
+                            </label>
+                            <button onClick={downloadCSV} disabled={!filteredOrders.length} className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+                                <Download className="w-4 h-4" /> Export API data
                             </button>
                         </div>
-
-                        {filteredOrders.length > 0 && (
-                            <ZoomCityStats stats={cityDeliveryStats} />
-                        )}
+                        <ZoomCityStats stats={cityDeliveryStats} />
                     </div>
 
                     <div className="lg:col-span-3 space-y-6">
-
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-2xl shadow-lg relative overflow-hidden text-white">
-                            <div className="relative z-10 flex items-center justify-between">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-2xl shadow-lg text-white">
+                            <div className="flex flex-wrap items-start justify-between gap-4">
                                 <div>
-                                    <h3 className="text-lg font-bold flex items-center gap-2">
-                                        <Calendar className="w-5 h-5 text-blue-200" />
-                                        Monthly Snapshot: {new Date(selectedMonth + "-01").toLocaleString('default', { month: 'long', year: 'numeric' })}
-                                    </h3>
-                                    <div className="mt-4 flex gap-6 text-blue-100 flex-wrap">
-                                        <div>
-                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Total Orders</p>
-                                            <p className="text-2xl font-bold bg-white/20 px-3 py-1 rounded-lg mt-1 inline-block backdrop-blur-sm">{monthlyStats.count}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Gross Revenue</p>
-                                            <p className="text-2xl font-bold mt-1">Rs. {Math.round(monthlyStats.grossRevenue).toLocaleString()}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Net Revenue</p>
-                                            <p className="text-2xl font-bold text-emerald-100 mt-1">Rs. {Math.round(monthlyStats.net).toLocaleString()}</p>
-                                        </div>
-                                        <div className="pl-6 border-l border-white/20">
-                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Fulfilled</p>
-                                            <p className="text-2xl font-bold text-emerald-100 mt-1">{monthlyStats.fulfilled}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Returned</p>
-                                            <p className="text-2xl font-bold text-red-200 mt-1">{monthlyStats.returned}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Pending</p>
-                                            <p className="text-2xl font-bold text-amber-100 mt-1">{monthlyStats.unfulfilled}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs uppercase font-bold tracking-wider opacity-70">Fulfillment Rate</p>
-                                            <p className="text-2xl font-bold mt-1">{fulfillmentRate}%</p>
-                                        </div>
-                                    </div>
+                                    <h3 className="text-lg font-bold flex items-center gap-2"><Calendar className="w-5 h-5 text-blue-200" /> Zoom API snapshot</h3>
+                                    <p className="text-blue-100 text-sm mt-1">Showing {orders.length} records for {new Date(`${selectedMonth}-01T00:00:00`).toLocaleString("default", { month: "long", year: "numeric" })}</p>
+                                </div>
+                                <div className="text-right text-sm text-blue-100">
+                                    <div>{apiCount} records returned by Zoom</div>
+                                    {catalog && <div className="text-xs mt-1 opacity-80">{catalog.cities} cities · {catalog.statuses} statuses</div>}
                                 </div>
                             </div>
-                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-                            <div className="absolute bottom-0 right-20 w-20 h-20 bg-blue-400/20 rounded-full blur-xl"></div>
+                            <div className="mt-5 flex flex-wrap gap-6 text-blue-100">
+                                <div><p className="text-xs uppercase font-bold tracking-wider opacity-70">Net estimate</p><p className="text-2xl font-bold text-emerald-100 mt-1">{formatRs(monthlyStats.net)}</p></div>
+                                <div><p className="text-xs uppercase font-bold tracking-wider opacity-70">Filtered records</p><p className="text-2xl font-bold mt-1">{filteredOrders.length}</p></div>
+                            </div>
                         </div>
 
                         {filteredOrders.length > 0 ? (
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                                    <h3 className="font-bold text-gray-900">Zoom Orders ({filteredOrders.length})</h3>
-                                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                                        <span className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> {monthlyStats.fulfilled} fulfilled</span>
-                                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-amber-500" /> {monthlyStats.unfulfilled} pending</span>
-                                    </div>
+                                    <h3 className="font-bold text-gray-900">Zoom API orders ({filteredOrders.length})</h3>
+                                    <span className="text-xs text-gray-500">Click a tracking number for live history</span>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead className="bg-gray-50/80 text-gray-500 text-xs uppercase">
                                             <tr>
-                                                <th className="px-4 py-3 text-left font-semibold">Date</th>
-                                                <th className="px-4 py-3 text-left font-semibold">Order</th>
-                                                <th className="px-4 py-3 text-left font-semibold">Customer</th>
-                                                <th className="px-4 py-3 text-left font-semibold">City</th>
-                                                <th className="px-4 py-3 text-left font-semibold">Phone</th>
-                                                <th className="px-4 py-3 text-right font-semibold">Amount</th>
-                                                <th className="px-4 py-3 text-center font-semibold">Status</th>
-                                                <th className="px-4 py-3 text-left font-semibold">Tracking #</th>
+                                                <th className="px-4 py-3 text-left">Date / Order</th>
+                                                <th className="px-4 py-3 text-left">Receiver</th>
+                                                <th className="px-4 py-3 text-left">Route</th>
+                                                <th className="px-4 py-3 text-right">COD</th>
+                                                <th className="px-4 py-3 text-right">Charges</th>
+                                                <th className="px-4 py-3 text-center">Payment</th>
+                                                <th className="px-4 py-3 text-center">Status</th>
+                                                <th className="px-4 py-3 text-left">Tracking</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
-                                            {filteredOrders.map(order => {
-                                                const status = (order.fulfillmentStatus || "unfulfilled").toLowerCase();
-                                                return (
-                                                    <tr key={order.shopifyOrderId} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                                                            {order.createdAt ? new Date(order.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "-"}
-                                                        </td>
-                                                        <td className="px-4 py-3 font-medium text-gray-900">{order.orderName}</td>
-                                                        <td className="px-4 py-3 text-gray-600">{order.customerName || "-"}</td>
-                                                        <td className="px-4 py-3 text-gray-600">{order.shippingCity || "-"}</td>
-                                                        <td className="px-4 py-3 text-gray-500 text-xs font-mono">{order.phone || "-"}</td>
-                                                        <td className="px-4 py-3 text-right font-bold text-gray-900 font-mono">
-                                                            Rs. {Math.round(order.totalPrice).toLocaleString()}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            {status === "fulfilled" ? (
-                                                                <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md text-xs font-bold">Fulfilled</span>
-                                                            ) : status === "partial" ? (
-                                                                <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md text-xs font-bold">Partial</span>
-                                                            ) : (
-                                                                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md text-xs font-bold">Unfulfilled</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            {order.zoomTrackingNumbers && order.zoomTrackingNumbers.length > 0 ? (
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    {order.zoomTrackingNumbers.map((tn, i) => (
-                                                                        <button
-                                                                            key={i}
-                                                                            onClick={() => fetchTracking(tn)}
-                                                                            disabled={trackingLoading === tn}
-                                                                            className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-mono font-medium whitespace-nowrap inline-flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-900 transition-colors cursor-pointer disabled:opacity-50"
-                                                                        >
-                                                                            {trackingLoading === tn ? (
-                                                                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                                                            ) : (
-                                                                                <Search className="w-3 h-3" />
-                                                                            )}
-                                                                            {tn}
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <span className="text-gray-300">-</span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
+                                            {filteredOrders.map(order => (
+                                                <tr key={order.trackingNumber} className="hover:bg-gray-50/50 align-top">
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <div className="text-gray-600">{order.orderDate || "-"}</div>
+                                                        <div className="text-xs font-semibold text-gray-900 mt-1">{order.orderId || "-"}</div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="font-medium text-gray-900">{order.receiverName || "-"}</div>
+                                                        <div className="text-xs text-gray-500">{order.receiverPhone || "-"}</div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs">
+                                                        <div className="text-gray-500">{order.origin || "-"}</div>
+                                                        <div className="font-medium text-gray-800 mt-1">{order.destination || "-"}</div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-bold text-gray-900">{formatRs(order.collectionAmount)}</td>
+                                                    <td className="px-4 py-3 text-right text-gray-600">{formatRs(order.deliveryCharges)}</td>
+                                                    <td className="px-4 py-3 text-center"><StatusPill value={order.paymentStatus || "Unknown"} kind="payment" /></td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <StatusPill value={order.status || "Unknown"} kind={isDelivered(order.status) ? "success" : isReturned(order.status) ? "danger" : "neutral"} />
+                                                        {order.statusDate && <div className="text-[10px] text-gray-400 mt-1">{order.statusDate}</div>}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <button onClick={() => fetchTracking(order.trackingNumber)} disabled={trackingLoading === order.trackingNumber} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-mono font-medium whitespace-nowrap inline-flex items-center gap-1 hover:bg-blue-100 disabled:opacity-50">
+                                                            {trackingLoading === order.trackingNumber ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                                                            {order.trackingNumber}
+                                                        </button>
+                                                        <div className="text-[10px] text-gray-400 mt-1">{order.weight} kg · {order.quantity} pcs</div>
+                                                    </td>
+                                                </tr>
+                                            ))}
                                         </tbody>
                                     </table>
                                 </div>
@@ -416,120 +407,35 @@ export default function ZoomPortal() {
                         ) : (
                             <div className="h-64 flex flex-col items-center justify-center text-center text-gray-400 bg-white rounded-2xl border border-gray-100 border-dashed">
                                 <Package className="w-12 h-12 text-gray-200 mb-3" />
-                                <p>No Zoom Courier orders found for this month.</p>
-                                <p className="text-sm text-gray-400 mt-1">Orders fulfilled by Zoom Courier in Shopify will appear here.</p>
-                                <p className="text-xs text-gray-300 mt-1">Make sure to sync Shopify data first from the Shopify Orders page.</p>
+                                <p>{loading ? "Loading orders from Zoom..." : "No Zoom API orders found for this month."}</p>
+                                <p className="text-sm mt-1">Use Refresh API to request the latest order list.</p>
                             </div>
                         )}
-
                     </div>
-
                 </div>
-
             </div>
 
             {trackingModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setTrackingModal(null); setTrackingError(null); }}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between">
-                            <div>
-                                <h3 className="font-bold text-lg">Tracking Details</h3>
-                                <p className="text-blue-200 text-sm font-mono">{trackingModal.trackingNumber}</p>
-                            </div>
-                            <button onClick={() => { setTrackingModal(null); setTrackingError(null); }} className="text-white/70 hover:text-white transition-colors">
-                                <X className="w-5 h-5" />
-                            </button>
+                            <div><h3 className="font-bold text-lg">Zoom Tracking History</h3><p className="text-blue-200 text-sm font-mono">{trackingModal.trackingNumber}</p></div>
+                            <button onClick={() => { setTrackingModal(null); setTrackingError(null); }}><X className="w-5 h-5" /></button>
                         </div>
-
-                        {trackingLoading ? (
-                            <div className="p-12 flex flex-col items-center justify-center">
-                                <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-3" />
-                                <p className="text-sm text-gray-500">Fetching tracking details...</p>
-                            </div>
-                        ) : trackingError ? (
-                            <div className="p-6">
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
-                                    <AlertCircle className="w-5 h-5" />
-                                    <span className="text-sm">{trackingError}</span>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="overflow-y-auto max-h-[calc(85vh-80px)]">
-                                <div className="p-6 space-y-4">
-                                    <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
-                                        <div className={`px-3 py-1.5 rounded-lg text-sm font-bold ${
-                                            (trackingModal.currentStatus.toLowerCase().includes("delivered") && !trackingModal.currentStatus.toLowerCase().includes("un delivered") && !trackingModal.currentStatus.toLowerCase().includes("undelivered"))
-                                                ? "bg-emerald-50 text-emerald-700"
-                                                : trackingModal.currentStatus.toLowerCase().includes("return") || trackingModal.currentStatus.toLowerCase().includes("un delivered") || trackingModal.currentStatus.toLowerCase().includes("undelivered")
-                                                    ? "bg-red-50 text-red-700"
-                                                    : "bg-blue-50 text-blue-700"
-                                        }`}>
-                                            {trackingModal.currentStatus}
-                                        </div>
-                                        {trackingModal.lastUpdate && (
-                                            <span className="text-xs text-gray-400">Last update: {trackingModal.lastUpdate}</span>
-                                        )}
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-gray-50 rounded-xl p-4">
-                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
-                                                <Truck className="w-3.5 h-3.5" /> Shipping Info
-                                            </h4>
-                                            {trackingModal.shipper && <p className="text-sm text-gray-900 font-medium">{trackingModal.shipper}</p>}
-                                            {trackingModal.origin && (
-                                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                                                    <MapPin className="w-3 h-3" /> {trackingModal.origin}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="bg-gray-50 rounded-xl p-4">
-                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
-                                                <User className="w-3.5 h-3.5" /> Consignee
-                                            </h4>
-                                            {trackingModal.consigneeName && <p className="text-sm text-gray-900 font-medium">{trackingModal.consigneeName}</p>}
-                                            {trackingModal.destination && (
-                                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                                                    <MapPin className="w-3 h-3" /> {trackingModal.destination}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {trackingModal.trackingHistory.length > 0 && (
-                                        <div>
-                                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Tracking History</h4>
-                                            <div className="space-y-0">
-                                                {trackingModal.trackingHistory.map((entry, i) => {
-                                                    const isLast = i === trackingModal.trackingHistory.length - 1;
-                                                    const isDelivered = entry.status.toLowerCase().includes("delivered");
-                                                    return (
-                                                        <div key={i} className="flex gap-3 relative">
-                                                            <div className="flex flex-col items-center">
-                                                                <div className={`w-3 h-3 rounded-full border-2 mt-1 ${
-                                                                    isDelivered ? "bg-emerald-500 border-emerald-500" :
-                                                                    isLast ? "bg-blue-500 border-blue-500" :
-                                                                    "bg-white border-gray-300"
-                                                                }`} />
-                                                                {i < trackingModal.trackingHistory.length - 1 && (
-                                                                    <div className="w-0.5 h-full bg-gray-200 min-h-[32px]" />
-                                                                )}
-                                                            </div>
-                                                            <div className="pb-4 flex-1">
-                                                                <p className={`text-sm font-medium ${isDelivered ? "text-emerald-700" : "text-gray-900"}`}>
-                                                                    {entry.status}
-                                                                </p>
-                                                                <p className="text-xs text-gray-400 mt-0.5">{entry.date}</p>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                        {trackingLoading ? <div className="p-12 text-center"><RefreshCw className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-3" /><p className="text-sm text-gray-500">Fetching live Zoom tracking...</p></div> :
+                            trackingError ? <div className="p-6"><div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2"><AlertCircle className="w-5 h-5" />{trackingError}</div></div> :
+                                <div className="p-6 max-h-[calc(85vh-80px)] overflow-y-auto">
+                                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100"><Truck className="w-5 h-5 text-blue-600" /><span className="font-bold text-gray-900">{trackingModal.currentStatus}</span></div>
+                                    <div className="mt-5">
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Tracking History</h4>
+                                        {trackingModal.trackingHistory.length ? trackingModal.trackingHistory.map((event, index) => (
+                                            <div key={`${event.created}-${index}`} className="flex gap-3 relative">
+                                                <div className="flex flex-col items-center"><div className={`w-3 h-3 rounded-full border-2 mt-1 ${index === trackingModal.trackingHistory.length - 1 ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"}`} />{index < trackingModal.trackingHistory.length - 1 && <div className="w-0.5 h-full bg-gray-200 min-h-[32px]" />}</div>
+                                                <div className="pb-4"><p className="text-sm font-medium text-gray-900">{event.title || event.status}</p><p className="text-xs text-gray-500">{event.status}</p><p className="text-xs text-gray-400 mt-0.5">{event.created || "-"}</p></div>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                                        )) : <p className="text-sm text-gray-400">No tracking history was returned.</p>}
+                                    </div>
+                                </div>}
                     </div>
                 </div>
             )}
@@ -537,74 +443,30 @@ export default function ZoomPortal() {
     );
 }
 
+function Metric({ label, value, icon, tone = "blue" }: { label: string; value: string; icon?: React.ReactNode; tone?: "blue" | "green" | "red" | "amber" }) {
+    const colors = { blue: "text-blue-600 bg-blue-50", green: "text-emerald-600 bg-emerald-50", red: "text-red-600 bg-red-50", amber: "text-amber-600 bg-amber-50" };
+    return <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm"><div className="flex items-center gap-2 text-xs text-gray-500 font-semibold">{icon || <Clock className="w-4 h-4" />} {label}</div><div className={`text-xl font-bold mt-2 ${colors[tone].split(" ")[0]}`}>{value}</div></div>;
+}
+
+function StatusPill({ value, kind }: { value: string; kind: "payment" | "success" | "danger" | "neutral" }) {
+    const classes = { payment: "bg-amber-50 text-amber-700", success: "bg-emerald-50 text-emerald-700", danger: "bg-red-50 text-red-700", neutral: "bg-blue-50 text-blue-700" };
+    return <span className={`inline-flex max-w-[150px] px-2 py-0.5 rounded-md text-[10px] font-bold ${classes[kind]}`}>{value}</span>;
+}
+
 function ZoomCityStats({ stats }: { stats: { city: string; rate: number; total: number; delivered: number }[] }) {
     const [citySearch, setCitySearch] = useState("");
-
     const filtered = useMemo(() => {
-        if (!citySearch.trim()) return stats;
-        const q = citySearch.toLowerCase().trim();
-        return stats.filter(s => s.city.toLowerCase().includes(q));
+        const query = citySearch.trim().toLowerCase();
+        return query ? stats.filter(stat => stat.city.toLowerCase().includes(query)) : stats;
     }, [stats, citySearch]);
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden h-fit sticky top-24">
-            <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                <h3 className="font-semibold text-gray-800">Fulfillment Rates</h3>
-                <p className="text-xs text-gray-500">By City (Most Orders First)</p>
-            </div>
-            <div className="px-4 pt-3 pb-2">
-                <input
-                    type="text"
-                    placeholder="Search city..."
-                    value={citySearch}
-                    onChange={(e) => setCitySearch(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 placeholder-gray-400"
-                />
-                {citySearch.trim() && (
-                    <p className="text-[10px] text-gray-400 mt-1">
-                        {filtered.length} of {stats.length} cities
-                    </p>
-                )}
-            </div>
+            <div className="p-4 border-b border-gray-100 bg-gray-50/50"><h3 className="font-semibold text-gray-800">Delivery by City</h3><p className="text-xs text-gray-500">Based on Zoom status values</p></div>
+            <div className="px-4 pt-3 pb-2"><input type="text" placeholder="Search city..." value={citySearch} onChange={e => setCitySearch(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300" /></div>
             <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-600 font-medium text-xs sticky top-0">
-                        <tr>
-                            <th className="px-4 py-2">City</th>
-                            <th className="px-4 py-2 text-right">%</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {filtered.length === 0 ? (
-                            <tr>
-                                <td colSpan={2} className="px-4 py-6 text-center text-gray-400 text-sm">
-                                    No cities match "{citySearch}"
-                                </td>
-                            </tr>
-                        ) : (
-                            filtered.map(stat => {
-                                const colorClass =
-                                    stat.rate < 50 ? "text-red-600 bg-red-50" :
-                                        stat.rate < 80 ? "text-yellow-600 bg-yellow-50" :
-                                            "text-green-600 bg-green-50";
-                                return (
-                                    <tr key={stat.city} className="hover:bg-gray-50/50">
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-gray-900">{stat.city}</div>
-                                            <div className="text-[10px] text-gray-400">
-                                                {stat.delivered}/{stat.total} Orders
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${colorClass}`}>
-                                                {stat.rate.toFixed(1)}%
-                                            </span>
-                                        </td>
-                                    </tr>
-                                );
-                            })
-                        )}
-                    </tbody>
+                <table className="w-full text-sm text-left"><thead className="bg-gray-50 text-gray-600 text-xs sticky top-0"><tr><th className="px-4 py-2">City</th><th className="px-4 py-2 text-right">Rate</th></tr></thead>
+                    <tbody className="divide-y divide-gray-100">{filtered.map(stat => <tr key={stat.city}><td className="px-4 py-3"><div className="font-medium text-gray-900">{stat.city}</div><div className="text-[10px] text-gray-400">{stat.delivered}/{stat.total} delivered</div></td><td className="px-4 py-3 text-right"><span className={`px-2 py-0.5 rounded text-xs font-bold ${stat.rate < 50 ? "text-red-600 bg-red-50" : stat.rate < 80 ? "text-yellow-600 bg-yellow-50" : "text-green-600 bg-green-50"}`}>{stat.rate.toFixed(1)}%</span></td></tr>)}</tbody>
                 </table>
             </div>
         </div>
