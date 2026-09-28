@@ -25,11 +25,29 @@ export default function OrderCharts({
     earningsFallbackToOrderAmount?: boolean;
 }) {
     const getStatusCategory = (status: string, savedCategory?: string) => {
-        if (savedCategory) return savedCategory;
         const normalized = status.toLowerCase().trim();
+
+        if (courier === "M&P") {
+            if (/\bdeliver(ed|y)?\b|\bok\b|\bcompleted\b/.test(normalized) && !/not delivered|undelivered/.test(normalized)) {
+                return "delivered";
+            }
+            if (/\breturn|\brto|\bro|\brs\b/.test(normalized)) {
+                return "returned";
+            }
+            return "other";
+        }
+
+        if (savedCategory) return savedCategory;
         if (normalized.includes("deliver") || normalized.includes("completed") || (courier === "TCS" && normalized === "ok")) return "delivered";
         if (normalized.includes("return") || (courier === "TCS" && ["ro", "rs"].includes(normalized))) return "returned";
         return "other";
+    };
+
+    const getChartStatus = (order: Order, tracking?: TrackingStatus | null) => {
+        if (courier === "M&P") {
+            return order.lastStatus || order.transactionStatus || order.orderStatus || "";
+        }
+        return tracking?.currentStatus || order.transactionStatus || order.orderStatus || "";
     };
 
     // Pie Chart Data
@@ -44,9 +62,10 @@ export default function OrderCharts({
         orders.forEach((order) => {
             const trackingNo = order.trackingNumber || "";
             const tracking = trackingStatuses[trackingNo];
-            const liveStatus = tracking?.currentStatus;
-            const dbStatus = order.transactionStatus || order.orderStatus || "";
-            const category = getStatusCategory(liveStatus || dbStatus, tracking?.statusCategory);
+            const category = getStatusCategory(
+                getChartStatus(order, tracking),
+                courier === "M&P" ? undefined : tracking?.statusCategory,
+            );
             const amount = order.netAmount || 0;
 
             if (category === "delivered") {
@@ -127,9 +146,10 @@ export default function OrderCharts({
 
             const trackingNo = order.trackingNumber || "";
             const tracking = trackingStatuses[trackingNo];
-            const liveStatus = tracking?.currentStatus;
-            const dbStatus = order.transactionStatus || order.orderStatus || "";
-            const category = getStatusCategory(liveStatus || dbStatus, tracking?.statusCategory);
+            const category = getStatusCategory(
+                getChartStatus(order, tracking),
+                courier === "M&P" ? undefined : tracking?.statusCategory,
+            );
 
             if (category === "delivered") {
                 stats[date].delivered++;
@@ -161,12 +181,14 @@ export default function OrderCharts({
         orders.forEach((order) => {
             // Only consider Delivered or Returned for earnings
             const trackingNo = order.trackingNumber || "";
-            const liveStatus = trackingStatuses[trackingNo]?.currentStatus;
-            const dbStatus = order.transactionStatus || order.orderStatus || "";
-            const status = (liveStatus || dbStatus).toLowerCase();
-
-            const isDelivered = status.includes("delivered") || status.includes("completed");
-            const isReturn = status.includes("return");
+            const tracking = trackingStatuses[trackingNo];
+            const status = getChartStatus(order, tracking);
+            const category = getStatusCategory(
+                status,
+                courier === "M&P" ? undefined : tracking?.statusCategory,
+            );
+            const isDelivered = category === "delivered";
+            const isReturn = category === "returned";
 
             if (!isDelivered && !isReturn) return;
 

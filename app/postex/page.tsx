@@ -10,6 +10,14 @@ import { Truck, RefreshCw, Calendar, Download, Filter, AlertCircle, Search } fro
 import { useBrand } from "@/components/providers/BrandContext";
 import { Order, TrackingStatus, PaymentStatus } from "@/lib/types";
 
+interface SyncProgress {
+    phase: string;
+    message: string;
+    percent: number;
+    processed?: number;
+    total?: number;
+}
+
 export default function PostExDashboard() {
     const { selectedBrand } = useBrand();
 
@@ -18,6 +26,7 @@ export default function PostExDashboard() {
     const [error, setError] = useState<string | null>(null);
     const [dataSource, setDataSource] = useState<string>("unknown");
     const [syncSummary, setSyncSummary] = useState<any>(null);
+    const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
 
     // Filters
     const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -96,6 +105,7 @@ export default function PostExDashboard() {
         setLoading(true);
         setError(null);
         setSyncSummary(null);
+        setSyncProgress({ phase: "starting", message: "Connecting to PostEx…", percent: 2 });
 
         try {
             const dateRange = getDateRange();
@@ -105,12 +115,51 @@ export default function PostExDashboard() {
                 params.set("endDate", dateRange.endDate);
             }
             params.set("force", "true");
+            params.set("progress", "true");
+            params.set("skipDelivered", "true");
             const url = `/api/postex/orders?${params.toString()}`;
             const res = await fetch(url, { headers: buildHeaders() });
 
-            if (!res.ok) throw new Error("Failed to sync orders");
+            if (!res.ok) {
+                const failure = await res.json().catch(() => null);
+                throw new Error(failure?.error || "Failed to sync orders");
+            }
 
-            const data = await res.json();
+            if (!res.body) throw new Error("PostEx did not return sync progress");
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let data: any = null;
+
+            while (true) {
+                const { value, done } = await reader.read();
+                buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                const lines = buffer.split("\n");
+                buffer = lines.pop() || "";
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const event = JSON.parse(line);
+                    if (event.type === "progress") {
+                        setSyncProgress({
+                            phase: event.phase,
+                            message: event.message,
+                            percent: event.percent,
+                            processed: event.processed,
+                            total: event.total,
+                        });
+                    } else if (event.type === "complete") {
+                        data = event.data;
+                    } else if (event.type === "error") {
+                        throw new Error(event.error || "PostEx sync failed");
+                    }
+                }
+
+                if (done) break;
+            }
+
+            if (!data) throw new Error("PostEx sync ended without a result");
             setDataSource(data.source || "live");
 
             if (data.error) {
@@ -122,8 +171,11 @@ export default function PostExDashboard() {
             if (data.syncSummary) {
                 setSyncSummary(data.syncSummary);
             }
+            setSyncProgress({ phase: "complete", message: "Sync complete", percent: 100 });
+            window.setTimeout(() => setSyncProgress(null), 1200);
         } catch (err: any) {
             setError(err.message);
+            setSyncProgress(null);
         } finally {
             setLoading(false);
         }
@@ -284,6 +336,35 @@ export default function PostExDashboard() {
                         </button>
                     </div>
                 </div>
+
+                {syncProgress && (
+                    <div className="rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3 shadow-sm">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-orange-900">{syncProgress.message}</p>
+                                <p className="mt-0.5 text-xs text-orange-700">
+                                    {syncProgress.processed !== undefined && syncProgress.total !== undefined
+                                        ? `${syncProgress.processed.toLocaleString()} of ${syncProgress.total.toLocaleString()}`
+                                        : syncProgress.phase === "complete" ? "All updates are ready" : "Please keep this page open"}
+                                </p>
+                            </div>
+                            <span className="shrink-0 text-sm font-bold text-orange-700">{Math.round(syncProgress.percent)}%</span>
+                        </div>
+                        <div
+                            className="mt-2 h-2 overflow-hidden rounded-full bg-orange-100"
+                            role="progressbar"
+                            aria-label="PostEx sync progress"
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={Math.round(syncProgress.percent)}
+                        >
+                            <div
+                                className="h-full rounded-full bg-orange-600 transition-[width] duration-300 ease-out"
+                                style={{ width: `${Math.min(100, Math.max(0, syncProgress.percent))}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* Error Banner */}
                 {error && (

@@ -1,2 +1,3 @@
 - [GitHub repository imports](github-imports.md) — use staged contents transfer when archive downloads or burst requests are throttled.
+- [GitHub publishing history](github-publishing-history.md) — verify the outgoing parent and exclude automatic uploaded-asset commits before API-based pushes.
 - [Neon bulk writes](neon-bulk-writes.md) — Prisma transaction arrays still incur per-statement cost; use set-based SQL for hundreds of varying updates.
