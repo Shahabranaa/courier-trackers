@@ -21,7 +21,7 @@ export default function OrderCharts({
 }: {
     orders: Order[];
     trackingStatuses: Record<string, TrackingStatus | null>;
-    courier?: "PostEx" | "TCS" | "M&P";
+    courier?: "PostEx" | "TCS" | "M&P" | "TRAX";
     earningsFallbackToOrderAmount?: boolean;
 }) {
     const getStatusCategory = (status: string, savedCategory?: string) => {

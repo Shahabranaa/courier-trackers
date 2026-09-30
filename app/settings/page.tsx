@@ -48,11 +48,12 @@ export default function SettingsPage() {
         wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "",
          mnpUsername: "", mnpPassword: "", mnpAccountNo: "",
          zoomAuthKey: "",
-         postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true
+          traxApiKey: "",
+          postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true, traxEnabled: true
     });
 
     const resetForm = () => {
-         setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", tcsBearerToken: "", tcsApiUsername: "", tcsApiPassword: "", tcsCustomerNumber: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", mnpUsername: "", mnpPassword: "", mnpAccountNo: "", zoomAuthKey: "", postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true });
+         setFormData({ name: "", apiToken: "", postexMerchantId: "", postexMerchantToken: "", tranzoApiToken: "", tranzoMerchantToken: "", tcsBearerToken: "", tcsApiUsername: "", tcsApiPassword: "", tcsCustomerNumber: "", proxyUrl: "", shopifyStore: "", shopifyAccessToken: "", shopifyClientId: "", shopifyClientSecret: "", wetarseelAccountId: "", wetarseelUserId: "", leopardsApiKey: "", leopardsApiPassword: "", mnpUsername: "", mnpPassword: "", mnpAccountNo: "", zoomAuthKey: "", traxApiKey: "", postexEnabled: true, tranzoEnabled: true, zoomEnabled: true, tcsEnabled: true, shopifyEnabled: true, leopardsEnabled: true, mnpEnabled: true, traxEnabled: true });
         setIsAdding(false);
         setEditId(null);
         setTestResult(null);
@@ -129,13 +130,15 @@ export default function SettingsPage() {
              mnpPassword: brand.mnpPassword || "",
              mnpAccountNo: brand.mnpAccountNo || "",
              zoomAuthKey: brand.zoomAuthKey || "",
+             traxApiKey: brand.traxApiKey || "",
             postexEnabled: brand.postexEnabled !== false,
             tranzoEnabled: brand.tranzoEnabled !== false,
             zoomEnabled: brand.zoomEnabled !== false,
             tcsEnabled: brand.tcsEnabled !== false,
             shopifyEnabled: brand.shopifyEnabled !== false,
              leopardsEnabled: brand.leopardsEnabled !== false,
-             mnpEnabled: brand.mnpEnabled !== false
+             mnpEnabled: brand.mnpEnabled !== false,
+             traxEnabled: brand.traxEnabled !== false
         });
         setIsAdding(true);
     };
@@ -241,6 +244,7 @@ export default function SettingsPage() {
                                         ["tcsEnabled", "TCS"],
                                         ["leopardsEnabled", "Leopards"],
                                          ["mnpEnabled", "M&P"],
+                                         ["traxEnabled", "TRAX"],
                                     ] as const).map(([key, label]) => (
                                         <label key={key} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 cursor-pointer">
                                             <span className="text-sm font-medium text-gray-700">{label}</span>
@@ -415,6 +419,17 @@ export default function SettingsPage() {
                             <div className="col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">M&amp;P Account Number</label>
                                 <input type="text" value={formData.mnpAccountNo} onChange={e => setFormData({ ...formData, mnpAccountNo: e.target.value })} placeholder="M&P account or customer number" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition-all font-mono text-sm" />
+                            </div>
+                            <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-sky-500"></span> TRAX Courier
+                                </h4>
+                                <p className="text-xs text-gray-400 mb-4">Use the API key from the TRAX portal profile. It is sent in the documented Authorization header and remains masked after saving.</p>
+                            </div>
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">TRAX API Key</label>
+                                <input type="password" value={formData.traxApiKey} onChange={e => setFormData({ ...formData, traxApiKey: e.target.value })} placeholder="Paste this brand's TRAX API key" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition-all font-mono text-sm" />
+                                <p className="text-xs text-gray-400 mt-1">TRAX credentials are brand-specific; leave the masked value unchanged when editing an existing brand.</p>
                             </div>
                             <div className="col-span-2 mt-4 pt-4 border-t border-gray-100">
                                 <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">

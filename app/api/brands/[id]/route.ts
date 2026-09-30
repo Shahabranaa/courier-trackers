@@ -18,7 +18,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             }
         }
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, zoomAuthKey, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled, isActive, selectedPackage } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, zoomAuthKey, traxApiKey, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled, traxEnabled, isActive, selectedPackage } = body;
 
         const shouldUpdateAccessToken = shopifyAccessToken !== undefined && shopifyAccessToken !== "••••••••";
         const shouldUpdateSecret = shopifyClientSecret !== undefined && shopifyClientSecret !== "••••••••";
@@ -32,6 +32,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const shouldUpdateMnpPassword = mnpPassword !== undefined && mnpPassword !== "••••••••";
         const shouldUpdateMnpAccountNo = mnpAccountNo !== undefined && mnpAccountNo !== "••••••••";
         const shouldUpdateZoomAuthKey = zoomAuthKey !== undefined && zoomAuthKey !== "••••••••";
+        const shouldUpdateTraxApiKey = traxApiKey !== undefined && traxApiKey !== "••••••••";
 
         const brand = await prisma.brand.update({
             where: { id },
@@ -61,6 +62,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(shouldUpdateMnpPassword && { mnpPassword }),
                 ...(shouldUpdateMnpAccountNo && { mnpAccountNo }),
                 ...(shouldUpdateZoomAuthKey && { zoomAuthKey }),
+                ...(shouldUpdateTraxApiKey && { traxApiKey }),
                 ...(postexEnabled !== undefined && { postexEnabled: Boolean(postexEnabled) }),
                 ...(tranzoEnabled !== undefined && { tranzoEnabled: Boolean(tranzoEnabled) }),
                 ...(zoomEnabled !== undefined && { zoomEnabled: Boolean(zoomEnabled) }),
@@ -68,6 +70,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 ...(shopifyEnabled !== undefined && { shopifyEnabled: Boolean(shopifyEnabled) }),
                 ...(leopardsEnabled !== undefined && { leopardsEnabled: Boolean(leopardsEnabled) }),
                 ...(mnpEnabled !== undefined && { mnpEnabled: Boolean(mnpEnabled) }),
+                ...(traxEnabled !== undefined && { traxEnabled: Boolean(traxEnabled) }),
                 ...(isActive !== undefined && { isActive, ...(isActive ? { activatedAt: new Date() } : {}) }),
                 ...(selectedPackage !== undefined && { selectedPackage, packageRequestedAt: new Date() })
             }
@@ -88,6 +91,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
              mnpPassword: brand.mnpPassword ? "••••••••" : "",
              mnpAccountNo: brand.mnpAccountNo ? "••••••••" : ""
               , zoomAuthKey: brand.zoomAuthKey ? "••••••••" : ""
+               , traxApiKey: brand.traxApiKey ? "••••••••" : ""
               , courierCredentials: getCourierCredentialStatus(brand)
         });
     } catch (error: any) {

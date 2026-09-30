@@ -8,7 +8,7 @@ import { useBrand } from "./providers/BrandContext";
 import { useAuth } from "./providers/AuthContext";
 import type { Brand } from "@/lib/types";
 
-type CourierToggleKey = keyof Pick<Brand, "postexEnabled" | "tranzoEnabled" | "zoomEnabled" | "tcsEnabled" | "leopardsEnabled" | "mnpEnabled">;
+type CourierToggleKey = keyof Pick<Brand, "postexEnabled" | "tranzoEnabled" | "zoomEnabled" | "tcsEnabled" | "leopardsEnabled" | "mnpEnabled" | "traxEnabled">;
 type CourierCredentialKey = keyof NonNullable<Brand["courierCredentials"]>;
 
 export default function DashboardSidebar() {
@@ -89,6 +89,17 @@ export default function DashboardSidebar() {
             ],
         },
         {
+            name: "TRAX Portal",
+            href: "/trax",
+            icon: Truck,
+            courierToggle: "traxEnabled" as CourierToggleKey,
+            courierCredential: "trax" as CourierCredentialKey,
+            children: [
+                { name: "All Shipments", href: "/trax" },
+                { name: "Payments", href: "/trax/payments" },
+            ],
+        },
+        {
             name: "Shopify Orders",
             href: "/shopify",
             icon: ShoppingBag,
@@ -115,6 +126,7 @@ export default function DashboardSidebar() {
         "/tcs": true,
         "/leopards": true,
         "/mnp": true,
+        "/trax": true,
     });
 
     const toggleGroup = (href: string) => {

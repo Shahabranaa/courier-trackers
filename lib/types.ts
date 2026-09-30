@@ -70,6 +70,7 @@ export interface Brand {
   mnpPassword?: string;
   mnpAccountNo?: string;
   zoomAuthKey?: string;
+  traxApiKey?: string;
   postexEnabled?: boolean;
   tranzoEnabled?: boolean;
   zoomEnabled?: boolean;
@@ -77,6 +78,7 @@ export interface Brand {
   shopifyEnabled?: boolean;
   leopardsEnabled?: boolean;
   mnpEnabled?: boolean;
+  traxEnabled?: boolean;
   courierCredentials?: {
     zoom: boolean;
     postex: boolean;
@@ -84,6 +86,7 @@ export interface Brand {
     tcs: boolean;
     leopards: boolean;
     mnp: boolean;
+    trax: boolean;
   };
   isActive?: boolean;
   selectedPackage?: string | null;

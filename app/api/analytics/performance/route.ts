@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth";
+import { userCanAccessBrand } from "@/lib/brandAccess";
 
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -62,6 +64,11 @@ export async function GET(req: NextRequest) {
     if (!brandId) {
       return NextResponse.json({ error: "Missing brand-id header" }, { status: 400 });
     }
+    const user = await getAuthUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await userCanAccessBrand(user, brandId))) {
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("startDate");
@@ -109,6 +116,7 @@ export async function GET(req: NextRequest) {
       TCS: { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
       Leopards: { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
       "M&P": { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
+      TRAX: { total: 0, delivered: 0, returned: 0, inTransit: 0, cancelled: 0 },
     };
 
     const returnByCity: Record<string, {

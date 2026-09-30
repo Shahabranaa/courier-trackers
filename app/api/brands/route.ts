@@ -40,6 +40,7 @@ export async function GET() {
              mnpPassword: b.mnpPassword ? "••••••••" : "",
              mnpAccountNo: b.mnpAccountNo ? "••••••••" : "",
              zoomAuthKey: b.zoomAuthKey ? "••••••••" : "",
+            traxApiKey: b.traxApiKey ? "••••••••" : "",
             courierCredentials: getCourierCredentialStatus(b),
             isActive: b.isActive,
             selectedPackage: b.selectedPackage,
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, zoomAuthKey, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled } = body;
+        const { name, apiToken, tranzoToken, tranzoApiToken, proxyUrl, shopifyStore, shopifyAccessToken, shopifyClientId, shopifyClientSecret, postexMerchantId, postexMerchantToken, tranzoMerchantToken, tcsBearerToken, tcsApiUsername, tcsApiPassword, tcsCustomerNumber, wetarseelAccountId, wetarseelUserId, wetarseelAuthToken, leopardsApiKey, leopardsApiPassword, mnpUsername, mnpPassword, mnpAccountNo, zoomAuthKey, traxApiKey, postexEnabled, tranzoEnabled, zoomEnabled, tcsEnabled, shopifyEnabled, leopardsEnabled, mnpEnabled, traxEnabled } = body;
 
         if (!name) {
             return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
                 mnpPassword: mnpPassword || "",
                 mnpAccountNo: mnpAccountNo || "",
                 zoomAuthKey: zoomAuthKey || "",
+                traxApiKey: traxApiKey || "",
                 ...(postexEnabled !== undefined && { postexEnabled: Boolean(postexEnabled) }),
                 ...(tranzoEnabled !== undefined && { tranzoEnabled: Boolean(tranzoEnabled) }),
                 ...(zoomEnabled !== undefined && { zoomEnabled: Boolean(zoomEnabled) }),
@@ -103,6 +105,7 @@ export async function POST(req: NextRequest) {
                 ...(shopifyEnabled !== undefined && { shopifyEnabled: Boolean(shopifyEnabled) }),
                 ...(leopardsEnabled !== undefined && { leopardsEnabled: Boolean(leopardsEnabled) }),
                 ...(mnpEnabled !== undefined && { mnpEnabled: Boolean(mnpEnabled) }),
+                ...(traxEnabled !== undefined && { traxEnabled: Boolean(traxEnabled) }),
                 isActive: isAdminCreator,
                 activatedAt: isAdminCreator ? new Date() : null
             }
@@ -123,6 +126,7 @@ export async function POST(req: NextRequest) {
              , mnpPassword: brand.mnpPassword ? "••••••••" : ""
              , mnpAccountNo: brand.mnpAccountNo ? "••••••••" : ""
              , zoomAuthKey: brand.zoomAuthKey ? "••••••••" : ""
+              , traxApiKey: brand.traxApiKey ? "••••••••" : ""
              , courierCredentials: getCourierCredentialStatus(brand)
         }, { status: 201 });
     } catch (error: any) {

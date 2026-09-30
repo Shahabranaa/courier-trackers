@@ -65,6 +65,82 @@ model User {
   updatedAt    DateTime    @updatedAt
   brands       Brand[]
   brandAccess  UserBrand[]
+  claudeOAuthCodes         ClaudeOAuthAuthorizationCode[]
+  claudeOAuthAccessTokens  ClaudeOAuthAccessToken[]
+  claudeOAuthRefreshTokens ClaudeOAuthRefreshToken[]
+}
+
+model ClaudeOAuthTokenFamily {
+  familyId      String   @id
+  revokedAt     DateTime?
+  createdAt     DateTime @default(now())
+  accessTokens  ClaudeOAuthAccessToken[]
+  refreshTokens ClaudeOAuthRefreshToken[]
+}
+
+model ClaudeOAuthClient {
+  clientId     String   @id
+  redirectUri  String
+  createdAt    DateTime @default(now())
+  codes        ClaudeOAuthAuthorizationCode[]
+  accessTokens ClaudeOAuthAccessToken[]
+  refreshTokens ClaudeOAuthRefreshToken[]
+}
+
+model ClaudeOAuthAuthorizationCode {
+  codeHash        String   @id
+  clientId        String
+  userId          String
+  redirectUri     String
+  scope           String
+  resource        String
+  codeChallenge   String
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime @default(now())
+  client          ClaudeOAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model ClaudeOAuthAccessToken {
+  tokenHash  String   @id
+  familyId   String
+  clientId   String
+  userId     String
+  scope      String
+  resource   String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  client     ClaudeOAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family     ClaudeOAuthTokenFamily @relation(fields: [familyId], references: [familyId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([familyId])
+}
+
+model ClaudeOAuthRefreshToken {
+  tokenHash  String   @id
+  familyId   String
+  clientId   String
+  userId     String
+  scope      String
+  resource   String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  client     ClaudeOAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family     ClaudeOAuthTokenFamily @relation(fields: [familyId], references: [familyId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([familyId])
 }
 
 model UserBrand {
@@ -109,6 +185,7 @@ model Brand {
   mnpPassword         String            @default("")
   mnpAccountNo        String            @default("")
   zoomAuthKey         String            @default("")
+  traxApiKey          String            @default("")
   isActive            Boolean           @default(true)
   adminNotes          String            @default("")
   postexEnabled       Boolean           @default(true)
@@ -118,6 +195,7 @@ model Brand {
   shopifyEnabled      Boolean           @default(true)
   leopardsEnabled     Boolean           @default(true)
   mnpEnabled          Boolean           @default(true)
+  traxEnabled         Boolean           @default(true)
   selectedPackage     String?
   packageRequestedAt  DateTime?
   activatedAt         DateTime?

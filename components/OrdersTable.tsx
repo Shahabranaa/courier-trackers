@@ -18,7 +18,7 @@ export default function OrdersTable({
     paymentStatuses: Record<string, any>;
     loading: boolean;
     refreshTracking: (trackingNumber: string, force?: boolean) => void;
-    courier?: "PostEx" | "TCS" | "Leopards" | "M&P";
+    courier?: "PostEx" | "TCS" | "Leopards" | "M&P" | "TRAX";
 }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -333,7 +333,9 @@ export default function OrdersTable({
                                                 >
                                                     <RefreshCw className="w-4 h-4" />
                                                 </button>
-                                                <a
+                                                {courier === "TRAX" ? (
+                                                    <span className="px-1 text-[11px] font-medium text-sky-700">TRAX API</span>
+                                                ) : <a
                                                     href={courier === "TCS"
                                                         ? `https://www.tcsexpress.com/track/${trackingNo}`
                                     : courier === "Leopards"
@@ -347,7 +349,7 @@ export default function OrdersTable({
                                                     title={`View on ${courier}`}
                                                 >
                                                     <ExternalLink className="w-4 h-4" />
-                                                </a>
+                                                </a>}
                                             </div>
                                         </td>
                                     </tr>

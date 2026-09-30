@@ -11,6 +11,7 @@ type CourierCredentialSource = {
   mnpPassword?: string | null;
   mnpAccountNo?: string | null;
   zoomAuthKey?: string | null;
+  traxApiKey?: string | null;
 };
 
 const present = (value?: string | null) => Boolean(value?.trim());
@@ -33,5 +34,6 @@ export function getCourierCredentialStatus(brand: CourierCredentialSource) {
     mnp: (present(brand.mnpUsername) || present(process.env.MNP_USERNAME))
       && (present(brand.mnpPassword) || present(process.env.MNP_PASSWORD))
       && (present(brand.mnpAccountNo) || present(process.env.MNP_ACCOUNT_NO)),
+    trax: present(brand.traxApiKey),
   };
 }

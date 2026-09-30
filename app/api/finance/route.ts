@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth";
+import { userCanAccessBrand } from "@/lib/brandAccess";
 
 export async function GET(req: NextRequest) {
     const brandId = req.headers.get("brand-id") || "";
 
     if (!brandId) {
         return NextResponse.json({ error: "Missing brand ID" }, { status: 400 });
+    }
+    const user = await getAuthUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await userCanAccessBrand(user, brandId))) {
+        return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
     }
 
     try {
@@ -42,6 +49,7 @@ export async function GET(req: NextRequest) {
         const tcsOrders = allOrders.filter(o => o.courier === "TCS");
         const leopardsOrders = allOrders.filter(o => o.courier === "Leopards");
         const mnpOrders = allOrders.filter(o => o.courier === "M&P");
+        const traxOrders = allOrders.filter(o => o.courier === "TRAX");
         const tcsPaymentRows = tcsOrders.length ? await prisma.paymentStatus.findMany({
             where: { trackingNumber: { in: tcsOrders.map((order) => order.trackingNumber) } },
             select: { data: true },
@@ -177,6 +185,7 @@ export async function GET(req: NextRequest) {
         const tcsMonthly = groupByMonth(tcsOrders);
         const leopardsMonthly = groupByMonth(leopardsOrders);
         const mnpMonthly = groupByMonth(mnpOrders);
+        const traxMonthly = groupByMonth(traxOrders);
 
         const postexTotals = {
             totalOrders: postexOrders.length,
@@ -250,6 +259,21 @@ export async function GET(req: NextRequest) {
                 return s;
             }, 0),
         };
+        const traxTotals = {
+            totalOrders: traxOrders.length,
+            deliveredOrders: traxOrders.filter(isDelivered).length,
+            returnedOrders: traxOrders.filter(isReturn).length,
+            grossAmount: traxOrders.reduce((s, o) => s + (o.invoicePayment || o.orderAmount || 0), 0),
+            fees: traxOrders.reduce((s, o) => s + (o.transactionFee || 0), 0),
+            taxes: traxOrders.reduce((s, o) => s + (o.transactionTax || 0), 0),
+            withholdingTax: 0,
+            upfrontPayments: 0,
+            netAmount: traxOrders.reduce((s, o) => {
+                if (isDelivered(o)) return s + (o.netAmount || 0);
+                if (isReturn(o)) return s - (o.transactionFee || 0);
+                return s;
+            }, 0),
+        };
 
         const shopifyRevenue = shopifyOrders.reduce((s, o) => s + (o.totalPrice || 0), 0);
         const shopifyOrderCount = shopifyOrders.length;
@@ -297,6 +321,10 @@ export async function GET(req: NextRequest) {
             mnp: {
                 totals: mnpTotals,
                 monthly: mnpMonthly,
+            },
+            trax: {
+                totals: traxTotals,
+                monthly: traxMonthly,
             },
             shopify: {
                 totalRevenue: shopifyRevenue,

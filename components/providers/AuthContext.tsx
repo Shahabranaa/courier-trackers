@@ -19,9 +19,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function safeRelativeNext(value: string | null): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f\u007f]/.test(value)) {
+    return null;
+  }
+  return value;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loginAuthChecked, setLoginAuthChecked] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -46,12 +54,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkAuth]);
 
   useEffect(() => {
+    if (pathname === "/login") {
+      setLoginAuthChecked(false);
+      checkAuth().finally(() => setLoginAuthChecked(true));
+    } else {
+      setLoginAuthChecked(false);
+    }
+  }, [pathname, checkAuth]);
+
+  useEffect(() => {
     const publicPaths = ["/login", "/landing", "/pricing"];
     const isPublic = publicPaths.includes(pathname) || pathname.startsWith("/shopify/create/");
     if (!loading && !user && !isPublic) {
-      router.push("/login");
+      const next = typeof window === "undefined" ? "" : `${window.location.pathname}${window.location.search}`;
+      router.push(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
+    } else if (!loading && loginAuthChecked && user && pathname === "/login") {
+      const next = typeof window === "undefined"
+        ? null
+        : safeRelativeNext(new URLSearchParams(window.location.search).get("next"));
+      if (next) router.replace(next);
+      else if (user.email === "admin@hublogistic.com") router.replace("/admin/users");
+      else router.replace("/");
     }
-  }, [loading, user, pathname, router]);
+  }, [loading, user, loginAuthChecked, pathname, router]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -65,11 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: data.error || "Login failed" };
       }
       setUser(data.user);
-      if (data.user.email === "admin@hublogistic.com") {
-        router.push("/admin/users");
-      } else {
-        router.push("/");
-      }
+      const next = typeof window === "undefined"
+        ? null
+        : safeRelativeNext(new URLSearchParams(window.location.search).get("next"));
+      if (next) router.push(next);
+      else if (data.user.email === "admin@hublogistic.com") router.push("/admin/users");
+      else router.push("/");
       return {};
     } catch {
       return { error: "Login failed" };

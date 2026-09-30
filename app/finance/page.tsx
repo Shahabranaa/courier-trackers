@@ -82,6 +82,7 @@ export default function FinancePage() {
     const [tcsData, setTcsData] = useState<CourierData | null>(null);
     const [leopardsData, setLeopardsData] = useState<CourierData | null>(null);
     const [mnpData, setMnpData] = useState<CourierData | null>(null);
+    const [traxData, setTraxData] = useState<CourierData | null>(null);
     const [shopifyData, setShopifyData] = useState<{ totalRevenue: number; totalOrders: number; monthly: any[] } | null>(null);
 
     const [postexReceiptsLoading, setPostexReceiptsLoading] = useState(false);
@@ -111,6 +112,7 @@ export default function FinancePage() {
             setTcsData(data.tcs);
             setLeopardsData(data.leopards);
             setMnpData(data.mnp);
+            setTraxData(data.trax);
             setShopifyData(data.shopify);
         } catch (err: any) {
             setError(err.message);
@@ -193,11 +195,13 @@ export default function FinancePage() {
     const tcsFiltered = filterMonthly(tcsData?.monthly);
     const leopardsFiltered = filterMonthly(leopardsData?.monthly);
     const mnpFiltered = filterMonthly(mnpData?.monthly);
+    const traxFiltered = filterMonthly(traxData?.monthly);
     const postexSum = sumMonthly(postexFiltered);
     const tranzoSum = sumMonthly(tranzoFiltered);
     const tcsSum = sumMonthly(tcsFiltered);
     const leopardsSum = sumMonthly(leopardsFiltered);
     const mnpSum = sumMonthly(mnpFiltered);
+    const traxSum = sumMonthly(traxFiltered);
 
     const filteredCprTotal = useMemo(() => {
         const validStatuses = [2, 3, 4];
@@ -287,13 +291,14 @@ export default function FinancePage() {
     };
 
     const chartData = useMemo(() => {
-        if (!postexData?.monthly && !tranzoData?.monthly && !tcsData?.monthly && !leopardsData?.monthly && !mnpData?.monthly) return [];
+        if (!postexData?.monthly && !tranzoData?.monthly && !tcsData?.monthly && !leopardsData?.monthly && !mnpData?.monthly && !traxData?.monthly) return [];
         const allMonths = new Set<string>();
         postexData?.monthly.forEach(m => allMonths.add(m.month));
         tranzoData?.monthly.forEach(m => allMonths.add(m.month));
         tcsData?.monthly.forEach(m => allMonths.add(m.month));
         leopardsData?.monthly.forEach(m => allMonths.add(m.month));
         mnpData?.monthly.forEach(m => allMonths.add(m.month));
+        traxData?.monthly.forEach(m => allMonths.add(m.month));
 
         const sorted = Array.from(allMonths).filter(m => m !== "Unknown").sort();
         return sorted.map(month => {
@@ -302,6 +307,7 @@ export default function FinancePage() {
             const tc = tcsData?.monthly.find(m => m.month === month);
             const le = leopardsData?.monthly.find(m => m.month === month);
             const mn = mnpData?.monthly.find(m => m.month === month);
+            const tx = traxData?.monthly.find(m => m.month === month);
             const sh = shopifyData?.monthly.find((m: any) => m.month === month);
             return {
                 month: formatMonthLabel(month),
@@ -310,18 +316,19 @@ export default function FinancePage() {
                 TCS: tc ? Math.round(tc.netAmount) : 0,
                 Leopards: le ? Math.round(le.netAmount) : 0,
                 "M&P": mn ? Math.round(mn.netAmount) : 0,
+                TRAX: tx ? Math.round(tx.netAmount) : 0,
                 Shopify: sh ? Math.round(sh.revenue) : 0,
             };
         });
-    }, [postexData, tranzoData, tcsData, leopardsData, mnpData, shopifyData]);
+    }, [postexData, tranzoData, tcsData, leopardsData, mnpData, traxData, shopifyData]);
 
     const kpiStats = useMemo(() => {
-        const totalOrders = postexSum.totalOrders + tranzoSum.totalOrders + tcsSum.totalOrders + leopardsSum.totalOrders + mnpSum.totalOrders;
-        const totalGross = postexSum.grossAmount + tranzoSum.grossAmount + tcsSum.grossAmount + leopardsSum.grossAmount + mnpSum.grossAmount;
-        const totalDelivered = postexSum.deliveredOrders + tranzoSum.deliveredOrders + tcsSum.deliveredOrders + leopardsSum.deliveredOrders + mnpSum.deliveredOrders;
-        const totalReturned = postexSum.returnedOrders + tranzoSum.returnedOrders + tcsSum.returnedOrders + leopardsSum.returnedOrders + mnpSum.returnedOrders;
-        const totalFees = postexSum.fees + tranzoSum.fees + tcsSum.fees + leopardsSum.fees + mnpSum.fees;
-        const totalNet = postexSum.netAmount + tranzoSum.netAmount + tcsSum.netAmount + leopardsSum.netAmount + mnpSum.netAmount;
+        const totalOrders = postexSum.totalOrders + tranzoSum.totalOrders + tcsSum.totalOrders + leopardsSum.totalOrders + mnpSum.totalOrders + traxSum.totalOrders;
+        const totalGross = postexSum.grossAmount + tranzoSum.grossAmount + tcsSum.grossAmount + leopardsSum.grossAmount + mnpSum.grossAmount + traxSum.grossAmount;
+        const totalDelivered = postexSum.deliveredOrders + tranzoSum.deliveredOrders + tcsSum.deliveredOrders + leopardsSum.deliveredOrders + mnpSum.deliveredOrders + traxSum.deliveredOrders;
+        const totalReturned = postexSum.returnedOrders + tranzoSum.returnedOrders + tcsSum.returnedOrders + leopardsSum.returnedOrders + mnpSum.returnedOrders + traxSum.returnedOrders;
+        const totalFees = postexSum.fees + tranzoSum.fees + tcsSum.fees + leopardsSum.fees + mnpSum.fees + traxSum.fees;
+        const totalNet = postexSum.netAmount + tranzoSum.netAmount + tcsSum.netAmount + leopardsSum.netAmount + mnpSum.netAmount + traxSum.netAmount;
         const totalPaymentsReceived = postexPaymentsReceived + tranzoPaymentsReceived + tcsPaymentsReceived;
 
         return {
@@ -332,7 +339,7 @@ export default function FinancePage() {
             feeRate: totalGross > 0 ? (totalFees / totalGross) * 100 : 0,
             collectionRate: totalNet > 0 ? (totalPaymentsReceived / totalNet) * 100 : 0,
         };
-    }, [postexSum, tranzoSum, tcsSum, leopardsSum, mnpSum, postexPaymentsReceived, tranzoPaymentsReceived, tcsPaymentsReceived]);
+    }, [postexSum, tranzoSum, tcsSum, leopardsSum, mnpSum, traxSum, postexPaymentsReceived, tranzoPaymentsReceived, tcsPaymentsReceived]);
 
     const growthIndicators = useMemo(() => {
         const currentPostex = postexData?.monthly.find(m => m.month === currentMonthKey);
@@ -501,7 +508,7 @@ export default function FinancePage() {
                     </div>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-4">
                             <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-2xl p-5 relative overflow-hidden">
                                 <div className="absolute top-3 right-3 p-2 bg-white/60 rounded-lg">
                                     <Truck size={18} className="text-orange-500" />
@@ -543,6 +550,13 @@ export default function FinancePage() {
                                 <p className="text-xs font-semibold text-teal-600 uppercase tracking-wider mb-1">Leopards Owes You</p>
                                 <p className={`text-2xl font-bold ${leopardsOwed >= 0 ? "text-teal-800" : "text-red-600"}`}>{formatCurrency(leopardsOwed)}</p>
                                 <p className="text-xs text-teal-600 mt-2">Net {formatCurrency(leopardsSum.netAmount)} · Settlement data in Leopards Payments</p>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-sky-50 to-cyan-100 border border-sky-200 rounded-2xl p-5 relative overflow-hidden">
+                                <div className="absolute top-3 right-3 p-2 bg-white/60 rounded-lg"><Truck size={18} className="text-sky-600" /></div>
+                                <p className="text-xs font-semibold text-sky-700 uppercase tracking-wider mb-1">TRAX Net Recorded</p>
+                                <p className="text-2xl font-bold text-sky-900">{formatCurrency(traxSum.netAmount)}</p>
+                                <p className="text-xs text-sky-700 mt-2">{traxSum.deliveredOrders} delivered · {traxSum.returnedOrders} returned</p>
                             </div>
 
                             <div className="bg-gradient-to-br from-green-50 to-emerald-100 border border-green-200 rounded-2xl p-5 relative overflow-hidden">
